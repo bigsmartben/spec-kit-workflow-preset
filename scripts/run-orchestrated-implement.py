@@ -57,22 +57,24 @@ def _parse_bool(raw: str) -> bool:
 
 
 def _display_path(project_root: Path, path: Path) -> str:
+    resolved_root = project_root.resolve()
     try:
-        return path.resolve().relative_to(project_root).as_posix()
+        return path.resolve().relative_to(resolved_root).as_posix()
     except ValueError:
         return str(path)
 
 
 def _resolve_scoped_path(project_root: Path, raw_path: str) -> Path | None:
+    resolved_root = project_root.resolve()
     value = raw_path.strip()
     if not value:
         return None
     path = Path(value)
     if not path.is_absolute():
-        path = project_root / path
+        path = resolved_root / path
     resolved = path.resolve()
     try:
-        resolved.relative_to(project_root)
+        resolved.relative_to(resolved_root)
     except ValueError:
         return None
     return resolved
@@ -89,11 +91,12 @@ def _file_digest(path: Path) -> str | None:
 
 
 def _iter_workspace_files(project_root: Path) -> list[Path]:
+    resolved_root = project_root.resolve()
     ignored_parts = {".git", ".specify"}
     files: list[Path] = []
-    for path in project_root.rglob("*"):
+    for path in resolved_root.rglob("*"):
         try:
-            rel_parts = path.relative_to(project_root).parts
+            rel_parts = path.relative_to(resolved_root).parts
         except ValueError:
             continue
         if any(part in ignored_parts for part in rel_parts):
