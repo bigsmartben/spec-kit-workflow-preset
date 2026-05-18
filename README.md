@@ -36,6 +36,8 @@ Implementation capabilities:
 
 - Replaces `/speckit.implement` with an orchestrated implementation command.
 - Builds handoff shards from incomplete `tasks.md` items.
+- Classifies shards as setup, test, implementation, integration, validation, or cleanup.
+- Assigns each shard to a matching subagent profile with a fresh process and fresh context.
 - Writes one handoff JSON, context digest, and context index per shard.
 - Dispatches shards through the configured integration CLI.
 - Supports direct single-shard execution with `Use handoff JSON <path>`.
@@ -131,11 +133,26 @@ Orchestrated implementation writes handoff files:
 
 The shard context digest includes these design artifacts when present, so implementation shards can preserve object boundaries, service flows, and validation intent without reading full planning documents by default.
 
+## Subagent Matrix
+
+The implementation orchestrator classifies upstream tasks from `tasks.md` and records the authoritative assignment in each handoff JSON:
+
+- `setup` -> `setup-worker`
+- `test` -> `test-worker`
+- `implementation` -> `implementation-worker`
+- `integration` -> `integration-worker`
+- `validation` -> `validation-worker`
+- `cleanup` -> `cleanup-worker`
+
+Every shard runs sequentially in its own fresh process and fresh context. The matrix controls the role and lifecycle metadata; it does not imply parallel execution.
+
 ## Safety Boundaries
 
 Planning artifacts are optional/contextual. Simple features may produce concise files or `N/A` sections with concrete reasons. The command should avoid large placeholder artifacts and should not move product requirements out of `spec.md`, interface schemas out of `contracts/`, or quick validation instructions out of `quickstart.md`.
 
 Shard agents should treat the handoff JSON and its digest as the primary context. They should not read full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, or `test-plan.md` by default. If the digest contains `context_gaps`, the shard must stop instead of expanding context on its own.
+
+Shard agents must honor the handoff `executor_profile`, `task_classification`, `isolation`, and `lifecycle` fields. A shard must not reuse another shard's session, context, or assumptions.
 
 After each successful shard dispatch, the orchestrator compares the workspace against a pre-dispatch snapshot. It fails the run if a shard modifies files outside `allowed_write_paths` or changes `tasks.md` statuses outside its listed `task_ids`.
 

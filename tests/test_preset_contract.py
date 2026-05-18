@@ -13,6 +13,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRESET_PATH = REPO_ROOT / "preset.yml"
 README_PATH = REPO_ROOT / "README.md"
+CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
 PLAN_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.plan.md"
 TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
 IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
@@ -29,6 +30,17 @@ WORKFLOW_PATH = (
 def load_build_task_shards():
     module_path = REPO_ROOT / "scripts" / "build-task-shards.py"
     spec = importlib.util.spec_from_file_location("build_task_shards", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_orchestrated_implement():
+    module_path = REPO_ROOT / "scripts" / "run-orchestrated-implement.py"
+    spec = importlib.util.spec_from_file_location("run_orchestrated_implement", module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load {module_path}")
     module = importlib.util.module_from_spec(spec)
@@ -83,6 +95,14 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("commands/speckit.implement.md", implement["file"])
         self.assertEqual("speckit.implement", implement["replaces"])
         self.assertEqual("replace", implement["strategy"])
+        self.assertEqual(
+            [
+                "scripts/build-task-shards.py",
+                "scripts/run-orchestrated-implement.py",
+                "workflows/speckit-orchestrated-implement/workflow.yml",
+            ],
+            data["provides"]["files"],
+        )
 
         workflows = data["provides"]["workflows"]
         self.assertEqual(1, len(workflows))
@@ -143,6 +163,15 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("contracts/sequences.md", command)
         self.assertIn("test-plan.md", command)
         self.assertIn("Execute exactly one shard", command)
+        self.assertIn("Subagent Matrix", command)
+        self.assertIn("setup -> setup-worker", command)
+        self.assertIn("test -> test-worker", command)
+        self.assertIn("implementation -> implementation-worker", command)
+        self.assertIn("integration -> integration-worker", command)
+        self.assertIn("validation -> validation-worker", command)
+        self.assertIn("cleanup -> cleanup-worker", command)
+        self.assertIn("fresh process", command)
+        self.assertIn("fresh context", command)
 
     def test_workflow_uses_workflow_preset_install_path(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -212,8 +241,138 @@ class PresetContractTests(unittest.TestCase):
             )
             self.assertIn("specs/001-demo/test-plan.md", index["documents"])
 
+    def test_shards_classify_tasks_and_executor_profiles(self) -> None:
+        module = load_build_task_shards()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            feature_dir = project_root / "specs" / "001-demo"
+            (project_root / ".specify").mkdir(parents=True)
+            feature_dir.mkdir(parents=True)
+            (project_root / ".specify" / "feature.json").write_text(
+                json.dumps({"feature_directory": "specs/001-demo"}) + "\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "spec.md").write_text(
+                "# Spec\n\n## Demo\n\nUse src/app.py and tests/test_app.py.\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "plan.md").write_text(
+                "# Plan\n\n## Demo\n\nUse src/app.py and tests/test_app.py.\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "tasks.md").write_text(
+                "# Tasks\n\n"
+                "## Setup\n"
+                "- [ ] T001 Configure project in `pyproject.toml`\n\n"
+                "## Tests\n"
+                "- [ ] T002 [P] Add contract test in `tests/test_app.py`\n\n"
+                "## Core Implementation\n"
+                "- [ ] T003 Implement app in `src/app.py`\n\n"
+                "## Integration\n"
+                "- [ ] T004 Wire API integration in `src/api.py`\n\n"
+                "## Validation\n"
+                "- [ ] T005 Run quickstart validation in `quickstart.md`\n\n"
+                "## Polish\n"
+                "- [ ] T006 Update docs cleanup in `README.md`\n",
+                encoding="utf-8",
+            )
+
+            output = module.TaskShardBuilder.build(project_root, "", 8, "contract")
+
+            items = output["items"]
+            self.assertEqual(6, len(items))
+            expected = [
+                ("setup", "setup-worker"),
+                ("test", "test-worker"),
+                ("implementation", "implementation-worker"),
+                ("integration", "integration-worker"),
+                ("validation", "validation-worker"),
+                ("cleanup", "cleanup-worker"),
+            ]
+            for item, (task_type, executor_profile) in zip(items, expected):
+                self.assertEqual(task_type, item["task_type"])
+                self.assertEqual(task_type, item["shard_type"])
+                self.assertEqual(executor_profile, item["executor_type"])
+                self.assertEqual(executor_profile, item["executor_profile"]["id"])
+                self.assertEqual("fresh", item["isolation"]["process"])
+                self.assertEqual("fresh", item["isolation"]["context"])
+                self.assertEqual("never", item["isolation"]["reuse"])
+                self.assertEqual("none", item["isolation"]["parallelism"])
+                self.assertEqual("created", item["lifecycle"]["state"])
+                self.assertEqual(
+                    task_type,
+                    item["task_classification"][0]["task_type"],
+                )
+
+    def test_shard_digest_does_not_include_unmatched_full_spec_or_plan(self) -> None:
+        module = load_build_task_shards()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            feature_dir = project_root / "specs" / "001-demo"
+            (project_root / ".specify").mkdir(parents=True)
+            feature_dir.mkdir(parents=True)
+            (project_root / ".specify" / "feature.json").write_text(
+                json.dumps({"feature_directory": "specs/001-demo"}) + "\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "spec.md").write_text(
+                "# Spec\n\n## Requirements\n\n"
+                "UNMATCHED-SPEC-CONTENT must stay out of shard digest.\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "plan.md").write_text(
+                "# Plan\n\n## Architecture\n\n"
+                "UNMATCHED-PLAN-CONTENT must stay out of shard digest.\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "tasks.md").write_text(
+                "# Tasks\n\n- [ ] T001 Implement demo in `src/demo.py`\n",
+                encoding="utf-8",
+            )
+
+            output = module.TaskShardBuilder.build(project_root, "", 4, "contract")
+
+            digest = Path(output["items"][0]["context_digest_path"]).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Document outline only:", digest)
+            self.assertNotIn("UNMATCHED-SPEC-CONTENT", digest)
+            self.assertNotIn("UNMATCHED-PLAN-CONTENT", digest)
+            self.assertEqual([], output["items"][0]["context_gaps"])
+
+    def test_directory_allowed_write_paths_allow_descendant_changes_only(self) -> None:
+        module = load_orchestrated_implement()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            src_dir = project_root / "src"
+            src_dir.mkdir(parents=True)
+            (src_dir / "existing.py").write_text("# existing\n", encoding="utf-8")
+
+            item = {
+                "shard_id": "S01-implement-01",
+                "task_ids": [],
+                "allowed_write_paths": ["src"],
+            }
+            before = module._capture_workspace_state(project_root, item)
+
+            (src_dir / "new_file.py").write_text("# new\n", encoding="utf-8")
+            verification = module._verify_shard_scope(project_root, item, before)
+            self.assertEqual([], verification["scope_violations"])
+
+            (src_dir / "existing.py").unlink()
+            verification = module._verify_shard_scope(project_root, item, before)
+            self.assertEqual([], verification["scope_violations"])
+
+            (project_root / "other.py").write_text("# outside\n", encoding="utf-8")
+            verification = module._verify_shard_scope(project_root, item, before)
+            self.assertEqual(["other.py"], verification["scope_violations"])
+
     def test_readme_contract(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
+        changelog = CHANGELOG_PATH.read_text(encoding="utf-8")
         requirements = REQUIREMENTS_DEV_PATH.read_text(encoding="utf-8")
 
         self.assertIn("specify preset add workflow-preset --from", readme)
@@ -232,6 +391,11 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("PyYAML", requirements)
         self.assertIn("Files Written", readme)
         self.assertIn("Safety Boundaries", readme)
+        self.assertIn("Subagent Matrix", readme)
+        self.assertIn("fresh process and fresh context", readme)
+        self.assertIn("## 1.0.0", changelog)
+        self.assertIn("subagent profile matrix", changelog)
+        self.assertIn("digest", changelog)
 
 
 if __name__ == "__main__":

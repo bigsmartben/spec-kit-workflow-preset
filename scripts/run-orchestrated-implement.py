@@ -136,19 +136,21 @@ def _capture_workspace_state(project_root: Path, item: dict[str, Any]) -> dict[s
     return {"files": files, "task_statuses": task_statuses}
 
 
-def _allowed_write_set(project_root: Path, item: dict[str, Any]) -> set[str]:
+def _allowed_write_paths(project_root: Path, item: dict[str, Any]) -> set[str]:
     allowed: set[str] = set()
     for raw_path in item.get("allowed_write_paths", []):
         path = _resolve_scoped_path(project_root, str(raw_path))
         if path is None:
             continue
-        if path.is_dir():
-            for child in path.rglob("*"):
-                if child.is_file():
-                    allowed.add(_display_path(project_root, child))
-        else:
-            allowed.add(_display_path(project_root, path))
+        allowed.add(_display_path(project_root, path))
     return allowed
+
+
+def _path_is_allowed(path: str, allowed_writes: set[str]) -> bool:
+    for allowed in allowed_writes:
+        if path == allowed or path.startswith(f"{allowed.rstrip('/')}/"):
+            return True
+    return False
 
 
 def _should_dispatch(item: dict[str, Any]) -> bool:
@@ -168,9 +170,11 @@ def _changed_files(project_root: Path, before: dict[str, Any]) -> set[str]:
 def _verify_shard_scope(
     project_root: Path, item: dict[str, Any], before: dict[str, Any]
 ) -> dict[str, Any]:
-    allowed_writes = _allowed_write_set(project_root, item)
+    allowed_writes = _allowed_write_paths(project_root, item)
     changed = _changed_files(project_root, before)
-    scope_violations = sorted(path for path in changed if path not in allowed_writes)
+    scope_violations = sorted(
+        path for path in changed if not _path_is_allowed(path, allowed_writes)
+    )
 
     task_violations: list[str] = []
     allowed_task_ids = set(str(task_id) for task_id in item.get("task_ids", []))

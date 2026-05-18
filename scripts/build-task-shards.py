@@ -29,12 +29,40 @@ _PATH_TOKEN_RE = re.compile(
 )
 _SNIPPET_CONTEXT_LINES = 3
 
+_EXECUTOR_PROFILES = {
+    "setup": {
+        "id": "setup-worker",
+        "purpose": "Prepare project structure, dependencies, configuration, and generated scaffolding.",
+    },
+    "test": {
+        "id": "test-worker",
+        "purpose": "Create or update tests, fixtures, and contract checks before implementation.",
+    },
+    "implementation": {
+        "id": "implementation-worker",
+        "purpose": "Implement product code for the scoped task paths.",
+    },
+    "integration": {
+        "id": "integration-worker",
+        "purpose": "Wire components, APIs, services, events, and external boundaries.",
+    },
+    "validation": {
+        "id": "validation-worker",
+        "purpose": "Run and repair validation flows without expanding feature scope.",
+    },
+    "cleanup": {
+        "id": "cleanup-worker",
+        "purpose": "Perform documentation, polish, cleanup, and final consistency updates.",
+    },
+}
+
 
 @dataclass
 class ParsedTask:
     task_id: str
     text: str
     phase: str
+    task_type: str
     parallel: bool
     paths: list[str]
     validation_commands: list[str]
@@ -66,6 +94,29 @@ class TaskShard:
             for command in task.validation_commands:
                 seen.setdefault(command, None)
         return list(seen)
+
+    @property
+    def task_types(self) -> list[str]:
+        seen: dict[str, None] = {}
+        for task in self.tasks:
+            seen.setdefault(task.task_type, None)
+        return list(seen)
+
+    @property
+    def shard_type(self) -> str:
+        task_types = self.task_types
+        if len(task_types) == 1:
+            return task_types[0]
+        return "implementation-batch"
+
+    @property
+    def executor_profile(self) -> dict[str, str]:
+        if self.shard_type in _EXECUTOR_PROFILES:
+            return _EXECUTOR_PROFILES[self.shard_type]
+        return {
+            "id": "implementation-worker",
+            "purpose": "Execute a mixed implementation shard with a fresh process and context.",
+        }
 
 
 class TaskShardBuilder:
@@ -215,6 +266,7 @@ class TaskShardBuilder:
             text = line.strip()
             body = match.group("body")
             completed = match.group("status").lower() == "x"
+            task_type = cls._classify_task(current_phase, body)
             parallel = "[P]" in body
             paths = cls._extract_paths(body)
             if parallel and not paths:
@@ -226,6 +278,7 @@ class TaskShardBuilder:
                     task_id=task_id,
                     text=text,
                     phase=current_phase,
+                    task_type=task_type,
                     parallel=parallel,
                     paths=paths,
                     validation_commands=[],
@@ -241,6 +294,21 @@ class TaskShardBuilder:
             raise ValueError(f"No incomplete implementation tasks found in {tasks_path}.")
         cls._validate_parallel_conflicts(open_tasks)
         return open_tasks
+
+    @staticmethod
+    def _classify_task(phase: str, body: str) -> str:
+        text = f"{phase} {body}".lower()
+        if any(term in text for term in ("setup", "scaffold", "configure", "bootstrap")):
+            return "setup"
+        if any(term in text for term in ("test", "contract test", "unit test", "fixture")):
+            return "test"
+        if any(term in text for term in ("integration", "wire", "api", "service", "event")):
+            return "integration"
+        if any(term in text for term in ("validation", "validate", "quickstart", "smoke")):
+            return "validation"
+        if any(term in text for term in ("cleanup", "polish", "docs", "documentation", "readme")):
+            return "cleanup"
+        return "implementation"
 
     @classmethod
     def _apply_manifest_metadata(
@@ -361,15 +429,20 @@ class TaskShardBuilder:
 
         groups: list[list[ParsedTask]] = []
         current: list[ParsedTask] = []
+        current_type: str | None = None
 
         for task in tasks:
-            if task.parallel:
+            task_type = task.task_type
+            if task.parallel or (current and current_type != task_type):
                 if current:
                     groups.append(current)
                     current = []
+                    current_type = None
+            if task.parallel:
                 groups.append([task])
             else:
                 current.append(task)
+                current_type = task_type
         if current:
             groups.append(current)
 
@@ -384,7 +457,7 @@ class TaskShardBuilder:
             del groups[merge_index + 1]
 
         return [
-            TaskShard(f"S{idx + 1:02d}-implement-01", group)
+            TaskShard(f"S{idx + 1:02d}-{cls._group_shard_type(group)}-01", group)
             for idx, group in enumerate(groups)
         ]
 
@@ -410,9 +483,16 @@ class TaskShardBuilder:
             del groups[merge_index + 1]
 
         return [
-            TaskShard(f"S{idx + 1:02d}-implement-01", group)
+            TaskShard(f"S{idx + 1:02d}-{cls._group_shard_type(group)}-01", group)
             for idx, group in enumerate(groups)
         ]
+
+    @staticmethod
+    def _group_shard_type(tasks: list[ParsedTask]) -> str:
+        task_types = list(dict.fromkeys(task.task_type for task in tasks))
+        if len(task_types) == 1:
+            return task_types[0]
+        return "implementation-batch"
 
     @classmethod
     def _find_merge_candidate(cls, groups: list[list[ParsedTask]]) -> int | None:
@@ -495,7 +575,10 @@ class TaskShardBuilder:
                 {
                     "shard_id": shard.shard_id,
                     "task_type": payload["task_type"],
+                    "shard_type": payload["shard_type"],
                     "executor_type": payload["executor_type"],
+                    "executor_profile": payload["executor_profile"],
+                    "isolation": payload["isolation"],
                     "execution_body": payload["execution_body"],
                     "lifecycle": payload["lifecycle"],
                     "handoff_path": str(handoff_path),
@@ -507,6 +590,7 @@ class TaskShardBuilder:
                     "scope": payload["scope"],
                     "validation_commands": payload["validation_commands"],
                     "task_ids": shard.task_ids,
+                    "task_classification": payload["task_classification"],
                     "args": shard_args,
                 }
             )
@@ -533,12 +617,30 @@ class TaskShardBuilder:
             dict.fromkeys([digest_ref, index_ref, tasks_ref, *shard.paths])
         )
         allowed_write_paths = list(dict.fromkeys([tasks_ref, *shard.paths]))
+        executor_profile = shard.executor_profile
 
         return {
             "contract_type": "speckit.implement.handoff.v2",
             "shard_id": shard.shard_id,
-            "task_type": "implement",
-            "executor_type": "implementation-worker",
+            "task_type": shard.shard_type,
+            "shard_type": shard.shard_type,
+            "executor_type": executor_profile["id"],
+            "executor_profile": executor_profile,
+            "task_classification": [
+                {
+                    "task_id": task.task_id,
+                    "task_type": task.task_type,
+                    "phase": task.phase,
+                    "parallel": task.parallel,
+                }
+                for task in shard.tasks
+            ],
+            "isolation": {
+                "process": "fresh",
+                "context": "fresh",
+                "reuse": "never",
+                "parallelism": "none",
+            },
             "execution_body": {
                 "kind": "independent_cli_invocation",
                 "command": "speckit.implement",
@@ -547,6 +649,7 @@ class TaskShardBuilder:
                 ),
             },
             "lifecycle": {
+                "state": "created",
                 "creation": "before_shard_dispatch",
                 "reuse": "never",
                 "destruction": "after_shard_result",
@@ -623,6 +726,7 @@ class TaskShardBuilder:
                     "paths": task.paths,
                     "validation_commands": task.validation_commands,
                     "topo_layer": task.topo_layer,
+                    "task_type": task.task_type,
                     "text": task.text,
                 }
                 for task in tasks
@@ -706,7 +810,7 @@ class TaskShardBuilder:
                             "outline_only": True,
                         }
                     )
-                required_context = cls._required_context_for_digest(lines)
+                required_context = cls._blocking_context_for_digest(lines)
                 if required_context:
                     required_contexts.append(
                         {
@@ -727,7 +831,7 @@ class TaskShardBuilder:
             elif rel in outlined_documents and rel not in matched_documents:
                 context_notes.append(
                     f"No task/path-specific snippet was found in {rel}; the digest "
-                    "includes outline plus required context."
+                    "includes outline plus blocking required context when present."
                 )
 
         digest_text = cls._render_digest(
@@ -781,6 +885,14 @@ class TaskShardBuilder:
     @staticmethod
     def _required_context_for_digest(lines: list[str]) -> str:
         return "\n".join(line.rstrip() for line in lines).strip()
+
+    @classmethod
+    def _blocking_context_for_digest(cls, lines: list[str]) -> str:
+        ranges = cls._matching_ranges(lines, ["needs clarification"])
+        blocks: list[str] = []
+        for start, end in ranges[:5]:
+            blocks.append("\n".join(lines[start - 1 : end]))
+        return "\n\n".join(block.strip() for block in blocks if block.strip())
 
     @staticmethod
     def _render_digest(

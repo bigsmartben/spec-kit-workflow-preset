@@ -41,6 +41,11 @@ provides:
       description: "Run orchestrated implementation or execute a single handoff shard"
       replaces: "speckit.implement"
       strategy: "replace"
+  files:
+    - "scripts/build-task-shards.py"
+    - "scripts/run-orchestrated-implement.py"
+    - "workflows/speckit-orchestrated-implement/workflow.yml"
+
   workflows:
     - id: "speckit-orchestrated-implement"
       file: "workflows/speckit-orchestrated-implement/workflow.yml"
