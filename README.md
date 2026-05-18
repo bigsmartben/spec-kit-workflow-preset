@@ -143,6 +143,26 @@ Completed `[x]` tasks are not scheduled into new implementation shards.
 
 ## Development
 
+Runtime requirements:
+
+- Spec Kit CLI `>=0.8.10.dev0`
+- Python 3.10 or newer
+- `uv` available on `PATH` for workflow shell execution
+- A configured Spec Kit integration CLI for shard dispatch, such as `copilot`
+
+Development and release tooling:
+
+- Python 3.10 or newer
+- PyYAML for contract tests
+- Git
+- GitHub CLI `gh` for repository and release publishing
+
+Install development test dependencies:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+```
+
 Run the contract tests:
 
 ```bash

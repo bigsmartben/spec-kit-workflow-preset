@@ -17,6 +17,7 @@ PLAN_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.plan.md"
 TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
 IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
+REQUIREMENTS_DEV_PATH = REPO_ROOT / "requirements-dev.txt"
 WORKFLOW_PATH = (
     REPO_ROOT
     / "workflows"
@@ -213,6 +214,7 @@ class PresetContractTests(unittest.TestCase):
 
     def test_readme_contract(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
+        requirements = REQUIREMENTS_DEV_PATH.read_text(encoding="utf-8")
 
         self.assertIn("specify preset add workflow-preset --from", readme)
         self.assertIn("specify preset add --dev /path/to/workflow-preset", readme)
@@ -224,6 +226,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("test-plan.md", readme)
         self.assertIn("handoffs/implement", readme)
         self.assertIn("orchestrated implementation", readme)
+        self.assertIn("Spec Kit CLI `>=0.8.10.dev0`", readme)
+        self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
+        self.assertIn("GitHub CLI `gh`", readme)
+        self.assertIn("PyYAML", requirements)
         self.assertIn("Files Written", readme)
         self.assertIn("Safety Boundaries", readme)
 
