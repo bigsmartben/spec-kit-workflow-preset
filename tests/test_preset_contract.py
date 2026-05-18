@@ -50,7 +50,7 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertEqual("bigsmartben", data["preset"]["author"])
         self.assertEqual(
-            "https://github.com/bigsmartben/workflow-preset",
+            "https://github.com/bigsmartben/spec-kit-workflow-preset",
             data["preset"]["repository"],
         )
         self.assertEqual("MIT", data["preset"]["license"])

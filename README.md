@@ -66,7 +66,7 @@ Implementation capabilities:
 Release install:
 
 ```bash
-specify preset add workflow-preset --from https://github.com/bigsmartben/workflow-preset/archive/refs/tags/v1.0.0.zip
+specify preset add workflow-preset --from https://github.com/bigsmartben/spec-kit-workflow-preset/archive/refs/tags/v1.0.0.zip
 ```
 
 Local development install:
@@ -160,7 +160,7 @@ specify preset remove workflow-preset
 After tagging a release, validate archive installation:
 
 ```bash
-specify preset add workflow-preset --from https://github.com/bigsmartben/workflow-preset/archive/refs/tags/v1.0.0.zip
+specify preset add workflow-preset --from https://github.com/bigsmartben/spec-kit-workflow-preset/archive/refs/tags/v1.0.0.zip
 ```
 
 ## Source Rationale

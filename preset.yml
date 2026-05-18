@@ -6,7 +6,7 @@ preset:
   version: "1.0.0"
   description: "Plan design artifacts and orchestrated implementation workflow"
   author: "bigsmartben"
-  repository: "https://github.com/bigsmartben/workflow-preset"
+  repository: "https://github.com/bigsmartben/spec-kit-workflow-preset"
   license: "MIT"
 
 requires:
