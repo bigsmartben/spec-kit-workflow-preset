@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import importlib.util
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -155,6 +158,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("{CORE_TEMPLATE}", command)
         self.assertNotIn("strategy: wrap", command)
         self.assertIn(
+            "uv run .specify/presets/workflow-preset/scripts/run-orchestrated-implement.py",
+            command,
+        )
+        self.assertNotIn(
             ".specify/presets/workflow-preset/workflows/speckit-orchestrated-implement/workflow.yml",
             command,
         )
@@ -172,6 +179,296 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("cleanup -> cleanup-worker", command)
         self.assertIn("fresh process", command)
         self.assertIn("fresh context", command)
+        self.assertNotIn("Heartbeat", command)
+        self.assertNotIn("300 seconds", command)
+
+    def test_dispatch_uses_script_managed_streaming_without_integration_timeout(self) -> None:
+        module = load_orchestrated_implement()
+
+        calls: dict[str, object] = {}
+
+        class FakeIntegration:
+            key = Path(sys.executable).name
+
+            def build_command_invocation(self, command_name: str, args: str = "") -> str:
+                calls["command_name"] = command_name
+                calls["args"] = args
+                return f"/{command_name} {args}".strip()
+
+            def build_exec_args(
+                self,
+                prompt: str,
+                *,
+                model: str | None = None,
+                output_json: bool = True,
+            ) -> list[str]:
+                calls["prompt"] = prompt
+                calls["model"] = model
+                calls["output_json"] = output_json
+                return [
+                    sys.executable,
+                    "-c",
+                    "print('fake dispatch complete')",
+                ]
+
+            def dispatch_command(self, *args: object, **kwargs: object) -> dict[str, object]:
+                raise AssertionError("dispatch_command should not be used")
+
+        fake_package = types.ModuleType("specify_cli")
+        fake_integrations = types.ModuleType("specify_cli.integrations")
+        fake_integrations.get_integration = lambda key: FakeIntegration()
+        previous_package = sys.modules.get("specify_cli")
+        previous_integrations = sys.modules.get("specify_cli.integrations")
+        sys.modules["specify_cli"] = fake_package
+        sys.modules["specify_cli.integrations"] = fake_integrations
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = module._dispatch_item(
+                    {"shard_id": "S01-implementation-01", "args": "Use handoff JSON demo.json"},
+                    "fake",
+                    Path(tmp),
+                    "demo-model",
+                    Path(tmp) / "logs",
+                    heartbeat_interval=60.0,
+                )
+                self.assertEqual(0, result["exit_code"])
+                self.assertNotIn("stdout", result)
+                self.assertNotIn("stderr", result)
+                self.assertIn("fake dispatch complete", result["stdout_tail"])
+                self.assertTrue(Path(result["stdout_log_path"]).is_file())
+                self.assertIn("stderr_tail", result)
+                self.assertIn("stderr_log_path", result)
+                self.assertIn("output_truncated", result)
+        finally:
+            if previous_package is None:
+                sys.modules.pop("specify_cli", None)
+            else:
+                sys.modules["specify_cli"] = previous_package
+            if previous_integrations is None:
+                sys.modules.pop("specify_cli.integrations", None)
+            else:
+                sys.modules["specify_cli.integrations"] = previous_integrations
+
+        self.assertEqual(False, calls["output_json"])
+        self.assertEqual("none", result["dispatch_process"]["timeout"])
+
+    def test_logged_subprocess_writes_full_output_without_echoing_to_main_stdout(self) -> None:
+        module = load_orchestrated_implement()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            script = tmp_path / "noisy_then_done.py"
+            script.write_text(
+                "import time\n"
+                "print('hidden child output')\n"
+                "time.sleep(0.2)\n"
+                "print('child complete')\n",
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                result = module._run_logged_subprocess(
+                    [sys.executable, str(script)],
+                    tmp_path,
+                    "S01-implementation-01",
+                    tmp_path / "logs",
+                    heartbeat_interval=0.05,
+                )
+            self.assertIn(
+                "hidden child output",
+                Path(result["stdout_log_path"]).read_text(encoding="utf-8"),
+            )
+
+        self.assertEqual(0, result["exit_code"])
+        self.assertIn("child complete", result["stdout_tail"])
+        self.assertNotIn("hidden child output", stdout.getvalue())
+        self.assertNotIn("child complete", stdout.getvalue())
+        self.assertIn("shard_heartbeat", stdout.getvalue())
+
+    def test_logged_subprocess_starts_child_in_new_session(self) -> None:
+        module = load_orchestrated_implement()
+        original_popen = module.subprocess.Popen
+        calls: dict[str, object] = {}
+
+        def fake_popen(*args: object, **kwargs: object) -> object:
+            calls["popen_kwargs"] = kwargs
+            raise KeyboardInterrupt
+
+        module.subprocess.Popen = fake_popen
+        try:
+            result = module._run_logged_subprocess(
+                [sys.executable, "-c", "print('x')"],
+                Path("/tmp"),
+                "S01-implementation-01",
+                Path("/tmp/logs"),
+                heartbeat_interval=0.01,
+            )
+        finally:
+            module.subprocess.Popen = original_popen
+
+        self.assertEqual(130, result["exit_code"])
+        self.assertTrue(calls["popen_kwargs"]["start_new_session"])
+
+    def test_process_group_cleanup_terminates_child_session(self) -> None:
+        module = load_orchestrated_implement()
+        original_killpg = module.os.killpg
+        original_getpgid = module.os.getpgid
+        calls: dict[str, object] = {}
+
+        class FakeProcess:
+            pid = 4321
+
+            def wait(self, timeout: float | None = None) -> int:
+                calls["wait_timeout"] = timeout
+                return 0
+
+        def fake_killpg(pgid: int, sig: int) -> None:
+            calls["killpg"] = (pgid, sig)
+
+        def fake_getpgid(pid: int) -> int:
+            calls["getpgid_pid"] = pid
+            return 9876
+
+        module.os.killpg = fake_killpg
+        module.os.getpgid = fake_getpgid
+        try:
+            module._terminate_process_group(FakeProcess())
+        finally:
+            module.os.killpg = original_killpg
+            module.os.getpgid = original_getpgid
+
+        self.assertEqual(4321, calls["getpgid_pid"])
+        self.assertIn("killpg", calls)
+
+    def test_dispatch_results_are_compacted_before_main_output(self) -> None:
+        module = load_orchestrated_implement()
+
+        compacted = module._compact_dispatch_result(
+            {
+                "shard_id": "S01-implementation-01",
+                "exit_code": 0,
+                "stdout_tail": "x" * 10000,
+                "stderr_tail": "y" * 10000,
+                "stdout_log_path": "logs/S01.stdout.log",
+                "stderr_log_path": "logs/S01.stderr.log",
+                "output_truncated": True,
+                "post_dispatch_verification": {"exit_code": 0},
+            }
+        )
+
+        self.assertNotIn("stdout_tail", compacted)
+        self.assertNotIn("stderr_tail", compacted)
+        self.assertEqual("logs/S01.stdout.log", compacted["stdout_log_path"])
+        self.assertEqual("logs/S01.stderr.log", compacted["stderr_log_path"])
+
+    def test_failed_dispatch_result_keeps_only_short_error_tail(self) -> None:
+        module = load_orchestrated_implement()
+
+        compacted = module._compact_dispatch_result(
+            {
+                "shard_id": "S02-implementation-01",
+                "exit_code": 1,
+                "stdout_tail": "x" * 10000,
+                "stderr_tail": "error-" + "y" * 10000,
+                "stdout_log_path": "logs/S02.stdout.log",
+                "stderr_log_path": "logs/S02.stderr.log",
+            }
+        )
+
+        self.assertNotIn("stdout_tail", compacted)
+        self.assertIn("stderr_tail", compacted)
+        self.assertLessEqual(len(compacted["stderr_tail"]), 2000)
+
+    def test_build_dispatch_cli_args_preserves_copilot_agent_dispatch(self) -> None:
+        module = load_orchestrated_implement()
+
+        class FakeCopilotIntegration:
+            key = "copilot"
+            _skills_mode = False
+
+        args = module._build_dispatch_cli_args(
+            FakeCopilotIntegration(),
+            "Use handoff JSON demo.json",
+            Path("/tmp/project"),
+            "demo-model",
+        )
+
+        self.assertEqual(
+            [
+                "copilot",
+                "-p",
+                "Use handoff JSON demo.json",
+                "--agent",
+                "speckit.implement",
+                "--model",
+                "demo-model",
+            ],
+            args,
+        )
+
+    def test_copilot_fallback_uses_streaming_without_timeout(self) -> None:
+        module = load_orchestrated_implement()
+        original_which = module.shutil.which
+        original_run_logged = module._run_logged_subprocess
+        calls: dict[str, object] = {}
+
+        def fake_which(name: str) -> str | None:
+            return "/usr/bin/copilot" if name == "copilot" else original_which(name)
+
+        def fake_run_logged(
+            cli_args: list[str],
+            project_root: Path,
+            shard_id: str,
+            log_dir: Path,
+            heartbeat_interval: float,
+        ) -> dict[str, object]:
+            calls["cli_args"] = cli_args
+            calls["project_root"] = project_root
+            calls["shard_id"] = shard_id
+            calls["log_dir"] = log_dir
+            calls["heartbeat_interval"] = heartbeat_interval
+            return {
+                "exit_code": 0,
+                "stdout_tail": "fallback ok",
+                "stderr_tail": "",
+                "stdout_log_path": str(log_dir / "S01-implementation-01.stdout.log"),
+                "stderr_log_path": str(log_dir / "S01-implementation-01.stderr.log"),
+                "output_truncated": False,
+            }
+
+        module.shutil.which = fake_which
+        module._run_logged_subprocess = fake_run_logged
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = module._dispatch_copilot_fallback(
+                    {"shard_id": "S01-implementation-01", "args": "Use handoff JSON demo.json"},
+                    Path(tmp),
+                    "demo-model",
+                    "missing specify_cli",
+                    Path(tmp) / "logs",
+                    heartbeat_interval=60.0,
+                )
+        finally:
+            module.shutil.which = original_which
+            module._run_logged_subprocess = original_run_logged
+
+        self.assertEqual(0, result["exit_code"])
+        self.assertEqual("fallback ok", result["stdout_tail"])
+        self.assertNotIn("stdout", result)
+        self.assertNotIn("stderr", result)
+        self.assertEqual(
+            [
+                "/usr/bin/copilot",
+                "-p",
+                "Use handoff JSON demo.json",
+                "--agent",
+                "speckit.implement",
+                "--model",
+                "demo-model",
+            ],
+            calls["cli_args"],
+        )
+        self.assertEqual("none", result["dispatch_process"]["timeout"])
 
     def test_workflow_uses_workflow_preset_install_path(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -240,6 +537,106 @@ class PresetContractTests(unittest.TestCase):
                 index["documents"],
             )
             self.assertIn("specs/001-demo/test-plan.md", index["documents"])
+
+    def test_shard_handoffs_can_be_written_concurrently(self) -> None:
+        module = load_build_task_shards()
+
+        original_context_digest = module.TaskShardBuilder._context_digest
+        call_order: list[str] = []
+
+        def fake_context_digest(project_root, feature_dir, shard, context_index):
+            call_order.append(shard.shard_id)
+            return (
+                f"# Digest for {shard.shard_id}\n",
+                [],
+                [],
+                [],
+            )
+
+        module.TaskShardBuilder._context_digest = staticmethod(fake_context_digest)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                project_root = Path(tmp) / "project"
+                feature_dir = project_root / "specs" / "001-demo"
+                (project_root / ".specify").mkdir(parents=True)
+                feature_dir.mkdir(parents=True)
+                (project_root / ".specify" / "feature.json").write_text(
+                    json.dumps({"feature_directory": "specs/001-demo"}) + "\n",
+                    encoding="utf-8",
+                )
+                (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+                (feature_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
+                (feature_dir / "tasks.md").write_text(
+                    "# Tasks\n\n"
+                    "## Setup\n"
+                    "- [ ] T001 Configure project in `pyproject.toml`\n\n"
+                    "## Tests\n"
+                    "- [ ] T002 [P] Add contract test in `tests/test_app.py`\n\n"
+                    "## Core Implementation\n"
+                    "- [ ] T003 Implement app in `src/app.py`\n\n"
+                    "## Integration\n"
+                    "- [ ] T004 Wire API integration in `src/api.py`\n\n",
+                    encoding="utf-8",
+                )
+
+                output = module.TaskShardBuilder.build(project_root, "", 8, "run")
+
+            self.assertGreaterEqual(len(call_order), 2)
+            self.assertEqual(["setup", "test", "implementation", "integration"], [item["task_type"] for item in output["items"]])
+        finally:
+            module.TaskShardBuilder._context_digest = original_context_digest
+
+    def test_shard_handoff_writer_submits_one_parallel_job_per_shard(self) -> None:
+        module = load_build_task_shards()
+
+        calls: dict[str, object] = {}
+        original_executor = module.ThreadPoolExecutor
+
+        class RecordingExecutor:
+            def __init__(self, max_workers: int) -> None:
+                calls["max_workers"] = max_workers
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            def map(self, fn, shards):
+                shard_list = list(shards)
+                calls["shard_count"] = len(shard_list)
+                return [fn(shard) for shard in shard_list]
+
+        module.ThreadPoolExecutor = RecordingExecutor
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                project_root = Path(tmp) / "project"
+                feature_dir = project_root / "specs" / "001-demo"
+                (project_root / ".specify").mkdir(parents=True)
+                feature_dir.mkdir(parents=True)
+                (project_root / ".specify" / "feature.json").write_text(
+                    json.dumps({"feature_directory": "specs/001-demo"}) + "\n",
+                    encoding="utf-8",
+                )
+                (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+                (feature_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
+                (feature_dir / "tasks.md").write_text(
+                    "# Tasks\n\n"
+                    "## Setup\n"
+                    "- [ ] T001 Configure project in `pyproject.toml`\n\n"
+                    "## Tests\n"
+                    "- [ ] T002 [P] Add contract test in `tests/test_app.py`\n\n"
+                    "## Core Implementation\n"
+                    "- [ ] T003 Implement app in `src/app.py`\n",
+                    encoding="utf-8",
+                )
+
+                output = module.TaskShardBuilder.build(project_root, "", 8, "run")
+        finally:
+            module.ThreadPoolExecutor = original_executor
+
+        self.assertEqual(output["item_count"], calls["shard_count"])
+        self.assertGreaterEqual(calls["max_workers"], 2)
 
     def test_shards_classify_tasks_and_executor_profiles(self) -> None:
         module = load_build_task_shards()
@@ -393,6 +790,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Safety Boundaries", readme)
         self.assertIn("Subagent Matrix", readme)
         self.assertIn("fresh process and fresh context", readme)
+        self.assertIn("scripts/run-orchestrated-implement.py", readme)
+        self.assertIn("--dry-run true --run-id manual", readme)
         self.assertIn("## 1.0.0", changelog)
         self.assertIn("subagent profile matrix", changelog)
         self.assertIn("digest", changelog)

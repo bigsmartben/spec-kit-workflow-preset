@@ -8,11 +8,17 @@ import hashlib
 import importlib.util
 import json
 import os
+import selectors
+import signal
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
+
+TAIL_BYTES = 32 * 1024
+MAIN_OUTPUT_ERROR_TAIL_CHARS = 2000
 
 
 def _load_builder() -> Any:
@@ -160,6 +166,192 @@ def _should_dispatch(item: dict[str, Any]) -> bool:
     return not item.get("context_gaps")
 
 
+def _emit_shard_heartbeat(shard_id: str) -> None:
+    print(
+        json.dumps(
+            {
+                "event": "shard_heartbeat",
+                "shard_id": shard_id,
+                "status": "running",
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
+
+def _terminate_process_group(process: subprocess.Popen[str]) -> None:
+    try:
+        pgid = os.getpgid(process.pid)
+    except OSError:
+        process.terminate()
+        return
+
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except OSError:
+        process.terminate()
+
+
+class LogReceiver:
+    def __init__(self, log_dir: Path, shard_id: str, tail_bytes: int = TAIL_BYTES):
+        self.log_dir = log_dir
+        self.shard_id = shard_id
+        self.tail_bytes = tail_bytes
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.stdout_log_path = self.log_dir / f"{shard_id}.stdout.log"
+        self.stderr_log_path = self.log_dir / f"{shard_id}.stderr.log"
+        self._stdout_tail = ""
+        self._stderr_tail = ""
+        self._output_truncated = False
+
+    def append(self, stream_name: str, line: str) -> None:
+        if stream_name == "stdout":
+            self._append_to(self.stdout_log_path, line)
+            self._stdout_tail = self._trim_tail(self._stdout_tail + line)
+        else:
+            self._append_to(self.stderr_log_path, line)
+            self._stderr_tail = self._trim_tail(self._stderr_tail + line)
+
+    def result_fields(self) -> dict[str, Any]:
+        return {
+            "stdout_tail": self._stdout_tail,
+            "stderr_tail": self._stderr_tail,
+            "stdout_log_path": str(self.stdout_log_path),
+            "stderr_log_path": str(self.stderr_log_path),
+            "output_truncated": self._output_truncated,
+        }
+
+    def _append_to(self, path: Path, line: str) -> None:
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+
+    def _trim_tail(self, value: str) -> str:
+        encoded = value.encode("utf-8")
+        if len(encoded) <= self.tail_bytes:
+            return value
+        self._output_truncated = True
+        return encoded[-self.tail_bytes :].decode("utf-8", errors="replace")
+
+
+def _run_logged_subprocess(
+    cli_args: list[str],
+    project_root: Path,
+    shard_id: str,
+    log_dir: Path,
+    heartbeat_interval: float,
+) -> dict[str, Any]:
+    receiver = LogReceiver(log_dir, shard_id)
+    selector = selectors.DefaultSelector()
+    process: subprocess.Popen[str] | None = None
+
+    try:
+        process = subprocess.Popen(
+            cli_args,
+            cwd=project_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            start_new_session=True,
+        )
+        if process.stdout is not None:
+            selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+        if process.stderr is not None:
+            selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+
+        next_heartbeat = time.monotonic() + heartbeat_interval
+        while selector.get_map():
+            timeout = max(0.0, next_heartbeat - time.monotonic())
+            events = selector.select(timeout)
+            if not events:
+                _emit_shard_heartbeat(shard_id)
+                next_heartbeat = time.monotonic() + heartbeat_interval
+                continue
+
+            for key, _ in events:
+                stream = key.fileobj
+                line = stream.readline()
+                if line == "":
+                    selector.unregister(stream)
+                    stream.close()
+                    continue
+                if key.data == "stdout":
+                    receiver.append("stdout", line)
+                else:
+                    receiver.append("stderr", line)
+                next_heartbeat = time.monotonic() + heartbeat_interval
+
+        exit_code = process.wait()
+        if process.stdout is not None and not process.stdout.closed:
+            process.stdout.close()
+        if process.stderr is not None and not process.stderr.closed:
+            process.stderr.close()
+    except KeyboardInterrupt:
+        if process is not None:
+            _terminate_process_group(process)
+            process.wait()
+            if process.stdout is not None and not process.stdout.closed:
+                process.stdout.close()
+            if process.stderr is not None and not process.stderr.closed:
+                process.stderr.close()
+        fields = receiver.result_fields()
+        return {
+            "exit_code": 130,
+            **fields,
+            "stderr_tail": fields["stderr_tail"] + "Interrupted by user",
+        }
+    finally:
+        selector.close()
+
+    return {
+        "exit_code": exit_code,
+        **receiver.result_fields(),
+    }
+
+
+def _build_dispatch_cli_args(
+    impl: Any,
+    handoff_args: str,
+    project_root: Path,
+    model: str | None,
+) -> list[str] | None:
+    if getattr(impl, "key", "") == "copilot":
+        skills_mode = bool(getattr(impl, "_skills_mode", False))
+        skills_dir = project_root / ".github" / "skills"
+        if not skills_mode and skills_dir.is_dir():
+            skills_mode = any(
+                path.is_dir() and (path / "SKILL.md").is_file()
+                for path in skills_dir.glob("speckit-*")
+            )
+
+        if skills_mode:
+            prompt = "/speckit-implement"
+            if handoff_args:
+                prompt = f"{prompt} {handoff_args}"
+            cli_args = ["copilot", "-p", prompt]
+        else:
+            cli_args = [
+                "copilot",
+                "-p",
+                handoff_args,
+                "--agent",
+                "speckit.implement",
+            ]
+        if _allow_all():
+            cli_args.append("--yolo")
+        if model:
+            cli_args.extend(["--model", model])
+        return cli_args
+
+    prompt = impl.build_command_invocation("speckit.implement", handoff_args)
+    return impl.build_exec_args(
+        prompt,
+        model=model,
+        output_json=False,
+    )
+
+
 def _changed_files(project_root: Path, before: dict[str, Any]) -> set[str]:
     previous = before.get("files", {})
     current = {
@@ -208,11 +400,35 @@ def _verify_shard_scope(
     }
 
 
+def _compact_dispatch_result(result: dict[str, Any]) -> dict[str, Any]:
+    compacted = dict(result)
+    compacted.pop("stdout_tail", None)
+    stderr_tail = str(compacted.pop("stderr_tail", "") or "")
+    if int(compacted.get("exit_code") or 0) != 0 and stderr_tail:
+        compacted["stderr_tail"] = stderr_tail[-MAIN_OUTPUT_ERROR_TAIL_CHARS:]
+    return compacted
+
+
+def _compact_dispatch_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [_compact_dispatch_result(result) for result in results]
+
+
+def _output_with_dispatch_results(
+    output: dict[str, Any],
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    compacted = dict(output)
+    compacted["dispatch_results"] = _compact_dispatch_results(results)
+    return compacted
+
+
 def _dispatch_item(
     item: dict[str, Any],
     integration_key: str,
     project_root: Path,
     model: str | None,
+    log_dir: Path | None = None,
+    heartbeat_interval: float = 60.0,
 ) -> dict[str, Any]:
     try:
         from specify_cli.integrations import get_integration
@@ -228,7 +444,7 @@ def _dispatch_item(
         if import_error:
             if integration_key == "copilot":
                 return _dispatch_copilot_fallback(
-                    item, project_root, model, import_error
+                    item, project_root, model, import_error, log_dir, heartbeat_interval
                 )
             return {
                 "shard_id": item.get("shard_id"),
@@ -256,11 +472,25 @@ def _dispatch_item(
             "error": f"Integration CLI not found on PATH: {impl.key}",
         }
 
-    result = impl.dispatch_command(
-        "speckit.implement",
-        args=str(item.get("args", "")),
-        project_root=project_root,
-        model=model,
+    cli_args = _build_dispatch_cli_args(
+        impl,
+        str(item.get("args", "")),
+        project_root,
+        model,
+    )
+    if cli_args is None:
+        return {
+            "shard_id": item.get("shard_id"),
+            "exit_code": 1,
+            "error": f"Integration does not support CLI dispatch: {integration_key}",
+        }
+
+    result = _run_logged_subprocess(
+        cli_args,
+        project_root,
+        str(item.get("shard_id", "")),
+        log_dir or project_root / ".specify" / "workflow-preset" / "logs",
+        heartbeat_interval,
     )
     return {
         "shard_id": item.get("shard_id"),
@@ -269,14 +499,18 @@ def _dispatch_item(
         "execution_body": item.get("execution_body"),
         "lifecycle": item.get("lifecycle"),
         "exit_code": result.get("exit_code", 1),
-        "stdout": result.get("stdout", ""),
-        "stderr": result.get("stderr", ""),
+        "stdout_tail": result.get("stdout_tail", ""),
+        "stderr_tail": result.get("stderr_tail", ""),
+        "stdout_log_path": result.get("stdout_log_path", ""),
+        "stderr_log_path": result.get("stderr_log_path", ""),
+        "output_truncated": result.get("output_truncated", False),
         "dispatch_process": {
             "kind": "subprocess",
             "command": impl.key,
             "agent": "speckit.implement",
             "pid_scope": "independent",
             "integration_source": "specify_cli.integrations",
+            "timeout": "none",
         },
     }
 
@@ -286,6 +520,8 @@ def _dispatch_copilot_fallback(
     project_root: Path,
     model: str | None,
     import_error: str,
+    log_dir: Path | None = None,
+    heartbeat_interval: float = 60.0,
 ) -> dict[str, Any]:
     copilot = shutil.which("copilot")
     if not copilot:
@@ -308,22 +544,32 @@ def _dispatch_copilot_fallback(
     if model:
         cli_args.extend(["--model", model])
 
-    result = subprocess.run(cli_args, text=True, cwd=project_root)
+    result = _run_logged_subprocess(
+        cli_args,
+        project_root,
+        str(item.get("shard_id", "")),
+        log_dir or project_root / ".specify" / "workflow-preset" / "logs",
+        heartbeat_interval,
+    )
     return {
         "shard_id": item.get("shard_id"),
         "task_type": item.get("task_type"),
         "executor_type": item.get("executor_type"),
         "execution_body": item.get("execution_body"),
         "lifecycle": item.get("lifecycle"),
-        "exit_code": result.returncode,
-        "stdout": "",
-        "stderr": "",
+        "exit_code": result.get("exit_code", 1),
+        "stdout_tail": result.get("stdout_tail", ""),
+        "stderr_tail": result.get("stderr_tail", ""),
+        "stdout_log_path": result.get("stdout_log_path", ""),
+        "stderr_log_path": result.get("stderr_log_path", ""),
+        "output_truncated": result.get("output_truncated", False),
         "dispatch_process": {
             "kind": "subprocess",
             "command": "copilot",
             "agent": "speckit.implement",
             "pid_scope": "independent",
             "fallback_reason": f"specify_cli import failed: {import_error}",
+            "timeout": "none",
         },
     }
 
@@ -393,8 +639,13 @@ def main(argv: list[str] | None = None) -> int:
                     "context_gaps": item.get("context_gaps", []),
                 }
                 results.append(result)
-                output["dispatch_results"] = results
-                print(json.dumps(output, indent=2, sort_keys=True))
+                print(
+                    json.dumps(
+                        _output_with_dispatch_results(output, results),
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
                 print(
                     json.dumps(
                         {
@@ -413,6 +664,7 @@ def main(argv: list[str] | None = None) -> int:
                 parsed.integration,
                 project_root,
                 parsed.model.strip() or None,
+                Path(str(item.get("handoff_path", ""))).parent / "logs",
             )
             if result.get("exit_code") == 0:
                 verification = _verify_shard_scope(project_root, item, before)
@@ -422,14 +674,21 @@ def main(argv: list[str] | None = None) -> int:
                     result["error"] = "Shard modified files or task statuses outside its handoff scope."
             results.append(result)
             if result.get("exit_code") != 0:
-                output["dispatch_results"] = results
-                print(json.dumps(output, indent=2, sort_keys=True))
+                print(
+                    json.dumps(
+                        _output_with_dispatch_results(output, results),
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
                 print(
                     json.dumps(
                         {
                             "error": "Shard dispatch failed.",
                             "failed_shard": result.get("shard_id"),
-                            "detail": result.get("error") or result.get("stderr"),
+                            "detail": result.get("error") or result.get("stderr_tail"),
+                            "stdout_log_path": result.get("stdout_log_path"),
+                            "stderr_log_path": result.get("stderr_log_path"),
                         },
                         sort_keys=True,
                     ),
@@ -437,8 +696,13 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return int(result.get("exit_code") or 1)
 
-    output["dispatch_results"] = results
-    print(json.dumps(output, indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            _output_with_dispatch_results(output, results),
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 

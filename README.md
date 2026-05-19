@@ -92,7 +92,7 @@ Then run orchestrated implementation:
 /speckit.implement
 ```
 
-The implementation command runs the workflow YAML installed at `.specify/presets/workflow-preset/workflows/speckit-orchestrated-implement/workflow.yml`. For install or wiring checks without invoking an agent, run the workflow with `-i dry_run=true -i run_id=manual`.
+The implementation command runs the orchestrator script installed at `.specify/presets/workflow-preset/scripts/run-orchestrated-implement.py`. For install or wiring checks without invoking an agent, run the script with `--dry-run true --run-id manual`.
 
 Run a single shard directly:
 

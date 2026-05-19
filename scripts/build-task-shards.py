@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -544,8 +545,7 @@ class TaskShardBuilder:
             encoding="utf-8",
         )
 
-        items: list[dict[str, Any]] = []
-        for shard in shards:
+        def write_one(shard: TaskShard) -> dict[str, Any]:
             handoff_path = handoff_dir / f"{shard.shard_id}.json"
             digest_path = handoff_dir / f"{shard.shard_id}.context.md"
             digest_text, source_refs, context_gaps, context_notes = cls._context_digest(
@@ -571,30 +571,31 @@ class TaskShardBuilder:
                 encoding="utf-8",
             )
             shard_args = cls._handoff_args(original_args, handoff_path, shard)
-            items.append(
-                {
-                    "shard_id": shard.shard_id,
-                    "task_type": payload["task_type"],
-                    "shard_type": payload["shard_type"],
-                    "executor_type": payload["executor_type"],
-                    "executor_profile": payload["executor_profile"],
-                    "isolation": payload["isolation"],
-                    "execution_body": payload["execution_body"],
-                    "lifecycle": payload["lifecycle"],
-                    "handoff_path": str(handoff_path),
-                    "context_digest_path": str(digest_path),
-                    "context_index_path": str(index_path),
-                    "context_gaps": payload["context_gaps"],
-                    "allowed_read_paths": payload["allowed_read_paths"],
-                    "allowed_write_paths": payload["allowed_write_paths"],
-                    "scope": payload["scope"],
-                    "validation_commands": payload["validation_commands"],
-                    "task_ids": shard.task_ids,
-                    "task_classification": payload["task_classification"],
-                    "args": shard_args,
-                }
-            )
-        return items
+            return {
+                "shard_id": shard.shard_id,
+                "task_type": payload["task_type"],
+                "shard_type": payload["shard_type"],
+                "executor_type": payload["executor_type"],
+                "executor_profile": payload["executor_profile"],
+                "isolation": payload["isolation"],
+                "execution_body": payload["execution_body"],
+                "lifecycle": payload["lifecycle"],
+                "handoff_path": str(handoff_path),
+                "context_digest_path": str(digest_path),
+                "context_index_path": str(index_path),
+                "context_gaps": payload["context_gaps"],
+                "allowed_read_paths": payload["allowed_read_paths"],
+                "allowed_write_paths": payload["allowed_write_paths"],
+                "scope": payload["scope"],
+                "validation_commands": payload["validation_commands"],
+                "task_ids": shard.task_ids,
+                "task_classification": payload["task_classification"],
+                "args": shard_args,
+            }
+
+        worker_count = min(len(shards), (os.cpu_count() or 1))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            return list(executor.map(write_one, shards))
 
     @classmethod
     def _handoff_payload(

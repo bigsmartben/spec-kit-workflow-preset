@@ -16,7 +16,7 @@ $ARGUMENTS
 ## Orchestration
 
 ```sh
-specify workflow run .specify/presets/workflow-preset/workflows/speckit-orchestrated-implement/workflow.yml -i integration=__AGENT__ -i args="$ARGUMENTS"
+uv run .specify/presets/workflow-preset/scripts/run-orchestrated-implement.py --project-root . --integration __AGENT__ --args="$ARGUMENTS"
 ```
 
 Do not manually invoke `/speckit.implement` from orchestration mode.
