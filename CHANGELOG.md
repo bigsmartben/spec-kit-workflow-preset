@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Updated preset and orchestrated workflow version metadata for the 1.0.1 release.
+- Updated release install examples to use the `v1.0.1` archive.
+
 ## 1.0.0
 
 - Merged the plan design artifacts preset and orchestrated implement preset into `workflow-preset`.

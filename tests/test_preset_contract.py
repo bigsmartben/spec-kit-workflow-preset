@@ -59,7 +59,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.0.0", data["preset"]["version"])
+        self.assertEqual("1.0.1", data["preset"]["version"])
         self.assertEqual(
             "Plan design artifacts and orchestrated implementation workflow",
             data["preset"]["description"],
@@ -1017,6 +1017,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("fresh process and fresh context", readme)
         self.assertIn("scripts/run-orchestrated-implement.py", readme)
         self.assertIn("--dry-run true --run-id manual", readme)
+        self.assertIn("## 1.0.1", changelog)
         self.assertIn("## 1.0.0", changelog)
         self.assertIn("subagent profile matrix", changelog)
         self.assertIn("digest", changelog)

@@ -3,7 +3,7 @@ schema_version: "1.0"
 preset:
   id: "workflow-preset"
   name: "Workflow Preset"
-  version: "1.0.0"
+  version: "1.0.1"
   description: "Plan design artifacts and orchestrated implementation workflow"
   author: "bigsmartben"
   repository: "https://github.com/bigsmartben/spec-kit-workflow-preset"
