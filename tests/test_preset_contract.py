@@ -199,7 +199,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.0.2", data["preset"]["version"])
+        self.assertEqual("1.0.3", data["preset"]["version"])
         self.assertEqual(
             "Plan design artifacts and agent-native handoff orchestration",
             data["preset"]["description"],
@@ -212,7 +212,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("MIT", data["preset"]["license"])
         self.assertEqual(">=0.8.10.dev0", data["requires"]["speckit_version"])
         self.assertEqual(
-            ["planning", "design", "implementation", "orchestration", "handoff", "spec-kit"],
+            ["planning", "design", "implementation", "orchestration", "handoff"],
             data["tags"],
         )
 
@@ -639,7 +639,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
         self.assertIn("PyYAML", requirements)
         self.assertIn("jsonschema", requirements)
-        self.assertIn("## 1.0.2", changelog)
+        self.assertIn("## 1.0.3", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)
         self.assertIn("Removed Python dispatch tooling", changelog)
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3
+
+- Aligned manifest tags with the community preset publishing guide.
+- Updated release install examples for the `v1.0.3` archive.
+
 ## 1.0.2
 
 - Prepared the preset for community catalog submission.
