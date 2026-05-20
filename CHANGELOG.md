@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Prepared the preset for community catalog submission.
+- Added deterministic validator coverage for dispatch order completeness, dependency ordering, and unlisted handoff or receipt rejection.
+- Kept implementation orchestration agent-native with no packaged CLI, workflow dispatch, or integration adapter scripts.
+
 ## 1.0.1
 
 - Updated preset and orchestrated workflow version metadata for the 1.0.1 release.

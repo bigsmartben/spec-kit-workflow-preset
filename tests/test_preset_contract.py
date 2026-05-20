@@ -199,7 +199,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.0.1", data["preset"]["version"])
+        self.assertEqual("1.0.2", data["preset"]["version"])
         self.assertEqual(
             "Plan design artifacts and agent-native handoff orchestration",
             data["preset"]["description"],
@@ -240,15 +240,15 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("replace", implement["strategy"])
         for schema_name, schema_file in (
             (
-                "speckit.implement.manifest.v1.schema",
+                "speckit-implement-manifest-v1-schema",
                 "schemas/speckit.implement.manifest.v1.schema.json",
             ),
             (
-                "speckit.implement.handoff.v2.schema",
+                "speckit-implement-handoff-v2-schema",
                 "schemas/speckit.implement.handoff.v2.schema.json",
             ),
             (
-                "speckit.implement.receipt.v1.schema",
+                "speckit-implement-receipt-v1-schema",
                 "schemas/speckit.implement.receipt.v1.schema.json",
             ),
         ):
@@ -639,7 +639,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
         self.assertIn("PyYAML", requirements)
         self.assertIn("jsonschema", requirements)
-        self.assertIn("## 1.0.1", changelog)
+        self.assertIn("## 1.0.2", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)
         self.assertIn("Removed Python dispatch tooling", changelog)
 
