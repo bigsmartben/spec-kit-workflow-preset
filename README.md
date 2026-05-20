@@ -13,6 +13,17 @@ The preset has two goals:
 - Preserve richer planning intent so downstream tasks and implementation do not lose object design, service-flow, or validation decisions.
 - Execute implementation through agent-native handoff orchestration so each worker receives explicit task IDs, lifecycle stage, vertical capability, context, read/write paths, validation commands, and receipt requirements.
 
+## Problem Addressed
+
+Large Spec Kit features can overload the implementation phase. A single `/speckit.implement` run may need to keep product requirements, technical decisions, domain details, interface contracts, object design, service flows, test strategy, task ordering, and current code changes in one prompt. As the context grows, the agent is more likely to drift from earlier design decisions, blur task boundaries, read unrelated documents, update the wrong files, or mark tasks complete without enough validation evidence.
+
+`workflow-preset` reduces that failure mode in two complementary ways:
+
+- Plan enhancement gives object design, service sequencing, and validation intent stable homes before tasks are generated.
+- Implement handoff orchestration slices work by lifecycle and vertical capability, then gives each Worker Agent a compact digest, scoped paths, validation commands, and a receipt contract instead of the full planning corpus.
+
+The intent is not to add ceremony to simple features. The intent is to preserve reasoning quality when the feature is large enough that a single implementation context becomes a source of drift.
+
 ## Capabilities
 
 Planning capabilities:
@@ -23,6 +34,7 @@ Planning capabilities:
 - Stores internal object design in `class-diagram.md`.
 - Stores service, command, event, async, retry, rollback, and failure-path flows in `contracts/sequences.md`.
 - Stores validation strategy and scenario planning in `test-plan.md`.
+- Keeps product requirements in `spec.md`, domain facts in `data-model.md`, interface schemas in `contracts/`, and executable validation guidance in `quickstart.md`.
 
 Task generation capabilities:
 
@@ -43,6 +55,14 @@ Implementation capabilities:
 - Supports direct single-shard execution with `Use handoff JSON <path>`.
 - Blocks worker execution when generated context has unresolved `context_gaps`.
 - Commits completed task statuses from `speckit.implement.receipt.v1` receipts so the Core Agent is the only `tasks.md` writer.
+
+Context-load controls:
+
+- `context-index.json` records the available planning and implementation context without requiring every worker to read every source document.
+- Context digests include only assigned task text, relevant headings, referenced sections, and applicable `class-diagram.md`, `contracts/sequences.md`, or `test-plan.md` constraints.
+- `context_gaps` are explicit blockers. A Worker Agent stops instead of guessing or expanding into full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, or `test-plan.md`.
+- `allowed_read_paths` and `allowed_write_paths` make each handoff auditable and prevent broad implementation runs from silently crossing capability boundaries.
+- Worker receipts separate execution evidence from task status commits, so the Core Agent can review validation evidence before updating `tasks.md`.
 
 ## Workflow
 
@@ -137,11 +157,11 @@ Development-only contract helpers:
 
 ## Artifact Roles
 
-`class-diagram.md` captures internal implementation object structure: classes, interfaces, abstract types, composition, dependencies, references, and design pattern participants.
+`class-diagram.md` captures internal implementation object structure: classes, interfaces, abstract types, composition, dependencies, references, and design pattern participants. It is the object design map that helps implementation preserve boundaries between services, adapters, repositories, strategies, factories, controllers, coordinators, and extension points.
 
-`contracts/sequences.md` captures service-call, command, event, external-system, retry, rollback, compensation, async, and failure-path sequencing. Sequences always live at this path, even when there are no other contract files.
+`contracts/sequences.md` captures service-call, command, event, external-system, retry, rollback, compensation, async, and failure-path sequencing. It is the flow design map that helps implementation preserve call order, service boundaries, async behavior, idempotency, compensation, and error propagation. Sequences always live at this path, even when there are no other contract files.
 
-`test-plan.md` captures validation intent: test objectives, in/out of scope, test levels, data strategy, requirement traceability, and scenario matrix.
+`test-plan.md` captures validation intent: test objectives, in/out of scope, test levels, data strategy, requirement traceability, and scenario matrix. It is the validation design map that helps `/speckit.tasks` and Worker Agents produce tests and evidence aligned with planned risk, not just nearby code changes.
 
 The handoff context digest includes these design artifacts when present, so Worker Agents can preserve object boundaries, service flows, and validation intent without reading full planning documents by default.
 

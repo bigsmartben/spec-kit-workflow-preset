@@ -1,5 +1,9 @@
 # Spec Kit Cross-Agent Subagents
 
+## Purpose
+
+Reduce implementation-stage context load and reasoning drift by turning broad `/speckit.implement` work into persisted, capability-scoped handoffs. Workers receive only task-local context, allowed paths, validation commands, and receipt obligations.
+
 ## Files
 
 - `handoffs/implement/<run-id>/handoff-manifest.json`, `planner-outputs/`, `context-index.json`

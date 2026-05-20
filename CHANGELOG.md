@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Expanded project documentation for the planning artifact capabilities and implementation-stage context-load controls that reduce reasoning drift.
+
 ## 1.0.3
 
 - Aligned manifest tags with the community preset publishing guide.

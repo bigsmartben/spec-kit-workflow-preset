@@ -632,6 +632,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("speckit.implement.handoff.v2", readme)
         self.assertIn("speckit.implement.receipt.v1", readme)
         self.assertIn("speckit-cross-agent-subagents.md", readme)
+        self.assertIn("Problem Addressed", readme)
+        self.assertIn("reasoning quality", readme)
+        self.assertIn("Context-load controls", readme)
+        self.assertIn("context-load controls", changelog)
         self.assertNotIn("run-orchestrated-implement.py", readme)
         self.assertNotIn("speckit-implement-handoff.py", readme)
         self.assertNotIn("--dry-run true --run-id manual", readme)
@@ -653,6 +657,7 @@ class PresetContractTests(unittest.TestCase):
             "Claude Code",
             "Gemini CLI",
             "GitHub Copilot",
+            "Reduce implementation-stage context load and reasoning drift",
             "Vertical Planner Agent",
             "Worker Prompt",
             "handoff-manifest.json",
