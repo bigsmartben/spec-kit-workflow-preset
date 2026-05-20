@@ -5,3 +5,4 @@ __pycache__/
 dist/
 *.zip
 .DS_Store
+docs/superpowers/
