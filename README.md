@@ -1,19 +1,17 @@
 # Workflow Preset
 
-This Spec Kit community preset combines design-aware planning with orchestrated implementation.
+This Spec Kit community preset combines design-aware planning with agent-native handoff orchestration.
 
-It keeps `/speckit.plan` and `/speckit.tasks` compatible with the core workflow while adding optional design artifacts for internal object design, service sequencing, and test strategy. It replaces `/speckit.implement` with an orchestrated implementation command that splits incomplete `tasks.md` items into scoped handoff shards and dispatches each shard through the configured Spec Kit integration.
+It keeps `/speckit.plan` and `/speckit.tasks` compatible with the core workflow while adding optional design artifacts for internal object design, service sequencing, and test strategy. It replaces `/speckit.implement` with a Core Agent, Vertical Planner Agent, and Worker Agent orchestration contract that writes handoffs to disk.
 
 ## Goal
 
-`workflow-preset` turns a Spec Kit feature from a single broad implementation prompt into a staged workflow with stable design context and scoped execution boundaries.
+`workflow-preset` turns a Spec Kit feature from a single broad implementation prompt into a staged workflow with stable design context and explicit worker boundaries.
 
 The preset has two goals:
 
 - Preserve richer planning intent so downstream tasks and implementation do not lose object design, service-flow, or validation decisions.
-- Execute implementation through bounded handoff shards so each implementation run has explicit task IDs, context, read/write paths, validation commands, and post-dispatch scope checks.
-
-The intended result is a community preset that supports larger Spec Kit features without forcing all design detail into `plan.md` or all implementation work into one high-context `/speckit.implement` run.
+- Execute implementation through agent-native handoff orchestration so each worker receives explicit task IDs, lifecycle stage, vertical capability, context, read/write paths, validation commands, and receipt requirements.
 
 ## Capabilities
 
@@ -34,26 +32,28 @@ Task generation capabilities:
 
 Implementation capabilities:
 
-- Replaces `/speckit.implement` with an orchestrated implementation command.
-- Builds handoff shards from incomplete `tasks.md` items.
-- Classifies shards as setup, test, implementation, integration, validation, or cleanup.
-- Assigns each shard to a matching subagent profile with a fresh process and fresh context.
-- Writes one handoff JSON, context digest, and context index per shard.
-- Dispatches shards through the configured Spec Kit integration.
+- Replaces `/speckit.implement` with an agent-native handoff orchestration command.
+- Uses Core Agent mode to own lifecycle state, create the context index, assemble the final manifest, dispatch Worker Agent runs, review receipts, update `tasks.md`, and run integration verification.
+- Uses Vertical Planner Agent mode to plan one `vertical_capability`, produce shard plans, create handoff drafts, create context digest drafts, and derive allowed paths.
+- Uses Worker Agent mode to execute exactly one `speckit.implement.handoff.v2` handoff.
+- Writes `handoff-manifest.json`, one handoff JSON, one context digest, a context index, and one worker receipt per shard.
+- Defines deterministic shard, context digest, and allowed path derivation rules.
+- Keeps manifest, handoff, and receipt JSON contracts in standalone schema files.
+- Assigns every handoff a lifecycle stage and vertical capability such as `domain-model`, `api-contract`, `persistence`, `service-flow`, `ui`, `test-validation`, `documentation`, `integration`, or `cleanup`.
 - Supports direct single-shard execution with `Use handoff JSON <path>`.
-- Supports `dry_run=true` for install and workflow wiring checks.
-- Blocks dispatch when generated context has unresolved `context_gaps`.
-- Verifies after each shard layer that file changes stay inside the combined handoff scope.
-- Commits completed task statuses from shard receipts so the orchestrator is the only `tasks.md` writer.
+- Blocks worker execution when generated context has unresolved `context_gaps`.
+- Commits completed task statuses from `speckit.implement.receipt.v1` receipts so the Core Agent is the only `tasks.md` writer.
 
 ## Workflow
 
 1. `/speckit.plan` keeps the core planning outputs and adds design artifacts when they help implementation.
 2. `/speckit.tasks` reads the core plan outputs plus the design artifacts and produces executable tasks.
-3. `/speckit.implement` runs the orchestrator instead of implementing directly.
-4. The orchestrator resolves the active feature, parses incomplete tasks, creates scoped handoffs, and dispatches each shard.
-5. Each shard runs with its handoff JSON and digest as primary context.
-6. The orchestrator stops on failed dispatch, blocking context gaps, out-of-scope file changes, or out-of-scope task status changes.
+3. `/speckit.implement` enters Core Agent mode when no handoff path is provided.
+4. The Core Agent writes `context-index.json` and dispatches one Vertical Planner Agent per active vertical capability.
+5. Vertical Planner Agents produce shard plans, handoff drafts, context digest drafts, and allowed path derivations.
+6. The Core Agent assembles final handoffs and writes `handoff-manifest.json`.
+7. Worker Agents run only from persisted handoff JSON files and write receipts.
+8. The Core Agent reviews receipts, updates `tasks.md`, runs integration verification, and reports closeout status.
 
 ## Non-Goals
 
@@ -61,8 +61,8 @@ Implementation capabilities:
 - It does not move product requirements out of `spec.md`.
 - It does not move API or message schemas out of `contracts/`.
 - It does not replace `data-model.md`, `research.md`, or `quickstart.md`.
-- It does not dispatch shards through preset-specific agent adapters; agent CLI behavior belongs in Spec Kit integrations.
-- It does not allow shard agents to freely expand context by reading full planning documents when the digest is insufficient.
+- It does not provide a Python orchestration script, workflow shell runner, or integration adapter layer.
+- It does not allow Worker Agents to freely expand context by reading full planning documents when the digest is insufficient.
 
 ## Install
 
@@ -87,20 +87,16 @@ Run the normal planning and task generation commands:
 /speckit.tasks
 ```
 
-Then run orchestrated implementation:
+Then run agent-native orchestrated implementation:
 
 ```text
 /speckit.implement
 ```
 
-The implementation command runs the orchestrator script installed at `.specify/presets/workflow-preset/scripts/run-orchestrated-implement.py`. For install or wiring checks without invoking an agent, run the script with `--dry-run true --run-id manual`.
-
-Shard dispatch requires `specify_cli.integrations` and the selected integration's CLI dispatch support. Custom agent CLIs should be registered as Spec Kit integrations; this preset does not provide a separate compatibility adapter layer.
-
-Run a single shard directly:
+Run a single worker handoff directly:
 
 ```text
-/speckit.implement Use handoff JSON specs/001-demo/handoffs/implement/<run-id>/S01-implement-01.json
+/speckit.implement Use handoff JSON specs/001-demo/handoffs/implement/<run-id>/S01-service-flow-01.json
 ```
 
 ## Files Written
@@ -120,11 +116,24 @@ This preset adds optional/contextual planning artifacts:
 - `specs/<feature>/contracts/sequences.md`
 - `specs/<feature>/test-plan.md`
 
-Orchestrated implementation writes handoff files:
+Agent-native handoff orchestration writes implementation artifacts:
 
+- `specs/<feature>/handoffs/implement/<run-id>/handoff-manifest.json`
+- `specs/<feature>/handoffs/implement/<run-id>/planner-outputs/`
 - `specs/<feature>/handoffs/implement/<run-id>/*.json`
 - `specs/<feature>/handoffs/implement/<run-id>/*.context.md`
 - `specs/<feature>/handoffs/implement/<run-id>/context-index.json`
+- `specs/<feature>/handoffs/implement/<run-id>/results/*.json`
+
+Contract files packaged by the preset:
+
+- `schemas/speckit.implement.manifest.v1.schema.json`
+- `schemas/speckit.implement.handoff.v2.schema.json`
+- `schemas/speckit.implement.receipt.v1.schema.json`
+
+Development-only contract helpers:
+
+- `validators/speckit_implement_contract.py`
 
 ## Artifact Roles
 
@@ -134,46 +143,79 @@ Orchestrated implementation writes handoff files:
 
 `test-plan.md` captures validation intent: test objectives, in/out of scope, test levels, data strategy, requirement traceability, and scenario matrix.
 
-The shard context digest includes these design artifacts when present, so implementation shards can preserve object boundaries, service flows, and validation intent without reading full planning documents by default.
+The handoff context digest includes these design artifacts when present, so Worker Agents can preserve object boundaries, service flows, and validation intent without reading full planning documents by default.
 
-## Subagent Matrix
+See `speckit-cross-agent-subagents.md` for the cross-platform subagent mapping, worker prompt, parallel dispatch rules, and minimal handoff/receipt contract.
 
-The implementation orchestrator classifies upstream tasks from `tasks.md` and records the authoritative assignment in each handoff JSON:
+## Agent Topology
 
-- `setup` -> `setup-worker`
-- `test` -> `test-worker`
-- `implementation` -> `implementation-worker`
-- `integration` -> `integration-worker`
-- `validation` -> `validation-worker`
-- `cleanup` -> `cleanup-worker`
+The Core Agent is the lifecycle orchestrator. It owns context indexing, manifest assembly, worker dispatch, receipt review, task status commit, integration verification, and closeout. It does not directly produce shard plans or context digest drafts.
 
-Every shard runs in its own fresh process and fresh context. The orchestrator may run shards concurrently only when their handoff declares `isolation.parallelism: safe`, their write paths do not overlap, and their phase/topology boundary matches.
+Vertical Planner Agent runs are planners. A Vertical Planner Agent handles one `vertical_capability`, produces shard plans, handoff drafts, context digest drafts, and allowed path derivations, and does not execute implementation, write the final manifest, dispatch workers, or edit `tasks.md`.
+
+Worker Agent runs are executors. A Worker Agent handles one persisted handoff, writes only `allowed_write_paths`, does not edit `tasks.md`, does not dispatch additional workers, and writes a `speckit.implement.receipt.v1` receipt.
+
+Worker mode rejects handoff paths that do not exist or are not listed in `handoff-manifest.json`.
+
+Only Vertical Planner Agents may produce shard plans and digest drafts.
+
+Only Core Agent may write final `handoff-manifest.json` and commit `tasks.md`.
+
+Only Worker Agents may execute implementation handoffs.
+
+## Lifecycle
+
+Core Agent mode proceeds through these stages:
+
+- `intake`
+- `context_indexing`
+- `vertical_planning`
+- `manifest_assembly`
+- `worker_dispatch`
+- `worker_execution`
+- `receipt_review`
+- `task_commit`
+- `integration_verification`
+- `closeout`
+
+Every worker handoff records its `lifecycle_stage`, `vertical_capability`, `agent_topology`, `capability_boundary`, `planner_outputs`, and `draft_source`.
+
+## Vertical Capability
+
+Worker handoffs should stay inside one vertical capability:
+
+- `domain-model`
+- `api-contract`
+- `persistence`
+- `service-flow`
+- `ui`
+- `cli`
+- `test-validation`
+- `documentation`
+- `integration`
+- `cleanup`
+
+When a task spans capabilities, the Core Agent should split it into dependent handoffs instead of assigning broad cross-cutting work to one Worker Agent.
 
 ## Safety Boundaries
 
 Planning artifacts are optional/contextual. Simple features may produce concise files or `N/A` sections with concrete reasons. The command should avoid large placeholder artifacts and should not move product requirements out of `spec.md`, interface schemas out of `contracts/`, or quick validation instructions out of `quickstart.md`.
 
-Shard agents should treat the handoff JSON and its digest as the primary context. They should not read full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, or `test-plan.md` by default. If the digest contains `context_gaps`, the shard must stop instead of expanding context on its own.
+Vertical Planner Agents may read only the planning artifacts required to produce their capability-local shard plan and digest drafts. Worker Agents should treat the final handoff JSON and its digest as the primary context. They should not read full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, or `test-plan.md` by default. If the digest contains `context_gaps`, the Worker Agent must stop instead of expanding context on its own.
 
-Shard agents must honor the handoff `executor_profile`, `task_classification`, `isolation`, and `lifecycle` fields. A shard must not reuse another shard's session, context, or assumptions.
-
-After each successful shard layer, the orchestrator compares the workspace against a pre-dispatch snapshot. It fails the run if a shard modifies files outside `allowed_write_paths`. Shards do not edit `tasks.md`; after validation, they write completion receipts and the orchestrator marks completed listed tasks.
-
-Completed `[x]` tasks are not scheduled into new implementation shards.
+Completed `[x]` tasks are not scheduled into new implementation handoffs.
 
 ## Development
 
 Runtime requirements:
 
 - Spec Kit CLI `>=0.8.10.dev0`
-- Python 3.10 or newer
-- `uv` available on `PATH` for workflow shell execution
-- A configured Spec Kit integration with CLI dispatch support, such as `copilot`, `codex`, or a custom integration registered with `specify_cli.integrations`
+- An agent environment capable of running `/speckit.implement` in Core Agent, Vertical Planner Agent, and Worker Agent modes
 
 Development and release tooling:
 
 - Python 3.10 or newer
-- PyYAML for contract tests
+- PyYAML and jsonschema for contract tests
 - Git
 - GitHub CLI `gh` for repository and release publishing
 

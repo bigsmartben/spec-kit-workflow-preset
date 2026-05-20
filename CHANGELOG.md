@@ -4,6 +4,13 @@
 
 - Updated preset and orchestrated workflow version metadata for the 1.0.1 release.
 - Updated release install examples to use the `v1.0.1` archive.
+- Reworked implementation orchestration as agent-native handoff orchestration.
+- Removed Python dispatch tooling from the preset contract while preserving persisted handoff, digest, receipt, Core Agent, and Worker Agent semantics.
+- Added lifecycle and vertical capability requirements to implementation handoffs.
+- Decoupled manifest, handoff, and receipt contracts into standalone schema files.
+- Removed preset-packaged handoff tooling; Core and Worker modes use persisted JSON contracts directly.
+- Added Vertical Planner Agent topology so shard plans, digest drafts, and allowed path derivation are separated from Core lifecycle ownership and Worker execution.
+- Added schema and cross-field contract tests for manifest, handoff, receipt, and planner/worker authority boundaries.
 
 ## 1.0.0
 

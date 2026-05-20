@@ -7,16 +7,16 @@ This repository is a Spec Kit community preset named `workflow-preset`.
 - `preset.yml` is the preset manifest and should stay aligned with the files it declares.
 - `commands/` contains Spec Kit command templates.
 - `templates/` contains wrapped Spec Kit templates.
-- `workflows/speckit-orchestrated-implement/workflow.yml` runs the orchestrated implementation workflow.
-- `scripts/build-task-shards.py` builds scoped implementation handoff files.
-- `scripts/run-orchestrated-implement.py` dispatches those handoffs and verifies shard scope.
+- `schemas/` contains decoupled JSON schema contracts.
+- `validators/` contains pure in-memory contract validators for tests.
 - `tests/test_preset_contract.py` is the main contract test suite.
 
 ## Development Rules
 
 - Preserve the preset contract tested by `tests/test_preset_contract.py`.
 - Keep `/speckit.plan` and `/speckit.tasks` as core-template wrappers.
-- Keep `/speckit.implement` as a replacement command that runs the orchestrated workflow or executes exactly one handoff shard.
+- Keep `/speckit.implement` as a replacement command with Core Agent, Vertical Planner Agent, and Worker Agent modes.
+- Do not reintroduce Python orchestration, workflow shell dispatch, integration adapter scripts, or worker dispatch from scripts.
 - Planning design artifacts are optional and contextual:
   - `class-diagram.md`
   - `contracts/sequences.md`
@@ -29,10 +29,12 @@ When working from a generated handoff JSON:
 
 - Treat the handoff JSON and its `context_digest_path` as primary context.
 - Verify `contract_type` is `speckit.implement.handoff.v2`.
+- Verify the handoff declares `agent_topology`, `lifecycle_stage`, `vertical_capability`, `capability_boundary`, `planner_outputs`, and `draft_source`.
+- Verify `agent_topology.vertical_planner_agent.may_execute_implementation` is false.
 - Stop before editing if `context_gaps` is not empty.
 - Execute only the listed `task_ids`.
 - Write only paths listed in `allowed_write_paths`.
-- Mark only completed listed tasks in `tasks.md`.
+- Do not edit `tasks.md`; write only the declared receipt and scoped task paths.
 - Do not read full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, or `test-plan.md` unless the handoff explicitly allows it.
 
 ## Validation

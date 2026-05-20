@@ -1,5 +1,5 @@
 ---
-description: Run orchestrated implementation or execute a single handoff shard.
+description: Run three-layer agent-native handoff orchestration or execute one worker handoff.
 ---
 
 ## Input
@@ -10,53 +10,118 @@ $ARGUMENTS
 
 ## Mode
 
-- Handoff mode: `$ARGUMENTS` contains a `.json` handoff path or `Use handoff JSON <path>`.
-- Orchestration mode: no handoff JSON is present.
+- Core mode: no handoff JSON path in `$ARGUMENTS`
+- Worker mode: `.json` handoff path in `$ARGUMENTS` or `Use handoff JSON <path>`
+- Forbidden: external dispatch scripts, workflow runners
 
-## Orchestration
+## Authority
 
-```sh
-uv run .specify/presets/workflow-preset/scripts/run-orchestrated-implement.py --project-root . --integration __AGENT__ --args="$ARGUMENTS"
-```
+- Only Vertical Planner Agents may produce shard plans and digest drafts.
+- Only Core Agent may write final `handoff-manifest.json` and commit `tasks.md`.
+- Only Worker Agents may execute implementation handoffs.
 
-Do not manually invoke `/speckit.implement` from orchestration mode.
+## Core Agent
 
-## Subagent Matrix
+- lifecycle owner
+- create `context-index.json`
+- dispatch one Vertical Planner Agent per `vertical_capability`
+- collect shard plans, handoff drafts, context digest drafts
+- assemble final handoffs under `handoffs/implement/<run-id>`
+- write final `handoff-manifest.json`
+- dispatch Worker Agent runs from final manifest
+- review receipts
+- commit `tasks.md` only during `task_commit`
+- run `integration_verification`, closeout
+- must not produce shard plans or digest drafts
 
-The orchestrator classifies upstream tasks and writes the authoritative
-subagent assignment into each handoff JSON. Use the matrix below only as the
-human-readable execution policy:
+## Vertical Planner Agent
 
-- setup -> setup-worker
-- test -> test-worker
-- implementation -> implementation-worker
-- integration -> integration-worker
-- validation -> validation-worker
-- cleanup -> cleanup-worker
+- vertical planner only
+- exactly one `vertical_capability`
+- read `tasks.md`, `context-index.json`, allowed planning artifacts
+- produce shard plans, handoff drafts, context digest drafts
+- derive `allowed_read_paths`, `allowed_write_paths`
+- record `planner_outputs`, `draft_source`
+- must not execute implementation, write final `handoff-manifest.json`, dispatch workers, update `tasks.md`
 
-Each shard must run with a fresh process and fresh context. The orchestrator may
-dispatch shards concurrently only when their handoff `isolation.parallelism` is
-`safe` and their `allowed_write_paths` do not overlap. Do not reuse a previous
-shard's session, memory, prompt context, or task assumptions.
+## Worker Agent
 
-## Handoff
+- single handoff only
+- execute exactly one handoff JSON
+- Worker mode must reject non-existent handoff paths
+- Worker mode must reject handoffs not listed in `handoff-manifest.json`
+- verify `contract_type` is `speckit.implement.handoff.v2`
+- load `context_digest_path` before editing
+- stop before editing when `context_gaps` is not empty
+- execute only `task_ids`
+- read only `allowed_read_paths`
+- write only `allowed_write_paths`
+- write `task_status_update.receipt_path` as `speckit.implement.receipt.v1`
+- Do not edit `tasks.md`, create handoffs, dispatch workers
 
-1. Read the handoff JSON file.
-2. Verify `contract_type` is `speckit.implement.handoff.v2`.
-3. Verify `task_type`, `shard_type`, `executor_type`, `executor_profile`, `task_classification`, `isolation`, `execution_body`, `lifecycle`, and `scope` are present.
-4. Execute exactly one shard; do not reuse this context for another shard.
-5. Load `context_digest_path`.
-6. Treat digest content from `class-diagram.md`, `contracts/sequences.md`, and `test-plan.md` as implementation constraints when present.
-7. Do not read full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, or `test-plan.md`.
-8. If `context_gaps` is not empty, stop before editing.
-9. Use `context_index_path` only for headings and digest source refs.
-10. Execute only `task_ids` using the declared `executor_profile`.
-11. Write only `allowed_write_paths`.
-12. Follow `forbidden_actions`.
-13. Do not edit `tasks.md`; after validation passes, write the
-    `task_status_update.receipt_path` JSON receipt with contract type
-    `speckit.implement.receipt.v1` and completed listed task IDs.
-14. Run `validation_commands` and focused validation for changed files before
-    writing the completion receipt.
+## Lifecycle
 
-Do not run `specify workflow run` in handoff mode.
+`intake` -> `context_indexing` -> `vertical_planning` -> `manifest_assembly` -> `worker_dispatch` -> `worker_execution` -> `receipt_review` -> `task_commit` -> `integration_verification` -> `closeout`
+
+## Vertical Capabilities
+
+`domain-model`, `api-contract`, `persistence`, `service-flow`, `ui`, `cli`, `test-validation`, `documentation`, `integration`, `cleanup`
+
+## Shard Rules
+
+- one incomplete `tasks.md` checklist item maps to one candidate shard
+- ignore completed `[x]` checklist items
+- preserve `tasks.md` order
+- infer `vertical_capability` from section heading, task text, referenced paths
+- group candidates only when lifecycle dependencies, vertical_capability, and allowed_write_paths match
+- shard IDs use `S<2-digit-sequence>-<vertical_capability>-<2-digit-sequence>`
+- record explicit dependencies for shards that consume another shard's allowed_write_paths
+
+## Context Digest Rules
+
+- include task text for assigned `task_ids`
+- include document headings from `context-index.json`
+- include only sections referenced by assigned task paths or vertical_capability
+- include relevant `class-diagram.md`, `contracts/sequences.md`, `test-plan.md` constraints
+- omit unrelated full `spec.md`, `plan.md`, `contracts/`, `class-diagram.md`, `test-plan.md`
+- record unresolved required context as `context_gaps`
+
+## Path Rules
+
+- derive `allowed_write_paths` from paths referenced by assigned task text
+- include receipt path in `allowed_write_paths`
+- derive `allowed_read_paths` from allowed write parents, validation files, context digest, and context index
+- include `tasks.md` in `allowed_read_paths`
+- add planning artifacts only when digest references their sections
+- exclude `tasks.md` from `allowed_write_paths`
+
+## Files
+
+- root: `specs/<feature>/handoffs/implement/<run-id>/`
+- `handoff-manifest.json`
+- `context-index.json`
+- `planner-outputs/`
+- `<shard-id>.json`
+- `<shard-id>.context.md`
+- `results/<shard-id>.json`
+
+## Schemas
+
+- manifest: `schemas/speckit.implement.manifest.v1.schema.json`
+- handoff: `schemas/speckit.implement.handoff.v2.schema.json`
+- receipt: `schemas/speckit.implement.receipt.v1.schema.json`
+
+## Receipt Rejection
+
+- mismatched `shard_id`
+- `task_ids` outside handoff
+- `completed_task_ids` outside handoff
+- empty `validation_evidence`
+- receipt path does not equal `task_status_update.receipt_path`
+
+## Dispatch Rules
+
+- no `context_gaps`
+- satisfied lifecycle dependencies
+- no shared sequencing requirement
+- no overlapping `allowed_write_paths` or `capability_boundary.owns`
