@@ -2,7 +2,7 @@
 
 This Spec Kit community preset combines design-aware planning with orchestrated implementation.
 
-It keeps `/speckit.plan` and `/speckit.tasks` compatible with the core workflow while adding optional design artifacts for internal object design, service sequencing, and test strategy. It replaces `/speckit.implement` with an orchestrated implementation command that splits incomplete `tasks.md` items into scoped handoff shards and dispatches each shard through an integration CLI.
+It keeps `/speckit.plan` and `/speckit.tasks` compatible with the core workflow while adding optional design artifacts for internal object design, service sequencing, and test strategy. It replaces `/speckit.implement` with an orchestrated implementation command that splits incomplete `tasks.md` items into scoped handoff shards and dispatches each shard through the configured Spec Kit integration.
 
 ## Goal
 
@@ -39,11 +39,12 @@ Implementation capabilities:
 - Classifies shards as setup, test, implementation, integration, validation, or cleanup.
 - Assigns each shard to a matching subagent profile with a fresh process and fresh context.
 - Writes one handoff JSON, context digest, and context index per shard.
-- Dispatches shards through the configured integration CLI.
+- Dispatches shards through the configured Spec Kit integration.
 - Supports direct single-shard execution with `Use handoff JSON <path>`.
 - Supports `dry_run=true` for install and workflow wiring checks.
 - Blocks dispatch when generated context has unresolved `context_gaps`.
-- Verifies after each shard that file changes and task status changes stay inside the handoff scope.
+- Verifies after each shard layer that file changes stay inside the combined handoff scope.
+- Commits completed task statuses from shard receipts so the orchestrator is the only `tasks.md` writer.
 
 ## Workflow
 
@@ -60,7 +61,7 @@ Implementation capabilities:
 - It does not move product requirements out of `spec.md`.
 - It does not move API or message schemas out of `contracts/`.
 - It does not replace `data-model.md`, `research.md`, or `quickstart.md`.
-- It does not parallelize shard dispatch; dispatch is intentionally sequential for deterministic long-running execution and easier scope verification.
+- It does not dispatch shards through preset-specific agent adapters; agent CLI behavior belongs in Spec Kit integrations.
 - It does not allow shard agents to freely expand context by reading full planning documents when the digest is insufficient.
 
 ## Install
@@ -93,6 +94,8 @@ Then run orchestrated implementation:
 ```
 
 The implementation command runs the orchestrator script installed at `.specify/presets/workflow-preset/scripts/run-orchestrated-implement.py`. For install or wiring checks without invoking an agent, run the script with `--dry-run true --run-id manual`.
+
+Shard dispatch requires `specify_cli.integrations` and the selected integration's CLI dispatch support. Custom agent CLIs should be registered as Spec Kit integrations; this preset does not provide a separate compatibility adapter layer.
 
 Run a single shard directly:
 
@@ -144,7 +147,7 @@ The implementation orchestrator classifies upstream tasks from `tasks.md` and re
 - `validation` -> `validation-worker`
 - `cleanup` -> `cleanup-worker`
 
-Every shard runs sequentially in its own fresh process and fresh context. The matrix controls the role and lifecycle metadata; it does not imply parallel execution.
+Every shard runs in its own fresh process and fresh context. The orchestrator may run shards concurrently only when their handoff declares `isolation.parallelism: safe`, their write paths do not overlap, and their phase/topology boundary matches.
 
 ## Safety Boundaries
 
@@ -154,7 +157,7 @@ Shard agents should treat the handoff JSON and its digest as the primary context
 
 Shard agents must honor the handoff `executor_profile`, `task_classification`, `isolation`, and `lifecycle` fields. A shard must not reuse another shard's session, context, or assumptions.
 
-After each successful shard dispatch, the orchestrator compares the workspace against a pre-dispatch snapshot. It fails the run if a shard modifies files outside `allowed_write_paths` or changes `tasks.md` statuses outside its listed `task_ids`.
+After each successful shard layer, the orchestrator compares the workspace against a pre-dispatch snapshot. It fails the run if a shard modifies files outside `allowed_write_paths`. Shards do not edit `tasks.md`; after validation, they write completion receipts and the orchestrator marks completed listed tasks.
 
 Completed `[x]` tasks are not scheduled into new implementation shards.
 
@@ -165,7 +168,7 @@ Runtime requirements:
 - Spec Kit CLI `>=0.8.10.dev0`
 - Python 3.10 or newer
 - `uv` available on `PATH` for workflow shell execution
-- A configured Spec Kit integration CLI for shard dispatch, such as `copilot`
+- A configured Spec Kit integration with CLI dispatch support, such as `copilot`, `codex`, or a custom integration registered with `specify_cli.integrations`
 
 Development and release tooling:
 

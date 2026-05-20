@@ -34,9 +34,10 @@ human-readable execution policy:
 - validation -> validation-worker
 - cleanup -> cleanup-worker
 
-Each shard must run with a fresh process and fresh context. Shards are
-dispatched sequentially; parallelism is none. Do not reuse a previous shard's
-session, memory, prompt context, or task assumptions.
+Each shard must run with a fresh process and fresh context. The orchestrator may
+dispatch shards concurrently only when their handoff `isolation.parallelism` is
+`safe` and their `allowed_write_paths` do not overlap. Do not reuse a previous
+shard's session, memory, prompt context, or task assumptions.
 
 ## Handoff
 
@@ -52,7 +53,10 @@ session, memory, prompt context, or task assumptions.
 10. Execute only `task_ids` using the declared `executor_profile`.
 11. Write only `allowed_write_paths`.
 12. Follow `forbidden_actions`.
-13. Mark only completed listed tasks in `tasks.md`.
-14. Run `validation_commands` and focused validation for changed files.
+13. Do not edit `tasks.md`; after validation passes, write the
+    `task_status_update.receipt_path` JSON receipt with contract type
+    `speckit.implement.receipt.v1` and completed listed task IDs.
+14. Run `validation_commands` and focused validation for changed files before
+    writing the completion receipt.
 
 Do not run `specify workflow run` in handoff mode.

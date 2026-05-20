@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -160,6 +161,110 @@ def _path_is_allowed(path: str, allowed_writes: set[str]) -> bool:
         if path == allowed or path.startswith(f"{allowed.rstrip('/')}/"):
             return True
     return False
+
+
+def _paths_overlap(left_paths: set[str], right_paths: set[str]) -> bool:
+    for left in left_paths:
+        left_value = left.rstrip("/")
+        for right in right_paths:
+            right_value = right.rstrip("/")
+            if (
+                left_value == right_value
+                or left_value.startswith(f"{right_value}/")
+                or right_value.startswith(f"{left_value}/")
+            ):
+                return True
+    return False
+
+
+def _safe_parallel_writes(project_root: Path, item: dict[str, Any]) -> set[str]:
+    writes = _allowed_write_paths(project_root, item)
+    task_update = item.get("task_status_update", {})
+    if isinstance(task_update, dict):
+        receipt_path = str(task_update.get("receipt_path", ""))
+        resolved = _resolve_scoped_path(project_root, receipt_path)
+        if resolved is not None:
+            writes.discard(_display_path(project_root, resolved))
+    return writes
+
+
+def _parallel_group_key(item: dict[str, Any]) -> tuple[Any, ...]:
+    isolation = item.get("isolation", {})
+    if not isinstance(isolation, dict):
+        return ()
+    topo_layer = isolation.get("topo_layer")
+    topo_layers_value = isolation.get("topo_layers", []) or []
+    if topo_layer is not None:
+        topo_layers = (topo_layer,)
+    else:
+        topo_layers = tuple(topo_layers_value)
+    phases = tuple(isolation.get("phases", []) or [])
+    if topo_layers:
+        return ("topo_layers", topo_layers)
+    if phases:
+        return ("phases", phases)
+    return ()
+
+
+def _schedule_parallel_layers(
+    project_root: Path, items: list[dict[str, Any]]
+) -> list[list[dict[str, Any]]]:
+    layers: list[list[dict[str, Any]]] = []
+    current_safe_block: list[dict[str, Any]] = []
+    current_group_key: tuple[Any, ...] | None = None
+
+    def flush_safe_block() -> None:
+        nonlocal current_safe_block, current_group_key
+        if current_safe_block:
+            layers.extend(_schedule_safe_block(project_root, current_safe_block))
+            current_safe_block = []
+            current_group_key = None
+
+    for item in items:
+        if item.get("isolation", {}).get("parallelism") != "safe":
+            flush_safe_block()
+            layers.append([item])
+            continue
+        group_key = _parallel_group_key(item)
+        if current_group_key is None:
+            current_group_key = group_key
+        elif group_key != current_group_key:
+            flush_safe_block()
+            current_group_key = group_key
+        current_safe_block.append(item)
+
+    flush_safe_block()
+    return layers
+
+
+def _schedule_safe_block(
+    project_root: Path, items: list[dict[str, Any]]
+) -> list[list[dict[str, Any]]]:
+    remaining = list(items)
+    layers: list[list[dict[str, Any]]] = []
+    while remaining:
+        layer: list[dict[str, Any]] = []
+        layer_writes: set[str] = set()
+        next_remaining: list[dict[str, Any]] = []
+        for item in remaining:
+            writes = _safe_parallel_writes(project_root, item)
+            if _paths_overlap(layer_writes, writes):
+                next_remaining.append(item)
+                continue
+            layer.append(item)
+            layer_writes.update(writes)
+        layers.append(layer)
+        remaining = next_remaining
+    return layers
+
+
+def _schedule_parallel_layer_ids(
+    project_root: Path, items: list[dict[str, Any]]
+) -> list[list[str]]:
+    return [
+        [str(item.get("shard_id", "")) for item in layer]
+        for layer in _schedule_parallel_layers(project_root, items)
+    ]
 
 
 def _should_dispatch(item: dict[str, Any]) -> bool:
@@ -313,37 +418,8 @@ def _run_logged_subprocess(
 def _build_dispatch_cli_args(
     impl: Any,
     handoff_args: str,
-    project_root: Path,
     model: str | None,
 ) -> list[str] | None:
-    if getattr(impl, "key", "") == "copilot":
-        skills_mode = bool(getattr(impl, "_skills_mode", False))
-        skills_dir = project_root / ".github" / "skills"
-        if not skills_mode and skills_dir.is_dir():
-            skills_mode = any(
-                path.is_dir() and (path / "SKILL.md").is_file()
-                for path in skills_dir.glob("speckit-*")
-            )
-
-        if skills_mode:
-            prompt = "/speckit-implement"
-            if handoff_args:
-                prompt = f"{prompt} {handoff_args}"
-            cli_args = ["copilot", "-p", prompt]
-        else:
-            cli_args = [
-                "copilot",
-                "-p",
-                handoff_args,
-                "--agent",
-                "speckit.implement",
-            ]
-        if _allow_all():
-            cli_args.append("--yolo")
-        if model:
-            cli_args.extend(["--model", model])
-        return cli_args
-
     prompt = impl.build_command_invocation("speckit.implement", handoff_args)
     return impl.build_exec_args(
         prompt,
@@ -400,6 +476,138 @@ def _verify_shard_scope(
     }
 
 
+def _verify_layer_scope(
+    project_root: Path, items: list[dict[str, Any]], before: dict[str, Any]
+) -> dict[str, Any]:
+    allowed_writes: set[str] = set()
+    for item in items:
+        allowed_writes.update(_allowed_write_paths(project_root, item))
+    changed = _changed_files(project_root, before)
+    ignored_paths: set[str] = set()
+    for item in items:
+        handoff_path = _resolve_scoped_path(project_root, str(item.get("handoff_path", "")))
+        if handoff_path is None:
+            continue
+        ignored_paths.add(_display_path(project_root, handoff_path.parent / "logs"))
+    scope_violations = sorted(
+        path
+        for path in changed
+        if not _path_is_allowed(path, allowed_writes)
+        and not any(path == log_dir or path.startswith(f"{log_dir}/") for log_dir in ignored_paths)
+    )
+    return {
+        "shard_ids": [item.get("shard_id") for item in items],
+        "exit_code": 1 if scope_violations else 0,
+        "scope_violations": scope_violations,
+        "task_violations": [],
+    }
+
+
+def _write_task_statuses(tasks_path: Path, completed_task_ids: set[str]) -> list[str]:
+    original = tasks_path.read_text(encoding="utf-8")
+    lines = original.splitlines()
+    updated: list[str] = []
+    marked: list[str] = []
+    for line in lines:
+        match = re_task_status_line(line)
+        if match and match["task_id"] in completed_task_ids:
+            updated.append(f"{match['prefix']}- [x] {match['suffix']}")
+            marked.append(match["task_id"])
+        else:
+            updated.append(line)
+    trailing_newline = "\n" if original.endswith("\n") else ""
+    tasks_path.write_text("\n".join(updated) + trailing_newline, encoding="utf-8")
+    return marked
+
+
+def re_task_status_line(line: str) -> dict[str, str] | None:
+    stripped = line.lstrip()
+    indent = line[: len(line) - len(stripped)]
+    if not stripped.startswith("- [") or "]" not in stripped:
+        return None
+    suffix = stripped.split("]", 1)[1].strip()
+    task_id = suffix.split(maxsplit=1)[0] if suffix else ""
+    if not task_id:
+        return None
+    return {"prefix": indent, "task_id": task_id, "suffix": suffix}
+
+
+def _commit_task_receipt(
+    project_root: Path, tasks_path: Path, item: dict[str, Any]
+) -> dict[str, Any]:
+    task_update = item.get("task_status_update")
+    if not isinstance(task_update, dict) or task_update.get("mode") != "receipt":
+        return {
+            "exit_code": 1,
+            "error": "Shard is missing receipt-based task_status_update.",
+        }
+    receipt_path = _resolve_scoped_path(project_root, str(task_update.get("receipt_path", "")))
+    if receipt_path is None or not receipt_path.is_file():
+        return {
+            "exit_code": 1,
+            "error": "Shard completion receipt was not written.",
+            "receipt_path": str(task_update.get("receipt_path", "")),
+        }
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return {
+            "exit_code": 1,
+            "error": f"Failed to read shard completion receipt: {exc}",
+            "receipt_path": str(receipt_path),
+        }
+    if receipt.get("contract_type") != "speckit.implement.receipt.v1":
+        return {
+            "exit_code": 1,
+            "error": "Shard completion receipt has an invalid contract_type.",
+            "receipt_path": str(receipt_path),
+        }
+    required_fields = ("contract_type", "shard_id", "task_ids", "completed_task_ids")
+    missing_fields = [field for field in required_fields if field not in receipt]
+    if missing_fields:
+        return {
+            "exit_code": 1,
+            "error": "Shard completion receipt is missing required field(s).",
+            "missing_fields": missing_fields,
+            "receipt_path": str(receipt_path),
+        }
+    if str(receipt.get("shard_id", "")) != str(item.get("shard_id", "")):
+        return {
+            "exit_code": 1,
+            "error": "Shard completion receipt shard_id does not match handoff.",
+            "receipt_path": str(receipt_path),
+        }
+
+    receipt_task_ids = [str(task_id) for task_id in receipt.get("task_ids", [])]
+    handoff_task_ids = [str(task_id) for task_id in item.get("task_ids", [])]
+    if receipt_task_ids != handoff_task_ids:
+        return {
+            "exit_code": 1,
+            "error": "Shard completion receipt task_ids do not match handoff.",
+            "receipt_path": str(receipt_path),
+        }
+
+    allowed_task_ids = set(handoff_task_ids)
+    completed_task_ids = {
+        str(task_id) for task_id in receipt.get("completed_task_ids", [])
+    }
+    invalid_task_ids = sorted(completed_task_ids - allowed_task_ids)
+    if invalid_task_ids:
+        return {
+            "exit_code": 1,
+            "error": "Shard completion receipt lists task IDs outside handoff scope.",
+            "invalid_task_ids": invalid_task_ids,
+            "receipt_path": str(receipt_path),
+        }
+
+    marked = _write_task_statuses(tasks_path, completed_task_ids)
+    return {
+        "exit_code": 0,
+        "receipt_path": str(receipt_path),
+        "completed_task_ids": marked,
+    }
+
+
 def _compact_dispatch_result(result: dict[str, Any]) -> dict[str, Any]:
     compacted = dict(result)
     compacted.pop("stdout_tail", None)
@@ -442,10 +650,6 @@ def _dispatch_item(
             else:
                 import_error = ""
         if import_error:
-            if integration_key == "copilot":
-                return _dispatch_copilot_fallback(
-                    item, project_root, model, import_error, log_dir, heartbeat_interval
-                )
             return {
                 "shard_id": item.get("shard_id"),
                 "exit_code": 1,
@@ -475,7 +679,6 @@ def _dispatch_item(
     cli_args = _build_dispatch_cli_args(
         impl,
         str(item.get("args", "")),
-        project_root,
         model,
     )
     if cli_args is None:
@@ -512,79 +715,6 @@ def _dispatch_item(
             "integration_source": "specify_cli.integrations",
             "timeout": "none",
         },
-    }
-
-
-def _dispatch_copilot_fallback(
-    item: dict[str, Any],
-    project_root: Path,
-    model: str | None,
-    import_error: str,
-    log_dir: Path | None = None,
-    heartbeat_interval: float = 60.0,
-) -> dict[str, Any]:
-    copilot = shutil.which("copilot")
-    if not copilot:
-        return {
-            "shard_id": item.get("shard_id"),
-            "exit_code": 1,
-            "error": "Integration CLI not found on PATH: copilot",
-            "fallback_reason": f"specify_cli import failed: {import_error}",
-        }
-
-    cli_args = [
-        copilot,
-        "-p",
-        str(item.get("args", "")),
-        "--agent",
-        "speckit.implement",
-    ]
-    if _allow_all():
-        cli_args.append("--yolo")
-    if model:
-        cli_args.extend(["--model", model])
-
-    result = _run_logged_subprocess(
-        cli_args,
-        project_root,
-        str(item.get("shard_id", "")),
-        log_dir or project_root / ".specify" / "workflow-preset" / "logs",
-        heartbeat_interval,
-    )
-    return {
-        "shard_id": item.get("shard_id"),
-        "task_type": item.get("task_type"),
-        "executor_type": item.get("executor_type"),
-        "execution_body": item.get("execution_body"),
-        "lifecycle": item.get("lifecycle"),
-        "exit_code": result.get("exit_code", 1),
-        "stdout_tail": result.get("stdout_tail", ""),
-        "stderr_tail": result.get("stderr_tail", ""),
-        "stdout_log_path": result.get("stdout_log_path", ""),
-        "stderr_log_path": result.get("stderr_log_path", ""),
-        "output_truncated": result.get("output_truncated", False),
-        "dispatch_process": {
-            "kind": "subprocess",
-            "command": "copilot",
-            "agent": "speckit.implement",
-            "pid_scope": "independent",
-            "fallback_reason": f"specify_cli import failed: {import_error}",
-            "timeout": "none",
-        },
-    }
-
-
-def _allow_all() -> bool:
-    return os.environ.get("SPECIFY_YOLO", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    } or os.environ.get("GITHUB_COPILOT_CLI_YOLO", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
     }
 
 
@@ -630,13 +760,16 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
     else:
-        for item in output["items"]:
-            if not _should_dispatch(item):
+        tasks_path = Path(str(output["tasks_path"]))
+        items_by_id = {str(item.get("shard_id")): item for item in output["items"]}
+        for layer in _schedule_parallel_layers(project_root, output["items"]):
+            blocked = [item for item in layer if not _should_dispatch(item)]
+            if blocked:
                 result = {
-                    "shard_id": item.get("shard_id"),
+                    "shard_id": blocked[0].get("shard_id"),
                     "exit_code": 1,
                     "error": "Shard has blocking context gaps.",
-                    "context_gaps": item.get("context_gaps", []),
+                    "context_gaps": blocked[0].get("context_gaps", []),
                 }
                 results.append(result)
                 print(
@@ -650,7 +783,7 @@ def main(argv: list[str] | None = None) -> int:
                     json.dumps(
                         {
                             "error": "Shard dispatch blocked.",
-                            "failed_shard": item.get("shard_id"),
+                            "failed_shard": blocked[0].get("shard_id"),
                             "detail": result["error"],
                         },
                         sort_keys=True,
@@ -658,22 +791,58 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 1
-            before = _capture_workspace_state(project_root, item)
-            result = _dispatch_item(
-                item,
-                parsed.integration,
-                project_root,
-                parsed.model.strip() or None,
-                Path(str(item.get("handoff_path", ""))).parent / "logs",
+
+            before = _capture_workspace_state(project_root, {"allowed_write_paths": []})
+            layer_results: dict[str, dict[str, Any]] = {}
+            worker_count = len(layer)
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = {
+                    executor.submit(
+                        _dispatch_item,
+                        item,
+                        parsed.integration,
+                        project_root,
+                        parsed.model.strip() or None,
+                        Path(str(item.get("handoff_path", ""))).parent / "logs",
+                    ): str(item.get("shard_id"))
+                    for item in layer
+                }
+                for future in as_completed(futures):
+                    shard_id = futures[future]
+                    layer_results[shard_id] = future.result()
+
+            ordered_layer_results = [
+                layer_results[str(item.get("shard_id"))] for item in layer
+            ]
+            failed = next(
+                (result for result in ordered_layer_results if result.get("exit_code") != 0),
+                None,
             )
-            if result.get("exit_code") == 0:
-                verification = _verify_shard_scope(project_root, item, before)
-                result["post_dispatch_verification"] = verification
+
+            if failed is None:
+                verification = _verify_layer_scope(project_root, layer, before)
+                for result in ordered_layer_results:
+                    result["post_dispatch_verification"] = verification
                 if verification["exit_code"] != 0:
-                    result["exit_code"] = verification["exit_code"]
-                    result["error"] = "Shard modified files or task statuses outside its handoff scope."
-            results.append(result)
-            if result.get("exit_code") != 0:
+                    failed = ordered_layer_results[0]
+                    failed["exit_code"] = verification["exit_code"]
+                    failed["error"] = (
+                        "Shard layer modified files outside its combined handoff scope."
+                    )
+
+            if failed is None:
+                for result in ordered_layer_results:
+                    item = items_by_id[str(result.get("shard_id"))]
+                    commit = _commit_task_receipt(project_root, tasks_path, item)
+                    result["task_status_commit"] = commit
+                    if commit["exit_code"] != 0:
+                        result["exit_code"] = commit["exit_code"]
+                        result["error"] = commit["error"]
+                        failed = result
+                        break
+
+            results.extend(ordered_layer_results)
+            if failed is not None:
                 print(
                     json.dumps(
                         _output_with_dispatch_results(output, results),
@@ -685,16 +854,16 @@ def main(argv: list[str] | None = None) -> int:
                     json.dumps(
                         {
                             "error": "Shard dispatch failed.",
-                            "failed_shard": result.get("shard_id"),
-                            "detail": result.get("error") or result.get("stderr_tail"),
-                            "stdout_log_path": result.get("stdout_log_path"),
-                            "stderr_log_path": result.get("stderr_log_path"),
+                            "failed_shard": failed.get("shard_id"),
+                            "detail": failed.get("error") or failed.get("stderr_tail"),
+                            "stdout_log_path": failed.get("stdout_log_path"),
+                            "stderr_log_path": failed.get("stderr_log_path"),
                         },
                         sort_keys=True,
                     ),
                     file=sys.stderr,
                 )
-                return int(result.get("exit_code") or 1)
+                return int(failed.get("exit_code") or 1)
 
     print(
         json.dumps(

@@ -179,6 +179,9 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("cleanup -> cleanup-worker", command)
         self.assertIn("fresh process", command)
         self.assertIn("fresh context", command)
+        self.assertIn("Do not edit `tasks.md`", command)
+        self.assertIn("speckit.implement.receipt.v1", command)
+        self.assertIn("isolation.parallelism", command)
         self.assertNotIn("Heartbeat", command)
         self.assertNotIn("300 seconds", command)
 
@@ -250,6 +253,9 @@ class PresetContractTests(unittest.TestCase):
                 sys.modules["specify_cli.integrations"] = previous_integrations
 
         self.assertEqual(False, calls["output_json"])
+        self.assertEqual("speckit.implement", calls["command_name"])
+        self.assertEqual("Use handoff JSON demo.json", calls["args"])
+        self.assertEqual("/speckit.implement Use handoff JSON demo.json", calls["prompt"])
         self.assertEqual("none", result["dispatch_process"]["timeout"])
 
     def test_logged_subprocess_writes_full_output_without_echoing_to_main_stdout(self) -> None:
@@ -379,96 +385,83 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("stderr_tail", compacted)
         self.assertLessEqual(len(compacted["stderr_tail"]), 2000)
 
-    def test_build_dispatch_cli_args_preserves_copilot_agent_dispatch(self) -> None:
+    def test_build_dispatch_cli_args_uses_integration_framework_for_all_agents(self) -> None:
         module = load_orchestrated_implement()
+        calls: dict[str, object] = {}
 
-        class FakeCopilotIntegration:
+        class FakeIntegration:
             key = "copilot"
-            _skills_mode = False
+
+            def build_command_invocation(self, command_name: str, args: str = "") -> str:
+                calls["command_name"] = command_name
+                calls["args"] = args
+                return f"integration-native:{command_name}:{args}"
+
+            def build_exec_args(
+                self,
+                prompt: str,
+                *,
+                model: str | None = None,
+                output_json: bool = True,
+            ) -> list[str]:
+                calls["prompt"] = prompt
+                calls["model"] = model
+                calls["output_json"] = output_json
+                return ["copilot", "run", prompt, "--model", model or ""]
 
         args = module._build_dispatch_cli_args(
-            FakeCopilotIntegration(),
+            FakeIntegration(),
             "Use handoff JSON demo.json",
-            Path("/tmp/project"),
             "demo-model",
         )
 
         self.assertEqual(
             [
                 "copilot",
-                "-p",
-                "Use handoff JSON demo.json",
-                "--agent",
-                "speckit.implement",
+                "run",
+                "integration-native:speckit.implement:Use handoff JSON demo.json",
                 "--model",
                 "demo-model",
             ],
             args,
         )
+        self.assertEqual("speckit.implement", calls["command_name"])
+        self.assertEqual("Use handoff JSON demo.json", calls["args"])
+        self.assertEqual(
+            "integration-native:speckit.implement:Use handoff JSON demo.json",
+            calls["prompt"],
+        )
+        self.assertEqual(False, calls["output_json"])
 
-    def test_copilot_fallback_uses_streaming_without_timeout(self) -> None:
+    def test_dispatch_requires_spec_kit_integrations_without_agent_fallback(self) -> None:
         module = load_orchestrated_implement()
-        original_which = module.shutil.which
-        original_run_logged = module._run_logged_subprocess
-        calls: dict[str, object] = {}
+        original_add_site_packages = module._add_specify_tool_site_packages
 
-        def fake_which(name: str) -> str | None:
-            return "/usr/bin/copilot" if name == "copilot" else original_which(name)
+        def fake_add_site_packages() -> bool:
+            return False
 
-        def fake_run_logged(
-            cli_args: list[str],
-            project_root: Path,
-            shard_id: str,
-            log_dir: Path,
-            heartbeat_interval: float,
-        ) -> dict[str, object]:
-            calls["cli_args"] = cli_args
-            calls["project_root"] = project_root
-            calls["shard_id"] = shard_id
-            calls["log_dir"] = log_dir
-            calls["heartbeat_interval"] = heartbeat_interval
-            return {
-                "exit_code": 0,
-                "stdout_tail": "fallback ok",
-                "stderr_tail": "",
-                "stdout_log_path": str(log_dir / "S01-implementation-01.stdout.log"),
-                "stderr_log_path": str(log_dir / "S01-implementation-01.stderr.log"),
-                "output_truncated": False,
-            }
-
-        module.shutil.which = fake_which
-        module._run_logged_subprocess = fake_run_logged
+        module._add_specify_tool_site_packages = fake_add_site_packages
+        previous_package = sys.modules.pop("specify_cli", None)
+        previous_integrations = sys.modules.pop("specify_cli.integrations", None)
         try:
             with tempfile.TemporaryDirectory() as tmp:
-                result = module._dispatch_copilot_fallback(
+                result = module._dispatch_item(
                     {"shard_id": "S01-implementation-01", "args": "Use handoff JSON demo.json"},
+                    "copilot",
                     Path(tmp),
                     "demo-model",
-                    "missing specify_cli",
                     Path(tmp) / "logs",
                     heartbeat_interval=60.0,
                 )
         finally:
-            module.shutil.which = original_which
-            module._run_logged_subprocess = original_run_logged
+            module._add_specify_tool_site_packages = original_add_site_packages
+            if previous_package is not None:
+                sys.modules["specify_cli"] = previous_package
+            if previous_integrations is not None:
+                sys.modules["specify_cli.integrations"] = previous_integrations
 
-        self.assertEqual(0, result["exit_code"])
-        self.assertEqual("fallback ok", result["stdout_tail"])
-        self.assertNotIn("stdout", result)
-        self.assertNotIn("stderr", result)
-        self.assertEqual(
-            [
-                "/usr/bin/copilot",
-                "-p",
-                "Use handoff JSON demo.json",
-                "--agent",
-                "speckit.implement",
-                "--model",
-                "demo-model",
-            ],
-            calls["cli_args"],
-        )
-        self.assertEqual("none", result["dispatch_process"]["timeout"])
+        self.assertEqual(1, result["exit_code"])
+        self.assertIn("Unable to import Spec Kit integrations", result["error"])
 
     def test_workflow_uses_workflow_preset_install_path(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -638,6 +631,237 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual(output["item_count"], calls["shard_count"])
         self.assertGreaterEqual(calls["max_workers"], 2)
 
+    def test_shard_handoff_uses_receipt_instead_of_tasks_md_write_access(self) -> None:
+        module = load_build_task_shards()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            feature_dir = project_root / "specs" / "001-demo"
+            (project_root / ".specify").mkdir(parents=True)
+            feature_dir.mkdir(parents=True)
+            (project_root / ".specify" / "feature.json").write_text(
+                json.dumps({"feature_directory": "specs/001-demo"}) + "\n",
+                encoding="utf-8",
+            )
+            (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+            (feature_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
+            (feature_dir / "tasks.md").write_text(
+                "# Tasks\n\n- [ ] T001 Implement demo in `src/demo.py`\n",
+                encoding="utf-8",
+            )
+
+            output = module.TaskShardBuilder.build(project_root, "", 4, "run")
+
+            item = output["items"][0]
+            payload = json.loads(Path(item["handoff_path"]).read_text(encoding="utf-8"))
+            self.assertNotIn("specs/001-demo/tasks.md", item["allowed_write_paths"])
+            self.assertIn("specs/001-demo/tasks.md", item["allowed_read_paths"])
+            self.assertIn("task_status_update", item)
+            self.assertEqual("receipt", item["task_status_update"]["mode"])
+            self.assertEqual("orchestrator", item["task_status_update"]["committer"])
+            self.assertIn(
+                item["task_status_update"]["receipt_path"],
+                item["allowed_write_paths"],
+            )
+            self.assertEqual(item["task_status_update"], payload["task_status_update"])
+
+    def test_orchestrator_commits_completed_task_receipt_as_single_tasks_writer(self) -> None:
+        module = load_orchestrated_implement()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            feature_dir = project_root / "specs" / "001-demo"
+            receipt_path = feature_dir / "handoffs" / "implement" / "run" / "results" / "S01.json"
+            feature_dir.mkdir(parents=True)
+            receipt_path.parent.mkdir(parents=True)
+            tasks_path = feature_dir / "tasks.md"
+            tasks_path.write_text(
+                "# Tasks\n\n"
+                "- [ ] T001 Implement demo in `src/demo.py`\n"
+                "- [ ] T002 Implement other in `src/other.py`\n",
+                encoding="utf-8",
+            )
+            receipt_path.write_text(
+                json.dumps(
+                    {
+                        "contract_type": "speckit.implement.receipt.v1",
+                        "shard_id": "S01-implementation-01",
+                        "task_ids": ["T001"],
+                        "completed_task_ids": ["T001"],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            item = {
+                "shard_id": "S01-implementation-01",
+                "task_ids": ["T001"],
+                "task_status_update": {
+                    "mode": "receipt",
+                    "receipt_path": "specs/001-demo/handoffs/implement/run/results/S01.json",
+                    "committer": "orchestrator",
+                },
+            }
+
+            commit = module._commit_task_receipt(project_root, tasks_path, item)
+
+            self.assertEqual(0, commit["exit_code"])
+            self.assertEqual(["T001"], commit["completed_task_ids"])
+            updated = tasks_path.read_text(encoding="utf-8")
+            self.assertIn("- [x] T001 Implement demo", updated)
+            self.assertIn("- [ ] T002 Implement other", updated)
+
+    def test_parallel_scheduler_groups_only_non_overlapping_write_paths(self) -> None:
+        module = load_orchestrated_implement()
+
+        items = [
+            {
+                "shard_id": "S01",
+                "allowed_write_paths": ["src/a.py"],
+                "isolation": {"parallelism": "safe"},
+            },
+            {
+                "shard_id": "S02",
+                "allowed_write_paths": ["src/b.py"],
+                "isolation": {"parallelism": "safe"},
+            },
+            {
+                "shard_id": "S03",
+                "allowed_write_paths": ["src"],
+                "isolation": {"parallelism": "safe"},
+            },
+            {
+                "shard_id": "S04",
+                "allowed_write_paths": ["docs/readme.md"],
+                "isolation": {"parallelism": "safe"},
+            },
+        ]
+
+        layers = module._schedule_parallel_layer_ids(Path("/tmp/project"), items)
+
+        self.assertEqual([["S01", "S02", "S04"], ["S03"]], layers)
+
+    def test_parallel_scheduler_does_not_cross_sequential_barriers(self) -> None:
+        module = load_orchestrated_implement()
+
+        items = [
+            {
+                "shard_id": "S01",
+                "allowed_write_paths": ["src/a.py"],
+                "isolation": {"parallelism": "safe"},
+            },
+            {
+                "shard_id": "S02",
+                "allowed_write_paths": ["src/setup.py"],
+                "isolation": {"parallelism": "none"},
+            },
+            {
+                "shard_id": "S03",
+                "allowed_write_paths": ["src/b.py"],
+                "isolation": {"parallelism": "safe"},
+            },
+        ]
+
+        layers = module._schedule_parallel_layer_ids(Path("/tmp/project"), items)
+
+        self.assertEqual([["S01"], ["S02"], ["S03"]], layers)
+
+    def test_parallel_scheduler_does_not_cross_manifest_topo_layers(self) -> None:
+        module = load_orchestrated_implement()
+
+        items = [
+            {
+                "shard_id": "S01",
+                "allowed_write_paths": ["src/a.py"],
+                "isolation": {"parallelism": "safe", "topo_layer": 1},
+            },
+            {
+                "shard_id": "S02",
+                "allowed_write_paths": ["src/b.py"],
+                "isolation": {"parallelism": "safe", "topo_layer": 2},
+            },
+        ]
+
+        layers = module._schedule_parallel_layer_ids(Path("/tmp/project"), items)
+
+        self.assertEqual([["S01"], ["S02"]], layers)
+
+    def test_layer_scope_ignores_orchestrator_log_files(self) -> None:
+        module = load_orchestrated_implement()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            log_dir = (
+                project_root
+                / "specs"
+                / "001-demo"
+                / "handoffs"
+                / "implement"
+                / "run"
+                / "logs"
+            )
+            src_dir = project_root / "src"
+            log_dir.mkdir(parents=True)
+            src_dir.mkdir(parents=True)
+
+            item = {
+                "shard_id": "S01",
+                "handoff_path": "specs/001-demo/handoffs/implement/run/S01.json",
+                "allowed_write_paths": ["src/a.py"],
+            }
+            before = module._capture_workspace_state(
+                project_root, {"allowed_write_paths": []}
+            )
+
+            (src_dir / "a.py").write_text("# changed\n", encoding="utf-8")
+            (log_dir / "S01.stdout.log").write_text("hello\n", encoding="utf-8")
+
+            verification = module._verify_layer_scope(project_root, [item], before)
+
+            self.assertEqual(0, verification["exit_code"])
+            self.assertEqual([], verification["scope_violations"])
+
+    def test_orchestrator_rejects_receipt_missing_required_task_fields(self) -> None:
+        module = load_orchestrated_implement()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp) / "project"
+            feature_dir = project_root / "specs" / "001-demo"
+            receipt_path = (
+                feature_dir / "handoffs" / "implement" / "run" / "results" / "S01.json"
+            )
+            receipt_path.parent.mkdir(parents=True)
+            tasks_path = feature_dir / "tasks.md"
+            tasks_path.write_text(
+                "# Tasks\n\n- [ ] T001 Implement demo in `src/demo.py`\n",
+                encoding="utf-8",
+            )
+            receipt_path.write_text(
+                json.dumps(
+                    {
+                        "contract_type": "speckit.implement.receipt.v1",
+                        "shard_id": "S01-implementation-01",
+                        "completed_task_ids": ["T001"],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            item = {
+                "shard_id": "S01-implementation-01",
+                "task_ids": ["T001"],
+                "task_status_update": {
+                    "mode": "receipt",
+                    "receipt_path": "specs/001-demo/handoffs/implement/run/results/S01.json",
+                    "committer": "orchestrator",
+                },
+            }
+
+            commit = module._commit_task_receipt(project_root, tasks_path, item)
+
+            self.assertEqual(1, commit["exit_code"])
+            self.assertIn("missing required field", commit["error"])
+
     def test_shards_classify_tasks_and_executor_profiles(self) -> None:
         module = load_build_task_shards()
 
@@ -695,7 +919,8 @@ class PresetContractTests(unittest.TestCase):
                 self.assertEqual("fresh", item["isolation"]["process"])
                 self.assertEqual("fresh", item["isolation"]["context"])
                 self.assertEqual("never", item["isolation"]["reuse"])
-                self.assertEqual("none", item["isolation"]["parallelism"])
+                expected_parallelism = "safe" if task_type == "test" else "none"
+                self.assertEqual(expected_parallelism, item["isolation"]["parallelism"])
                 self.assertEqual("created", item["lifecycle"]["state"])
                 self.assertEqual(
                     task_type,

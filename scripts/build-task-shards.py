@@ -119,6 +119,25 @@ class TaskShard:
             "purpose": "Execute a mixed implementation shard with a fresh process and context.",
         }
 
+    @property
+    def safe_parallel(self) -> bool:
+        return bool(self.tasks) and all(task.parallel for task in self.tasks)
+
+    @property
+    def topo_layers(self) -> list[int]:
+        seen: dict[int, None] = {}
+        for task in self.tasks:
+            if task.topo_layer is not None:
+                seen.setdefault(task.topo_layer, None)
+        return list(seen)
+
+    @property
+    def phases(self) -> list[str]:
+        seen: dict[str, None] = {}
+        for task in self.tasks:
+            seen.setdefault(task.phase, None)
+        return list(seen)
+
 
 class TaskShardBuilder:
     """Generate handoff files from the active feature's ``tasks.md``."""
@@ -548,6 +567,8 @@ class TaskShardBuilder:
         def write_one(shard: TaskShard) -> dict[str, Any]:
             handoff_path = handoff_dir / f"{shard.shard_id}.json"
             digest_path = handoff_dir / f"{shard.shard_id}.context.md"
+            receipt_path = handoff_dir / "results" / f"{shard.shard_id}.json"
+            receipt_path.parent.mkdir(parents=True, exist_ok=True)
             digest_text, source_refs, context_gaps, context_notes = cls._context_digest(
                 project_root,
                 feature_dir,
@@ -562,6 +583,7 @@ class TaskShardBuilder:
                 handoff_path,
                 index_path,
                 digest_path,
+                receipt_path,
                 source_refs,
                 context_gaps,
                 context_notes,
@@ -587,6 +609,7 @@ class TaskShardBuilder:
                 "allowed_read_paths": payload["allowed_read_paths"],
                 "allowed_write_paths": payload["allowed_write_paths"],
                 "scope": payload["scope"],
+                "task_status_update": payload["task_status_update"],
                 "validation_commands": payload["validation_commands"],
                 "task_ids": shard.task_ids,
                 "task_classification": payload["task_classification"],
@@ -606,6 +629,7 @@ class TaskShardBuilder:
         handoff_path: Path,
         index_path: Path,
         digest_path: Path,
+        receipt_path: Path,
         source_refs: list[dict[str, Any]],
         context_gaps: list[str],
         context_notes: list[str],
@@ -613,11 +637,12 @@ class TaskShardBuilder:
         feature_ref = cls._display_path(project_root, feature_dir)
         index_ref = cls._display_path(project_root, index_path)
         digest_ref = cls._display_path(project_root, digest_path)
+        receipt_ref = cls._display_path(project_root, receipt_path)
         tasks_ref = cls._display_path(project_root, feature_dir / "tasks.md")
         allowed_read_paths = list(
             dict.fromkeys([digest_ref, index_ref, tasks_ref, *shard.paths])
         )
-        allowed_write_paths = list(dict.fromkeys([tasks_ref, *shard.paths]))
+        allowed_write_paths = list(dict.fromkeys([receipt_ref, *shard.paths]))
         executor_profile = shard.executor_profile
 
         return {
@@ -640,7 +665,9 @@ class TaskShardBuilder:
                 "process": "fresh",
                 "context": "fresh",
                 "reuse": "never",
-                "parallelism": "none",
+                "parallelism": "safe" if shard.safe_parallel else "none",
+                "topo_layers": shard.topo_layers,
+                "phases": shard.phases,
             },
             "execution_body": {
                 "kind": "independent_cli_invocation",
@@ -667,13 +694,25 @@ class TaskShardBuilder:
                 "write": allowed_write_paths,
                 "validation": shard.validation_commands,
             },
+            "task_status_update": {
+                "mode": "receipt",
+                "receipt_path": receipt_ref,
+                "committer": "orchestrator",
+                "contract_type": "speckit.implement.receipt.v1",
+                "required_fields": [
+                    "contract_type",
+                    "shard_id",
+                    "task_ids",
+                    "completed_task_ids",
+                ],
+            },
             "required_context_refs": [digest_ref],
             "source_refs": source_refs,
             "context_gaps": context_gaps,
             "context_notes": context_notes,
             "validation_commands": shard.validation_commands,
             "forbidden_actions": [
-                "Do not modify tasks outside task_ids.",
+                "Do not modify tasks.md; write the task_status_update receipt only after validation passes.",
                 "Do not modify paths outside allowed_write_paths unless the task explicitly requires a generated adjacent file.",
                 "Do not read full spec.md, plan.md, or contracts by default; request a narrower digest when context_gaps are present.",
                 "Do not revert user changes or unrelated work.",

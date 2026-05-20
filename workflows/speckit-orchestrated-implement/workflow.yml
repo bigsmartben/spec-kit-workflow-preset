@@ -17,7 +17,7 @@ inputs:
   model:
     type: string
     default: ""
-    prompt: "Optional model passed to the integration CLI"
+    prompt: "Optional model passed to the Spec Kit integration"
   args:
     type: string
     default: ""
