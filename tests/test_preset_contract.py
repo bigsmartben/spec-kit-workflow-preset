@@ -425,6 +425,11 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual(command_name, command["replaces"])
             self.assertEqual("wrap", command["strategy"])
 
+        self.assertEqual(
+            "Wrap core planning with optional class and sequence design artifacts",
+            entries["speckit.plan"]["description"],
+        )
+
         for command_name in (
             "speckit.specify",
             "speckit.clarify",

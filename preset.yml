@@ -52,7 +52,7 @@ provides:
     - type: "command"
       name: "speckit.plan"
       file: "commands/speckit.plan.md"
-      description: "Wrap core planning with optional class, sequence, and test design artifacts"
+      description: "Wrap core planning with optional class and sequence design artifacts"
       replaces: "speckit.plan"
       strategy: "wrap"
 
