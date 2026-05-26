@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Hardened implementation handoff isolation with runtime-neutral execution modes, subagent/subsession dispatch policy, and validator checks for empty tasks, context gaps, overlapping write ownership, and must-not-touch conflicts.
+
 ## 1.2.0
 
 - Removed the standalone test strategy artifact from the current contract; `/speckit.tasks` now derives test level, fixture/mock/sandbox strategy, and validation evidence requirements from behavior contracts, interface contracts, `research.md`, and `quickstart.md`.
