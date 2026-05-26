@@ -148,7 +148,6 @@ def _receipt_references_behavior_evidence(receipt: dict[str, Any]) -> bool:
 def validate_behavior_draft_contract(
     scenarios_draft: dict[str, Any],
     data_fixtures_intent: dict[str, Any],
-    open_questions: dict[str, Any] | None = None,
 ) -> None:
     scenarios = scenarios_draft.get("scenarios", [])
     if not scenarios:
@@ -177,19 +176,6 @@ def validate_behavior_draft_contract(
         for scenario_id in fixture.get("required_for", []):
             if scenario_id not in scenario_ids:
                 raise ValueError(f"fixture required_for references unknown scenario: {scenario_id}")
-
-    if open_questions is None:
-        return
-
-    _duplicate_ids(
-        open_questions.get("questions", []),
-        key="id",
-        context="behavior open questions",
-    )
-    for question in open_questions.get("questions", []):
-        target = question.get("target")
-        if target and str(target).startswith("SCN-") and target not in scenario_ids:
-            raise ValueError(f"open question targets unknown scenario: {target}")
 
 
 def validate_behavior_contract_bundle(
