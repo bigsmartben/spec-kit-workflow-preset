@@ -391,7 +391,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.1.0", data["preset"]["version"])
+        self.assertEqual("1.2.0", data["preset"]["version"])
         self.assertEqual(
             "Behavior-first specification, design artifacts, and agent-native handoff orchestration",
             data["preset"]["description"],
@@ -1290,6 +1290,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
         self.assertIn("PyYAML", requirements)
         self.assertIn("jsonschema", requirements)
+        self.assertIn("## 1.2.0", changelog)
         self.assertIn("## 1.1.0", changelog)
         self.assertIn("## 1.0.3", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)
