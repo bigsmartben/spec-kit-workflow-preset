@@ -47,9 +47,6 @@ BEHAVIOR_SCHEMA_PATHS = {
     "speckit.behavior.data_fixtures.intent.v1": REPO_ROOT
     / "schemas"
     / "speckit.behavior.data-fixtures.intent.v1.schema.json",
-    "speckit.behavior.open_questions.v1": REPO_ROOT
-    / "schemas"
-    / "speckit.behavior.open-questions.v1.schema.json",
     "speckit.behavior.uif.expected.v1": REPO_ROOT
     / "schemas"
     / "speckit.behavior.uif.expected.v1.schema.json",
@@ -74,10 +71,6 @@ BEHAVIOR_TEMPLATE_PATHS = {
     / "templates"
     / "behavior"
     / "data-fixtures-intent.json",
-    "behavior-open-questions-template": REPO_ROOT
-    / "templates"
-    / "behavior"
-    / "open-questions.json",
     "behavior-testability-checklist-template": REPO_ROOT
     / "templates"
     / "behavior"
@@ -269,7 +262,7 @@ def minimal_behavior_scenarios_draft() -> dict:
                 "given": ["FIX-BUYER"],
                 "when": ["click_refund", "submit_refund"],
                 "then": ["show_refund_submitted"],
-                "source": "specify",
+                "source": "plan-phase-0",
             }
         ],
     }
@@ -300,21 +293,6 @@ def minimal_data_fixtures_intent() -> dict:
                 "description": "Buyer user",
                 "required_for": ["SCN-001"],
                 "required_states": {"user.role": "buyer"},
-            }
-        ],
-    }
-
-
-def minimal_open_questions() -> dict:
-    return {
-        "contract_type": "speckit.behavior.open_questions.v1",
-        "questions": [
-            {
-                "id": "Q-001",
-                "target": "SCN-001",
-                "question": "Which refund status is visible after submission?",
-                "reason": "Then assertions require precise state.",
-                "status": "open",
             }
         ],
     }
@@ -411,8 +389,10 @@ class PresetContractTests(unittest.TestCase):
         )
 
         provides = data["provides"]["templates"]
-        self.assertEqual(30, len(provides))
+        self.assertEqual(28, len(provides))
         entries = {entry["name"]: entry for entry in provides}
+        self.assertNotIn("behavior-open-questions-template", entries)
+        self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
 
         plan_template = entries["plan-template"]
         self.assertEqual("template", plan_template["type"])
@@ -428,8 +408,20 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual("wrap", command["strategy"])
 
         self.assertEqual(
-            "Wrap core planning with optional class and sequence design artifacts",
+            "Wrap core planning with Phase 0 behavior projection and optional design artifacts",
             entries["speckit.plan"]["description"],
+        )
+        self.assertEqual(
+            "Wrap core specification with spec-only requirement ownership",
+            entries["speckit.specify"]["description"],
+        )
+        self.assertEqual(
+            "Wrap core clarification with spec-only ambiguity resolution",
+            entries["speckit.clarify"]["description"],
+        )
+        self.assertEqual(
+            "Wrap core checklist generation with BDD readiness gate",
+            entries["speckit.checklist"]["description"],
         )
 
         for command_name in (
@@ -549,31 +541,59 @@ class PresetContractTests(unittest.TestCase):
             self.assertIn("{CORE_TEMPLATE}", command)
             self.assertIn("strategy: wrap", command)
 
-        self.assertIn("behavior/bdd.draft.feature", specify)
-        self.assertIn("behavior/behavior-scenarios.draft.json", specify)
-        self.assertIn("behavior/uif.intent.json", specify)
-        self.assertIn("behavior/data-fixtures.intent.json", specify)
-        self.assertIn("behavior/open-questions.json", specify)
-        self.assertIn("requirement-phase behavior drafts", specify)
-        self.assertIn("Scenario type coverage", specify)
-        self.assertIn("positive, negative, boundary, permission, validation, and state_conflict", specify)
-        self.assertIn("Given/When/Then mapping", specify)
-        self.assertIn("Given maps to fixture, actor, starting view, or state", specify)
-        self.assertIn("When maps to user event, request intent, or system trigger", specify)
-        self.assertIn("Then maps to feedback, business state, error, or assertion intent", specify)
+        self.assertIn("Spec-Only Requirement Policy", specify)
+        self.assertIn("produce or update `spec.md` only", specify)
+        self.assertIn("This command writes only `spec.md`", specify)
+        self.assertIn("Product requirements stay in `spec.md`", specify)
+        self.assertIn("report the `spec.md` sections created or updated", specify)
+        for forbidden in (
+            "/speckit.plan",
+            "/speckit.checklist",
+            "behavior/bdd.draft.feature",
+            "behavior/behavior-scenarios.draft.json",
+            "behavior/uif.intent.json",
+            "behavior/data-fixtures.intent.json",
+            "behavior/open-questions.json",
+            "formal behavior contracts",
+            "interface schemas",
+            "validation commands",
+            "task plans",
+            "design artifacts",
+        ):
+            self.assertNotIn(forbidden, specify)
         self.assertNotIn("contracts/bdd/", specify)
         self.assertNotIn("contracts/uif/", specify)
 
-        self.assertIn("behavior/open-questions.json", clarify)
-        self.assertIn("Given", clarify)
-        self.assertIn("When", clarify)
-        self.assertIn("Then", clarify)
+        self.assertIn("Spec-Only Clarification Policy", clarify)
+        self.assertIn("Use `spec.md` as the clarification source", clarify)
+        self.assertIn("Do not read or update behavior draft artifacts", clarify)
+        self.assertIn("Product requirements stay in `spec.md`", clarify)
         self.assertIn("only after user-provided answers", clarify)
+        for forbidden in (
+            "behavior/bdd.draft.feature",
+            "behavior/behavior-scenarios.draft.json",
+            "behavior/uif.intent.json",
+            "behavior/data-fixtures.intent.json",
+            "behavior/open-questions.json",
+        ):
+            self.assertNotIn(forbidden, clarify)
 
+        self.assertIn("BDD Readiness Gate", checklist)
         self.assertIn("checklists/behavior-testability.md", checklist)
+        self.assertIn("directly from `spec.md`", checklist)
+        self.assertIn("plan-entry quality gate", checklist)
+        self.assertIn("Do not proceed to `/speckit.plan`", checklist)
+        self.assertIn("Return to `/speckit.clarify` or `/speckit.specify`", checklist)
+        self.assertIn("User Story Readiness", checklist)
+        self.assertIn("Acceptance Criteria Quality", checklist)
         self.assertIn("Scenario Coverage", checklist)
-        self.assertIn("Given Quality", checklist)
-        self.assertIn("Then Quality", checklist)
+        self.assertIn("Given Readiness", checklist)
+        self.assertIn("When Readiness", checklist)
+        self.assertIn("Then Readiness", checklist)
+        self.assertIn("Gate Status", checklist)
+        self.assertIn("PASS", checklist)
+        self.assertIn("BLOCKED", checklist)
+        self.assertIn("Blocking Items", checklist)
         self.assertIn("checklist artifacts only", checklist)
 
     def test_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
@@ -604,6 +624,24 @@ class PresetContractTests(unittest.TestCase):
         ):
             self.assertIn(term, plan)
 
+        for term in (
+            "Phase 0 Preflight",
+            "Phase 0 Behavior Projection",
+            "checklists/behavior-testability.md has passed",
+            "before core research or design work",
+            "behavior/behavior-scenarios.draft.json",
+            "report-only/no-write failure",
+            "must not create or update behavior artifacts",
+            "Do not discover new requirement problems",
+            "Do not ask clarification questions",
+            "Do not modify `spec.md`",
+            "upstream gate failure",
+            "Return to `/speckit.checklist` or `/speckit.clarify`",
+        ):
+            self.assertIn(term, plan)
+
+        self.assertNotIn("empty, or records only an upstream gate failure", plan)
+        self.assertNotIn("behavior/open-questions.json", plan)
         self.assertNotIn("test-plan.md", plan)
 
         for term in (
@@ -682,7 +720,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("BDD Then steps map to feedback or behavior assertions", analyze)
         self.assertIn("behavior/uif.intent.json is formalized into contracts/uif/*.expected.json", analyze)
         self.assertIn("behavior drafts exist but formal contracts are missing", analyze)
-        self.assertIn("behavior/open-questions.json", analyze)
+        self.assertIn("source draft and missing planning input", analyze)
+        self.assertNotIn("behavior/open-questions.json", analyze)
         self.assertIn("N/A or blocker", analyze)
         self.assertIn("UIF API calls exist in contracts/api/", analyze)
         self.assertIn("behavior contracts cover scenarios, fixtures, and assertions", analyze)
@@ -727,12 +766,29 @@ class PresetContractTests(unittest.TestCase):
             "Behavior Testability Checklist",
             BEHAVIOR_TEMPLATE_PATHS["behavior-testability-checklist-template"].read_text(),
         )
+        behavior_checklist_template = BEHAVIOR_TEMPLATE_PATHS[
+            "behavior-testability-checklist-template"
+        ].read_text(encoding="utf-8")
+        self.assertIn("Gate Status: PASS|BLOCKED", behavior_checklist_template)
+        self.assertIn("Blocking Items:", behavior_checklist_template)
+        self.assertIn("none", behavior_checklist_template)
+        self.assertNotIn(
+            "No unchecked BDD readiness item blocks `/speckit.plan`",
+            behavior_checklist_template,
+        )
+        self.assertFalse((REPO_ROOT / "templates" / "behavior" / "open-questions.json").exists())
+        self.assertFalse(
+            (
+                REPO_ROOT
+                / "schemas"
+                / "speckit.behavior.open-questions.v1.schema.json"
+            ).exists()
+        )
 
         for template_name in (
             "behavior-scenarios-draft-template",
             "behavior-uif-intent-template",
             "behavior-data-fixtures-intent-template",
-            "behavior-open-questions-template",
             "behavior-uif-expected-template",
             "behavior-scenario-instances-template",
             "behavior-data-fixtures-template",
@@ -892,7 +948,6 @@ class PresetContractTests(unittest.TestCase):
             "speckit.behavior.scenarios.draft.v1": minimal_behavior_scenarios_draft(),
             "speckit.behavior.uif.intent.v1": minimal_uif_intent(),
             "speckit.behavior.data_fixtures.intent.v1": minimal_data_fixtures_intent(),
-            "speckit.behavior.open_questions.v1": minimal_open_questions(),
             "speckit.behavior.uif.expected.v1": minimal_uif_expected(),
             "speckit.behavior.scenario_instances.v1": minimal_behavior_scenario_instances(),
             "speckit.behavior.data_fixtures.v1": minimal_behavior_data_fixtures(),
@@ -965,7 +1020,6 @@ class PresetContractTests(unittest.TestCase):
             validate_behavior_draft_contract(
                 minimal_behavior_scenarios_draft(),
                 fixtures,
-                minimal_open_questions(),
             )
 
     def test_behavior_draft_validator_rejects_empty_given_when_then(self) -> None:
@@ -978,14 +1032,12 @@ class PresetContractTests(unittest.TestCase):
                     validate_behavior_draft_contract(
                         draft,
                         minimal_data_fixtures_intent(),
-                        minimal_open_questions(),
                     )
 
     def test_behavior_draft_validator_accepts_valid_cross_fields(self) -> None:
         validate_behavior_draft_contract(
             minimal_behavior_scenarios_draft(),
             minimal_data_fixtures_intent(),
-            minimal_open_questions(),
         )
 
     def test_behavior_contract_validator_rejects_missing_fixture_reference(self) -> None:
@@ -1485,10 +1537,15 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("reasoning quality", readme)
         self.assertIn("must formalize", readme)
         self.assertIn("N/A or blocker", readme)
-        self.assertIn("BDD draft quality", readme)
+        self.assertIn("The preset has four goals:", readme)
+        self.assertIn("BDD readiness gate", readme)
+        self.assertIn("Phase 0 behavior projection", readme)
         self.assertIn("validation_evidence", readme)
         self.assertIn("Context-load controls", readme)
         self.assertIn("context-load controls", changelog)
+        self.assertIn("Moved behavior draft generation from `/speckit.specify` to `/speckit.plan` Phase 0", changelog)
+        self.assertIn("BDD readiness gate", changelog)
+        self.assertIn("Removed `behavior/open-questions.json`", changelog)
         self.assertIn("Hardened behavior contract quality gates", changelog)
         self.assertIn("formalization blockers", changelog)
         self.assertIn("behavior-linked validation evidence", changelog)
@@ -1592,6 +1649,8 @@ class PresetContractTests(unittest.TestCase):
             "Do not put downstream prohibitions in upstream commands",
             "Behavior-first extension rule",
             "BDD and UIF artifacts need independent templates",
+            "`/speckit.checklist`: checklist artifacts and BDD readiness gates only",
+            "`/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts",
             "Handoff extensions must update schema, validator, command, and cross-agent documentation together",
             "Do not bump preset version or release archive URLs until release preparation",
             "Use extensions, not presets, for new tooling",
