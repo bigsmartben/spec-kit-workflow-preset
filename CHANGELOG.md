@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added Change Scope Granularity governance through `/speckit.constitution`, the constitution template, and stage-local plan/tasks/analyze/implement references.
+
 ## 1.3.0
 
 - Hardened implementation handoff isolation with runtime-neutral execution modes, subagent/subsession dispatch policy, and validator checks for empty tasks, context gaps, overlapping write ownership, and must-not-touch conflicts.
