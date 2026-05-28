@@ -1802,6 +1802,11 @@ class PresetContractTests(unittest.TestCase):
             "workflow-preset-release",
             "client_payload[download_url]",
             "speckit-cross-agent-subagents.md",
+            "ZipInfo",
+            "1980, 1, 1",
+            "env.DISPATCH_FORK == 'true'",
+            "refs/tags/v${VERSION}",
+            "^[0-9]+\\.[0-9]+\\.[0-9]+$",
         ]
         for term in required_terms:
             self.assertIn(term, workflow_text)

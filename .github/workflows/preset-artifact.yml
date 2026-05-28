@@ -33,7 +33,7 @@ jobs:
     env:
       INPUT_VERSION: ${{ inputs.version || '' }}
       INPUT_SPEC_KIT_REF: ${{ inputs.spec_kit_ref || 'main' }}
-      INPUT_DISPATCH_FORK: ${{ inputs.dispatch_fork || false }}
+      DISPATCH_FORK: ${{ inputs.dispatch_fork || false }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -73,8 +73,8 @@ jobs:
           fi
 
           VERSION="${INPUT_VERSION:-${TAG_VERSION:-${PRESET_VERSION}}}"
-          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Version must be semver-compatible: ${VERSION}" >&2
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use X.Y.Z format: ${VERSION}" >&2
             exit 1
           fi
           if [[ "${VERSION}" != "${PRESET_VERSION}" ]]; then
@@ -99,8 +99,8 @@ jobs:
           rm -f "${ZIP_NAME}"
 
           python3 - <<'PY'
+          from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
           import os
-          import zipfile
           from pathlib import Path
 
           version = os.environ["VERSION"]
@@ -119,20 +119,26 @@ jobs:
               "docs",
           ]
           forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
+          files = []
 
-          with zipfile.ZipFile(zip_name, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-              for root in include_roots:
-                  path = Path(root)
-                  if path.is_file():
-                      archive.write(path, path.as_posix())
+          for root in include_roots:
+              path = Path(root)
+              if path.is_file():
+                  files.append(path)
+                  continue
+              for file_path in path.rglob("*"):
+                  if file_path.is_file():
+                      files.append(file_path)
+
+          with ZipFile(zip_name, "w", compression=ZIP_DEFLATED) as archive:
+              for file_path in sorted(files, key=lambda item: item.as_posix()):
+                  name = file_path.as_posix()
+                  if name.startswith(forbidden_prefixes):
                       continue
-                  for file_path in sorted(path.rglob("*")):
-                      if not file_path.is_file():
-                          continue
-                      name = file_path.as_posix()
-                      if name.startswith(forbidden_prefixes):
-                          continue
-                      archive.write(file_path, name)
+                  info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                  info.compress_type = ZIP_DEFLATED
+                  info.external_attr = 0o644 << 16
+                  archive.writestr(info, file_path.read_bytes())
           PY
 
           echo "zip_name=${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
@@ -200,7 +206,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create or update release artifact
-        if: ${{ github.ref_type == 'tag' }}
+        if: ${{ github.ref_type == 'tag' || env.DISPATCH_FORK == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
@@ -208,11 +214,18 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          gh release view "v${VERSION}" >/dev/null 2>&1 || gh release create "v${VERSION}" --title "v${VERSION}" --notes ""
-          gh release upload "v${VERSION}" "${ZIP_PATH}" --clobber
+          TAG_NAME="v${VERSION}"
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            if ! git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null; then
+              echo "Manual dispatch with dispatch_fork=true requires refs/tags/v${VERSION} to exist." >&2
+              exit 1
+            fi
+          fi
+          gh release view "${TAG_NAME}" >/dev/null 2>&1 || gh release create "${TAG_NAME}" --verify-tag --title "${TAG_NAME}" --notes ""
+          gh release upload "${TAG_NAME}" "${ZIP_PATH}" --clobber
 
       - name: Dispatch spec-kit fork integration
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch_fork == true }}
+        if: ${{ github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.SPEC_KIT_FORK_DISPATCH_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
