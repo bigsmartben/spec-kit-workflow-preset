@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Added GitHub Actions boundaries for preset contract tests, release artifact verification, install smoke checks, and fork integration dispatch.
+- Added GitHub Actions boundaries for preset contract tests, release artifact verification, project-scoped install smoke checks, and fail-fast fork integration dispatch.
 - Added Change Scope Granularity governance through `/speckit.constitution`, the constitution template, and stage-local plan/tasks/analyze/implement references.
 
 ## 1.3.0

@@ -188,16 +188,21 @@ jobs:
       - name: Smoke install preset from checkout
         run: |
           set -euo pipefail
+          project_dir="$(mktemp -d)"
+          cd "$project_dir"
+          specify init --here --ai claude --script sh --ignore-agent-tools
+          specify preset remove workflow-preset
           specify preset add --dev "$GITHUB_WORKSPACE"
           specify preset info workflow-preset
-          specify preset resolve workflow-preset plan-template
-          specify preset resolve workflow-preset speckit.implement > /tmp/speckit-implement.md
-          test -f preset.yml
-          test -f templates/plan-template.md
-          test -f commands/speckit.implement.md
-          grep -q "Core Agent" /tmp/speckit-implement.md
-          grep -q "Vertical Planner Agent" /tmp/speckit-implement.md
-          grep -q "Worker Agent" /tmp/speckit-implement.md
+          specify preset resolve plan-template | tee /tmp/plan-template-resolve.txt
+          grep -q "workflow-preset" /tmp/plan-template-resolve.txt
+          test -f .specify/presets/workflow-preset/preset.yml
+          test -f .specify/presets/workflow-preset/templates/plan-template.md
+          test -f .specify/presets/workflow-preset/commands/speckit.implement.md
+          test -f .claude/skills/speckit-implement/SKILL.md
+          grep -q "Core Agent" .claude/skills/speckit-implement/SKILL.md
+          grep -q "Vertical Planner Agent" .claude/skills/speckit-implement/SKILL.md
+          grep -q "Worker Agent" .claude/skills/speckit-implement/SKILL.md
 
       - name: Upload preset artifact
         uses: actions/upload-artifact@v7
@@ -232,7 +237,7 @@ jobs:
           gh release upload "${TAG_NAME}" "${ZIP_PATH}" --clobber
 
       - name: Dispatch spec-kit fork integration
-        if: ${{ github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true' }}
+        if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true') }}
         env:
           GH_TOKEN: ${{ secrets.SPEC_KIT_FORK_DISPATCH_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -240,15 +245,15 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN}" ]]; then
-            echo "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN is not configured; skipping fork dispatch."
-            exit 0
+            echo "SPEC_KIT_FORK_DISPATCH_TOKEN is required when fork dispatch is requested." >&2
+            exit 1
           fi
 
           DOWNLOAD_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/${ZIP_NAME}"
           gh api --method POST "repos/bigsmartben/spec-kit/dispatches" \
             --field "event_type=workflow-preset-release" \
-            --field "client_payload[version]=${VERSION}" \
-            --field "client_payload[download_url]=${DOWNLOAD_URL}" \
+            --field "client_payload[preset_version]=${VERSION}" \
+            --field "client_payload[preset_download_url]=${DOWNLOAD_URL}" \
             --field "client_payload[source_repository]=${GITHUB_REPOSITORY}" \
             --field "client_payload[source_sha]=${GITHUB_SHA}" \
             --field "client_payload[source_run_id]=${GITHUB_RUN_ID}"

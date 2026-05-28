@@ -1801,24 +1801,42 @@ class PresetContractTests(unittest.TestCase):
         required_terms = [
             "spec-kit-workflow-preset-v${VERSION}.zip",
             "python3 -m unittest tests/test_preset_contract.py",
+            'project_dir="$(mktemp -d)"',
+            'specify init --here --ai claude --script sh --ignore-agent-tools',
+            "specify preset remove workflow-preset",
             "specify preset add --dev",
+            "specify preset resolve plan-template",
+            ".claude/skills/speckit-implement/SKILL.md",
             "SPEC_KIT_FORK_DISPATCH_TOKEN",
             "repos/bigsmartben/spec-kit/dispatches",
             "workflow-preset-release",
-            "client_payload[download_url]",
+            "client_payload[preset_version]",
+            "client_payload[preset_download_url]",
             "speckit-cross-agent-subagents.md",
             "ZipInfo",
             "1980, 1, 1",
+            "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true')",
             "env.DISPATCH_FORK == 'true'",
             "refs/tags/v${VERSION}",
             "^[0-9]+\\.[0-9]+\\.[0-9]+$",
             "persist-credentials: false",
             "git rev-parse HEAD",
             "refs/tags/v${VERSION}^{}",
-            "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
+            "SPEC_KIT_FORK_DISPATCH_TOKEN is required when fork dispatch is requested.",
+            "exit 1",
         ]
         for term in required_terms:
             self.assertIn(term, workflow_text)
+        forbidden_terms = [
+            "specify preset resolve workflow-preset plan-template",
+            "specify preset resolve workflow-preset speckit.implement",
+            "client_payload[version]",
+            "client_payload[download_url]",
+            "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
+            "skipping fork dispatch",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, workflow_text)
         self.assertNotIn("github/spec-kit", workflow_text)
 
 
