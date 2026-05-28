@@ -1752,6 +1752,60 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("docs/extension-governance.md", agents)
         self.assertIn("Extension Governance", agents)
 
+    def _workflow_on(self, workflow: dict) -> dict:
+        return workflow.get("on") or workflow.get(True) or {}
+
+    def test_github_actions_contract_workflow(self) -> None:
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+        self.assertTrue(workflow_path.exists())
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("Preset Contract", workflow["name"])
+        self.assertEqual({"contents": "read"}, workflow["permissions"])
+        triggers = self._workflow_on(workflow)
+        self.assertIn("pull_request", triggers)
+        self.assertEqual(["main"], triggers["push"]["branches"])
+        self.assertIn("workflow_dispatch", triggers)
+
+        contract_job = workflow["jobs"]["contract"]
+        self.assertEqual("ubuntu-latest", contract_job["runs-on"])
+        self.assertEqual(
+            ["3.10", "3.13"],
+            contract_job["strategy"]["matrix"]["python-version"],
+        )
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+        self.assertIn("python3 -m pip install -r requirements-dev.txt", workflow_text)
+        self.assertIn("python3 -m unittest tests/test_preset_contract.py", workflow_text)
+
+    def test_github_actions_artifact_and_fork_dispatch_workflow(self) -> None:
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "preset-artifact.yml"
+        self.assertTrue(workflow_path.exists())
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("Preset Artifact", workflow["name"])
+        self.assertEqual({"contents": "write"}, workflow["permissions"])
+        triggers = self._workflow_on(workflow)
+        self.assertEqual(["v*"], triggers["push"]["tags"])
+        self.assertIn("workflow_dispatch", triggers)
+        inputs = triggers["workflow_dispatch"]["inputs"]
+        self.assertIn("version", inputs)
+        self.assertIn("spec_kit_ref", inputs)
+        self.assertIn("dispatch_fork", inputs)
+
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+        required_terms = [
+            "spec-kit-workflow-preset-v${VERSION}.zip",
+            "python3 -m unittest tests/test_preset_contract.py",
+            "specify preset add --dev",
+            "SPEC_KIT_FORK_DISPATCH_TOKEN",
+            "repos/bigsmartben/spec-kit/dispatches",
+            "workflow-preset-release",
+            "client_payload[download_url]",
+        ]
+        for term in required_terms:
+            self.assertIn(term, workflow_text)
+        self.assertNotIn("github/spec-kit", workflow_text)
+
 
 if __name__ == "__main__":
     unittest.main()
