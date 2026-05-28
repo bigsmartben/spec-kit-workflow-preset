@@ -314,6 +314,20 @@ Run the contract tests:
 python3 -m unittest tests/test_preset_contract.py
 ```
 
+## Preset CI Boundary
+
+This repository owns preset artifact health:
+
+- run `tests/test_preset_contract.py`;
+- build `spec-kit-workflow-preset-v<version>.zip`;
+- smoke-install this checkout with a `specify` CLI built from `bigsmartben/spec-kit`;
+- publish or confirm the release artifact for a tag;
+- send a `workflow-preset-release` `repository_dispatch` event to `bigsmartben/spec-kit` on tag releases or manual runs with `dispatch_fork=true`.
+
+The dispatch step requires a repository secret named `SPEC_KIT_FORK_DISPATCH_TOKEN` with permission to call `repos/bigsmartben/spec-kit/dispatches`. If a tag release or manual `dispatch_fork=true` run reaches the handoff without that secret, the workflow fails fast instead of skipping dispatch.
+
+This repository stops after the artifact and dispatch handoff. It does not open pull requests to `github/spec-kit`. The `bigsmartben/spec-kit` fork owns downstream integration validation, core compatibility fixes, catalog resolver checks, and any later community catalog PR flow.
+
 Validate local installation:
 
 ```bash

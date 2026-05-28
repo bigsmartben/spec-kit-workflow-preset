@@ -21,6 +21,13 @@ provides:
       replaces: "plan-template"
       strategy: "wrap"
 
+    - type: "template"
+      name: "constitution-template"
+      file: "templates/constitution-template.md"
+      description: "Add change scope granularity governance to the constitution template"
+      replaces: "constitution-template"
+      strategy: "wrap"
+
     - type: "command"
       name: "speckit.specify"
       file: "commands/speckit.specify.md"
@@ -40,6 +47,13 @@ provides:
       file: "commands/speckit.checklist.md"
       description: "Wrap core checklist generation with BDD readiness gate"
       replaces: "speckit.checklist"
+      strategy: "wrap"
+
+    - type: "command"
+      name: "speckit.constitution"
+      file: "commands/speckit.constitution.md"
+      description: "Wrap core constitution updates with change scope granularity governance"
+      replaces: "speckit.constitution"
       strategy: "wrap"
 
     - type: "command"

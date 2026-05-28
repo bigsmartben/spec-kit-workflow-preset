@@ -28,10 +28,12 @@ EXTENSION_GOVERNANCE_PATH = REPO_ROOT / "docs" / "extension-governance.md"
 SPECIFY_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.specify.md"
 CLARIFY_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.clarify.md"
 CHECKLIST_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.checklist.md"
+CONSTITUTION_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.constitution.md"
 ANALYZE_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.analyze.md"
 PLAN_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.plan.md"
 TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
 IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
+CONSTITUTION_TEMPLATE_PATH = REPO_ROOT / "templates" / "constitution-template.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
 REQUIREMENTS_DEV_PATH = REPO_ROOT / "requirements-dev.txt"
 MANIFEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.manifest.v1.schema.json"
@@ -389,7 +391,7 @@ class PresetContractTests(unittest.TestCase):
         )
 
         provides = data["provides"]["templates"]
-        self.assertEqual(28, len(provides))
+        self.assertEqual(30, len(provides))
         entries = {entry["name"]: entry for entry in provides}
         self.assertNotIn("behavior-open-questions-template", entries)
         self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
@@ -399,6 +401,12 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("templates/plan-template.md", plan_template["file"])
         self.assertEqual("plan-template", plan_template["replaces"])
         self.assertEqual("wrap", plan_template["strategy"])
+
+        constitution_template = entries["constitution-template"]
+        self.assertEqual("template", constitution_template["type"])
+        self.assertEqual("templates/constitution-template.md", constitution_template["file"])
+        self.assertEqual("constitution-template", constitution_template["replaces"])
+        self.assertEqual("wrap", constitution_template["strategy"])
 
         for command_name in ("speckit.plan", "speckit.tasks"):
             command = entries[command_name]
@@ -428,6 +436,7 @@ class PresetContractTests(unittest.TestCase):
             "speckit.specify",
             "speckit.clarify",
             "speckit.checklist",
+            "speckit.constitution",
             "speckit.analyze",
         ):
             command = entries[command_name]
@@ -435,6 +444,15 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual(f"commands/{command_name}.md", command["file"])
             self.assertEqual(command_name, command["replaces"])
             self.assertEqual("wrap", command["strategy"])
+
+        self.assertEqual(
+            "Wrap core constitution updates with change scope granularity governance",
+            entries["speckit.constitution"]["description"],
+        )
+        self.assertEqual(
+            "Add change scope granularity governance to the constitution template",
+            entries["constitution-template"]["description"],
+        )
 
         implement = entries["speckit.implement"]
         self.assertEqual("command", implement["type"])
@@ -516,6 +534,61 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("./data-model.md", template)
         self.assertIn("./contracts/", template)
         self.assertIn("./quickstart.md", template)
+
+    def test_constitution_change_scope_granularity_contract(self) -> None:
+        command = CONSTITUTION_COMMAND_PATH.read_text(encoding="utf-8")
+        template = CONSTITUTION_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        for document in (command, template):
+            self.assertIn("{CORE_TEMPLATE}", document)
+            self.assertIn("Change Scope Granularity", document)
+            self.assertIn("R/M/U/O", document)
+            self.assertIn("Planning locks M + U", document)
+
+        self.assertIn("strategy: wrap", command)
+        self.assertIn("Spec Kit planning and execution MUST use R/M/U/O scope granularity", template)
+        self.assertIn("This principle applies from planning onward", template)
+        self.assertIn("Requirement specification, clarification, and checklist readiness MUST NOT infer M/U/O boundaries", template)
+        self.assertIn("preserve the Change Scope Granularity principle", command)
+        self.assertIn("must not remove, weaken, or contradict", command)
+
+    def test_change_scope_granularity_stage_references(self) -> None:
+        plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
+        tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
+        analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
+        implement = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("Apply the constitution's Change Scope Granularity principle.", plan)
+        self.assertIn("During planning, lock the change scope to `M + U`", plan)
+        self.assertIn("Do not lock operation-level implementation details or concrete write paths.", plan)
+
+        self.assertIn("Preserve the planned `M + U` scope", tasks)
+        self.assertIn("Do not generate handoff fields or `allowed_write_paths`.", tasks)
+
+        self.assertIn("Check that tasks preserve the planned `M + U` scope.", analyze)
+        self.assertIn("Report missing, widened, or ambiguous scope boundaries as blockers.", analyze)
+
+        self.assertIn(
+            "Map planned `U` design objects to concrete source, test, fixture, configuration, and receipt paths before worker execution.",
+            implement,
+        )
+        self.assertIn("If the mapping is ambiguous, record `context_gaps`", implement)
+        self.assertIn("do not widen to repository scope or broad module scope.", implement)
+
+    def test_preplanning_commands_do_not_infer_scope_granularity(self) -> None:
+        for path in (SPECIFY_COMMAND_PATH, CLARIFY_COMMAND_PATH, CHECKLIST_COMMAND_PATH):
+            command = path.read_text(encoding="utf-8")
+            for forbidden in (
+                "Change Scope Granularity",
+                "R/M/U/O",
+                "M + U",
+                "U -> concrete paths",
+                "module/capability plus design object",
+                "concrete write paths",
+                "allowed_write_paths",
+                "context_gaps",
+            ):
+                self.assertNotIn(forbidden, command, f"{path} contains {forbidden}")
 
     def test_tasks_command_wrapper_contract(self) -> None:
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
@@ -1543,6 +1616,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("validation_evidence", readme)
         self.assertIn("Context-load controls", readme)
         self.assertIn("context-load controls", changelog)
+        self.assertIn("Change Scope Granularity", changelog)
+        self.assertIn("/speckit.constitution", changelog)
         self.assertIn("Moved behavior draft generation from `/speckit.specify` to `/speckit.plan` Phase 0", changelog)
         self.assertIn("BDD readiness gate", changelog)
         self.assertIn("Removed `behavior/open-questions.json`", changelog)
@@ -1554,6 +1629,11 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("--dry-run true --run-id manual", readme)
         self.assertIn("Spec Kit CLI `>=0.8.10.dev0`", readme)
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
+        self.assertIn("Preset CI Boundary", readme)
+        self.assertIn("SPEC_KIT_FORK_DISPATCH_TOKEN", readme)
+        self.assertIn("bigsmartben/spec-kit", readme)
+        self.assertIn("workflow-preset-release", readme)
+        self.assertIn("does not open pull requests to `github/spec-kit`", readme)
         self.assertIn("PyYAML", requirements)
         self.assertIn("jsonschema", requirements)
         self.assertIn("## 1.2.0", changelog)
@@ -1649,6 +1729,7 @@ class PresetContractTests(unittest.TestCase):
             "Do not put downstream prohibitions in upstream commands",
             "Behavior-first extension rule",
             "BDD and UIF artifacts need independent templates",
+            "`/speckit.constitution`: constitution governance and project principles only",
             "`/speckit.checklist`: checklist artifacts and BDD readiness gates only",
             "`/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts",
             "Handoff extensions must update schema, validator, command, and cross-agent documentation together",
@@ -1675,6 +1756,88 @@ class PresetContractTests(unittest.TestCase):
 
         self.assertIn("docs/extension-governance.md", agents)
         self.assertIn("Extension Governance", agents)
+
+    def _workflow_on(self, workflow: dict) -> dict:
+        return workflow.get("on") or workflow.get(True) or {}
+
+    def test_github_actions_contract_workflow(self) -> None:
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+        self.assertTrue(workflow_path.exists())
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("Preset Contract", workflow["name"])
+        self.assertEqual({"contents": "read"}, workflow["permissions"])
+        triggers = self._workflow_on(workflow)
+        self.assertIn("pull_request", triggers)
+        self.assertEqual(["main"], triggers["push"]["branches"])
+        self.assertIn("workflow_dispatch", triggers)
+
+        contract_job = workflow["jobs"]["contract"]
+        self.assertEqual("ubuntu-latest", contract_job["runs-on"])
+        self.assertEqual(
+            ["3.10", "3.13"],
+            contract_job["strategy"]["matrix"]["python-version"],
+        )
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+        self.assertIn("python3 -m pip install -r requirements-dev.txt", workflow_text)
+        self.assertIn("python3 -m unittest tests/test_preset_contract.py", workflow_text)
+
+    def test_github_actions_artifact_and_fork_dispatch_workflow(self) -> None:
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "preset-artifact.yml"
+        self.assertTrue(workflow_path.exists())
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("Preset Artifact", workflow["name"])
+        self.assertEqual({"contents": "write"}, workflow["permissions"])
+        triggers = self._workflow_on(workflow)
+        self.assertEqual(["v*"], triggers["push"]["tags"])
+        self.assertIn("workflow_dispatch", triggers)
+        inputs = triggers["workflow_dispatch"]["inputs"]
+        self.assertIn("version", inputs)
+        self.assertIn("spec_kit_ref", inputs)
+        self.assertIn("dispatch_fork", inputs)
+
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+        required_terms = [
+            "spec-kit-workflow-preset-v${VERSION}.zip",
+            "python3 -m unittest tests/test_preset_contract.py",
+            'project_dir="$(mktemp -d)"',
+            'specify init --here --ai claude --script sh --ignore-agent-tools',
+            "specify preset remove workflow-preset",
+            "specify preset add --dev",
+            "specify preset resolve plan-template",
+            ".claude/skills/speckit-implement/SKILL.md",
+            "SPEC_KIT_FORK_DISPATCH_TOKEN",
+            "repos/bigsmartben/spec-kit/dispatches",
+            "workflow-preset-release",
+            "client_payload[preset_version]",
+            "client_payload[preset_download_url]",
+            "speckit-cross-agent-subagents.md",
+            "ZipInfo",
+            "1980, 1, 1",
+            "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true')",
+            "env.DISPATCH_FORK == 'true'",
+            "refs/tags/v${VERSION}",
+            "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "persist-credentials: false",
+            "git rev-parse HEAD",
+            "refs/tags/v${VERSION}^{}",
+            "SPEC_KIT_FORK_DISPATCH_TOKEN is required when fork dispatch is requested.",
+            "exit 1",
+        ]
+        for term in required_terms:
+            self.assertIn(term, workflow_text)
+        forbidden_terms = [
+            "specify preset resolve workflow-preset plan-template",
+            "specify preset resolve workflow-preset speckit.implement",
+            "client_payload[version]",
+            "client_payload[download_url]",
+            "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
+            "skipping fork dispatch",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, workflow_text)
+        self.assertNotIn("github/spec-kit", workflow_text)
 
 
 if __name__ == "__main__":

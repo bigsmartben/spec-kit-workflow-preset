@@ -1,0 +1,259 @@
+name: Preset Artifact
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version. Defaults to the tag version or preset.yml version."
+        required: false
+        type: string
+      spec_kit_ref:
+        description: "bigsmartben/spec-kit git ref to install for smoke testing."
+        required: false
+        default: "main"
+        type: string
+      dispatch_fork:
+        description: "Dispatch the spec-kit fork integration workflow after a verified build."
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: preset-artifact-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-verify-dispatch:
+    runs-on: ubuntu-latest
+    env:
+      INPUT_VERSION: ${{ inputs.version || '' }}
+      INPUT_SPEC_KIT_REF: ${{ inputs.spec_kit_ref || 'main' }}
+      DISPATCH_FORK: ${{ inputs.dispatch_fork || false }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements-dev.txt
+
+      - name: Run preset contract tests
+        run: python3 -m unittest tests/test_preset_contract.py
+
+      - name: Derive and validate version
+        id: version
+        run: |
+          set -euo pipefail
+
+          PRESET_VERSION="$(python3 - <<'PY'
+          import yaml
+
+          with open("preset.yml", encoding="utf-8") as handle:
+              preset = yaml.safe_load(handle)
+          print(preset["preset"]["version"])
+          PY
+          )"
+          TAG_VERSION=""
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+          fi
+
+          VERSION="${INPUT_VERSION:-${TAG_VERSION:-${PRESET_VERSION}}}"
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use X.Y.Z format: ${VERSION}" >&2
+            exit 1
+          fi
+          if [[ "${VERSION}" != "${PRESET_VERSION}" ]]; then
+            echo "Version ${VERSION} does not match preset.yml version ${PRESET_VERSION}" >&2
+            exit 1
+          fi
+          if [[ -n "${TAG_VERSION}" && "${VERSION}" != "${TAG_VERSION}" ]]; then
+            echo "Version ${VERSION} does not match tag v${TAG_VERSION}" >&2
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "zip_name=spec-kit-workflow-preset-v${VERSION}.zip" >> "${GITHUB_OUTPUT}"
+
+      - name: Build preset artifact
+        id: package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ZIP_NAME="spec-kit-workflow-preset-v${VERSION}.zip"
+          rm -f "${ZIP_NAME}"
+
+          python3 - <<'PY'
+          from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+          import os
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          zip_name = f"spec-kit-workflow-preset-v{version}.zip"
+          include_roots = [
+              "preset.yml",
+              "README.md",
+              "CHANGELOG.md",
+              "LICENSE",
+              "AGENTS.md",
+              "speckit-cross-agent-subagents.md",
+              "commands",
+              "templates",
+              "schemas",
+              "validators",
+              "docs",
+          ]
+          forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
+          files = []
+
+          for root in include_roots:
+              path = Path(root)
+              if path.is_file():
+                  files.append(path)
+                  continue
+              for file_path in path.rglob("*"):
+                  if file_path.is_file():
+                      files.append(file_path)
+
+          with ZipFile(zip_name, "w", compression=ZIP_DEFLATED) as archive:
+              for file_path in sorted(files, key=lambda item: item.as_posix()):
+                  name = file_path.as_posix()
+                  if name.startswith(forbidden_prefixes):
+                      continue
+                  info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                  info.compress_type = ZIP_DEFLATED
+                  info.external_attr = 0o644 << 16
+                  archive.writestr(info, file_path.read_bytes())
+          PY
+
+          echo "zip_name=${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "zip_path=${GITHUB_WORKSPACE}/${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify preset artifact
+        env:
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import sys
+          import zipfile
+
+          required_entries = {
+              "preset.yml",
+              "commands/speckit.implement.md",
+              "commands/speckit.plan.md",
+              "commands/speckit.tasks.md",
+              "templates/plan-template.md",
+              "speckit-cross-agent-subagents.md",
+              "schemas/speckit.implement.handoff.v2.schema.json",
+              "validators/speckit_implement_contract.py",
+              "docs/extension-governance.md",
+          }
+          forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
+          with zipfile.ZipFile(os.environ["ZIP_NAME"]) as archive:
+              names = set(archive.namelist())
+
+          missing = sorted(required_entries - names)
+          if missing:
+              print(f"Missing required artifact entries: {missing}", file=sys.stderr)
+              sys.exit(1)
+          forbidden = sorted(name for name in names if name.startswith(forbidden_prefixes))
+          if forbidden:
+              print(f"Forbidden artifact entries: {forbidden}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Install specify from fork
+        run: |
+          set -euo pipefail
+          python3 -m pip install "git+https://github.com/bigsmartben/spec-kit.git@${INPUT_SPEC_KIT_REF}"
+
+      - name: Smoke install preset from checkout
+        run: |
+          set -euo pipefail
+          project_dir="$(mktemp -d)"
+          cd "$project_dir"
+          specify init --here --ai claude --script sh --ignore-agent-tools
+          specify preset remove workflow-preset
+          specify preset add --dev "$GITHUB_WORKSPACE"
+          specify preset info workflow-preset
+          specify preset resolve plan-template | tee /tmp/plan-template-resolve.txt
+          grep -q "workflow-preset" /tmp/plan-template-resolve.txt
+          test -f .specify/presets/workflow-preset/preset.yml
+          test -f .specify/presets/workflow-preset/templates/plan-template.md
+          test -f .specify/presets/workflow-preset/commands/speckit.implement.md
+          test -f .claude/skills/speckit-implement/SKILL.md
+          grep -q "Core Agent" .claude/skills/speckit-implement/SKILL.md
+          grep -q "Vertical Planner Agent" .claude/skills/speckit-implement/SKILL.md
+          grep -q "Worker Agent" .claude/skills/speckit-implement/SKILL.md
+
+      - name: Upload preset artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.zip_name }}
+          path: ${{ steps.package.outputs.zip_path }}
+          if-no-files-found: error
+
+      - name: Create or update release artifact
+        if: ${{ github.ref_type == 'tag' || env.DISPATCH_FORK == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          ZIP_PATH: ${{ steps.package.outputs.zip_path }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG_NAME="v${VERSION}"
+          if [[ "${GITHUB_REF_TYPE}" != "tag" && "${DISPATCH_FORK}" == "true" ]]; then
+            if ! git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null; then
+              echo "Manual dispatch with dispatch_fork=true requires refs/tags/v${VERSION} to exist." >&2
+              exit 1
+            fi
+            HEAD_SHA="$(git rev-parse HEAD)"
+            TAG_SHA="$(git rev-parse "refs/tags/v${VERSION}^{}")"
+            if [[ "${HEAD_SHA}" != "${TAG_SHA}" ]]; then
+              echo "Manual dispatch with dispatch_fork=true requires HEAD ${HEAD_SHA} to match refs/tags/v${VERSION} ${TAG_SHA}." >&2
+              exit 1
+            fi
+          fi
+          gh release view "${TAG_NAME}" >/dev/null 2>&1 || gh release create "${TAG_NAME}" --verify-tag --title "${TAG_NAME}" --notes ""
+          gh release upload "${TAG_NAME}" "${ZIP_PATH}" --clobber
+
+      - name: Dispatch spec-kit fork integration
+        if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true') }}
+        env:
+          GH_TOKEN: ${{ secrets.SPEC_KIT_FORK_DISPATCH_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "SPEC_KIT_FORK_DISPATCH_TOKEN is required when fork dispatch is requested." >&2
+            exit 1
+          fi
+
+          DOWNLOAD_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/${ZIP_NAME}"
+          gh api --method POST "repos/bigsmartben/spec-kit/dispatches" \
+            --field "event_type=workflow-preset-release" \
+            --field "client_payload[preset_version]=${VERSION}" \
+            --field "client_payload[preset_download_url]=${DOWNLOAD_URL}" \
+            --field "client_payload[source_repository]=${GITHUB_REPOSITORY}" \
+            --field "client_payload[source_sha]=${GITHUB_SHA}" \
+            --field "client_payload[source_run_id]=${GITHUB_RUN_ID}"
