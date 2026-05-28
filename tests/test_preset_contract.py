@@ -1807,6 +1807,10 @@ class PresetContractTests(unittest.TestCase):
             "env.DISPATCH_FORK == 'true'",
             "refs/tags/v${VERSION}",
             "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "persist-credentials: false",
+            "git rev-parse HEAD",
+            "refs/tags/v${VERSION}^{}",
+            "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
         ]
         for term in required_terms:
             self.assertIn(term, workflow_text)

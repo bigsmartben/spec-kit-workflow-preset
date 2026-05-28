@@ -39,6 +39,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -215,9 +216,15 @@ jobs:
         run: |
           set -euo pipefail
           TAG_NAME="v${VERSION}"
-          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+          if [[ "${GITHUB_REF_TYPE}" != "tag" && "${DISPATCH_FORK}" == "true" ]]; then
             if ! git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null; then
               echo "Manual dispatch with dispatch_fork=true requires refs/tags/v${VERSION} to exist." >&2
+              exit 1
+            fi
+            HEAD_SHA="$(git rev-parse HEAD)"
+            TAG_SHA="$(git rev-parse "refs/tags/v${VERSION}^{}")"
+            if [[ "${HEAD_SHA}" != "${TAG_SHA}" ]]; then
+              echo "Manual dispatch with dispatch_fork=true requires HEAD ${HEAD_SHA} to match refs/tags/v${VERSION} ${TAG_SHA}." >&2
               exit 1
             fi
           fi
@@ -233,7 +240,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN}" ]]; then
-            echo "SPEC_KIT_FORK_DISPATCH_TOKEN is not configured; skipping fork dispatch."
+            echo "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN is not configured; skipping fork dispatch."
             exit 0
           fi
 
