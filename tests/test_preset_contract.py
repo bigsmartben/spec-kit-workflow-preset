@@ -1801,6 +1801,7 @@ class PresetContractTests(unittest.TestCase):
             "repos/bigsmartben/spec-kit/dispatches",
             "workflow-preset-release",
             "client_payload[download_url]",
+            "speckit-cross-agent-subagents.md",
         ]
         for term in required_terms:
             self.assertIn(term, workflow_text)
