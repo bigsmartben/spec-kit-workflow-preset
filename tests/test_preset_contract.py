@@ -1567,6 +1567,31 @@ class PresetContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(receipt)
 
+    def test_receipt_schema_rejects_empty_deferred_validation_environment(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(
+            task_type="code_review",
+            review_conclusion={
+                "status": "blocked",
+                "summary": "Real e2e environment unavailable.",
+                "checked_sources": [QUICKSTART_PATH],
+                "findings": [],
+            },
+            deferred_validation_todos=[
+                {
+                    "id": "E2E-001",
+                    "reason": "Real e2e environment missing.",
+                    "missing_environment": [],
+                    "validation_path": "quickstart.md#payment-e2e",
+                    "commands": ["npm run e2e:payment"],
+                    "blocking": False,
+                }
+            ],
+        )
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
+
     def test_validate_receipt_contract_rejects_path_mismatch(self) -> None:
         with self.assertRaises(ValueError):
             validate_receipt_contract(
@@ -2006,10 +2031,13 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Spec Kit CLI `>=0.8.10.dev0`", readme)
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
         self.assertIn("Preset CI Boundary", readme)
-        self.assertIn("SPEC_KIT_FORK_DISPATCH_TOKEN", readme)
+        self.assertIn("SPEC_KIT_FORK_PR_TOKEN", readme)
         self.assertIn("bigsmartben/spec-kit", readme)
-        self.assertIn("workflow-preset-release", readme)
+        self.assertIn("workflow-preset-release-v<version>", readme)
+        self.assertIn("integration PR", readme)
+        self.assertIn("next patch version", readme)
         self.assertIn("does not open pull requests to `github/spec-kit`", readme)
+        self.assertNotIn("repository_dispatch", readme)
         self.assertIn("PyYAML", requirements)
         self.assertIn("jsonschema", requirements)
         self.assertIn("## 1.2.0", changelog)
@@ -2167,7 +2195,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("python3 -m pip install -r requirements-dev.txt", workflow_text)
         self.assertIn("python3 -m unittest tests/test_preset_contract.py", workflow_text)
 
-    def test_github_actions_artifact_and_fork_dispatch_workflow(self) -> None:
+    def test_github_actions_artifact_release_and_integration_pr_workflow(self) -> None:
         workflow_path = REPO_ROOT / ".github" / "workflows" / "preset-artifact.yml"
         self.assertTrue(workflow_path.exists())
         workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
@@ -2180,11 +2208,12 @@ class PresetContractTests(unittest.TestCase):
         inputs = triggers["workflow_dispatch"]["inputs"]
         self.assertIn("version", inputs)
         self.assertIn("spec_kit_ref", inputs)
-        self.assertIn("dispatch_fork", inputs)
+        self.assertIn("create_integration_pr", inputs)
 
         workflow_text = workflow_path.read_text(encoding="utf-8")
         required_terms = [
             "spec-kit-workflow-preset-v${VERSION}.zip",
+            "NEXT_PATCH_VERSION",
             "python3 -m unittest tests/test_preset_contract.py",
             'project_dir="$(mktemp -d)"',
             'specify init --here --ai claude --script sh --ignore-agent-tools',
@@ -2192,22 +2221,25 @@ class PresetContractTests(unittest.TestCase):
             "specify preset add --dev",
             "specify preset resolve plan-template",
             ".claude/skills/speckit-implement/SKILL.md",
-            "SPEC_KIT_FORK_DISPATCH_TOKEN",
-            "repos/bigsmartben/spec-kit/dispatches",
-            "workflow-preset-release",
-            "client_payload[preset_version]",
-            "client_payload[preset_download_url]",
+            "SPEC_KIT_FORK_PR_TOKEN",
+            "bigsmartben/spec-kit",
+            "workflow-preset-release-v${VERSION}",
+            "gh pr create",
+            "gh pr edit",
+            "WORKFLOW_PRESET_DOWNLOAD_URL",
+            'assert entry["version"] == "1.3.1"',
+            "tests/test_presets.py",
             "speckit-cross-agent-subagents.md",
             "ZipInfo",
             "1980, 1, 1",
-            "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true')",
-            "env.DISPATCH_FORK == 'true'",
+            "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true')",
+            "env.CREATE_INTEGRATION_PR == 'true'",
             "refs/tags/v${VERSION}",
             "^[0-9]+\\.[0-9]+\\.[0-9]+$",
             "persist-credentials: false",
             "git rev-parse HEAD",
             "refs/tags/v${VERSION}^{}",
-            "SPEC_KIT_FORK_DISPATCH_TOKEN is required when fork dispatch is requested.",
+            "SPEC_KIT_FORK_PR_TOKEN is required when integration PR creation is requested.",
             "exit 1",
         ]
         for term in required_terms:
@@ -2217,8 +2249,10 @@ class PresetContractTests(unittest.TestCase):
             "specify preset resolve workflow-preset speckit.implement",
             "client_payload[version]",
             "client_payload[download_url]",
+            "repository_dispatch",
+            "repos/bigsmartben/spec-kit/dispatches",
             "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
-            "skipping fork dispatch",
+            "skipping integration PR",
         ]
         for term in forbidden_terms:
             self.assertNotIn(term, workflow_text)
