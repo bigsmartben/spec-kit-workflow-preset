@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version. Defaults to the tag version or preset.yml version."
+        description: "Release version. Defaults to the tag version or next preset.yml patch version."
         required: false
         type: string
       spec_kit_ref:
@@ -17,8 +17,8 @@ on:
         required: false
         default: "main"
         type: string
-      dispatch_fork:
-        description: "Dispatch the spec-kit fork integration workflow after a verified build."
+      create_integration_pr:
+        description: "Create or update a bigsmartben/spec-kit integration PR after a verified build."
         required: false
         default: false
         type: boolean
@@ -28,12 +28,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-verify-dispatch:
+  build-verify-release-pr:
     runs-on: ubuntu-latest
     env:
       INPUT_VERSION: ${{ inputs.version || '' }}
       INPUT_SPEC_KIT_REF: ${{ inputs.spec_kit_ref || 'main' }}
-      DISPATCH_FORK: ${{ inputs.dispatch_fork || false }}
+      CREATE_INTEGRATION_PR: ${{ inputs.create_integration_pr || false }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -73,13 +73,27 @@ jobs:
             TAG_VERSION="${GITHUB_REF_NAME#v}"
           fi
 
-          VERSION="${INPUT_VERSION:-${TAG_VERSION:-${PRESET_VERSION}}}"
+          NEXT_PATCH_VERSION="$(python3 - <<'PY'
+          import yaml
+
+          with open("preset.yml", encoding="utf-8") as handle:
+              preset = yaml.safe_load(handle)
+          major, minor, patch = (int(part) for part in preset["preset"]["version"].split("."))
+          print(f"{major}.{minor}.{patch + 1}")
+          PY
+          )"
+
+          VERSION="${INPUT_VERSION:-${TAG_VERSION:-${NEXT_PATCH_VERSION}}}"
           if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Version must use X.Y.Z format: ${VERSION}" >&2
             exit 1
           fi
-          if [[ "${VERSION}" != "${PRESET_VERSION}" ]]; then
-            echo "Version ${VERSION} does not match preset.yml version ${PRESET_VERSION}" >&2
+          if [[ -n "${INPUT_VERSION}" && "${VERSION}" != "${PRESET_VERSION}" && "${VERSION}" != "${NEXT_PATCH_VERSION}" ]]; then
+            echo "Manual version ${VERSION} must match preset.yml version ${PRESET_VERSION} or next patch ${NEXT_PATCH_VERSION}" >&2
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${VERSION}" != "${PRESET_VERSION}" && "${VERSION}" != "${NEXT_PATCH_VERSION}" ]]; then
+            echo "Tag version ${VERSION} must match preset.yml version ${PRESET_VERSION} or next patch ${NEXT_PATCH_VERSION}" >&2
             exit 1
           fi
           if [[ -n "${TAG_VERSION}" && "${VERSION}" != "${TAG_VERSION}" ]]; then
@@ -89,6 +103,34 @@ jobs:
 
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "zip_name=spec-kit-workflow-preset-v${VERSION}.zip" >> "${GITHUB_OUTPUT}"
+
+      - name: Apply release version to preset workspace
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          import yaml
+
+          version = os.environ["VERSION"]
+          preset_path = Path("preset.yml")
+          preset = yaml.safe_load(preset_path.read_text(encoding="utf-8"))
+          preset["preset"]["version"] = version
+          preset_path.write_text(yaml.safe_dump(preset, sort_keys=False), encoding="utf-8")
+
+          readme_path = Path("README.md")
+          readme = readme_path.read_text(encoding="utf-8")
+          readme = re.sub(
+              r"releases/download/v[0-9]+\.[0-9]+\.[0-9]+/spec-kit-workflow-preset-v[0-9]+\.[0-9]+\.[0-9]+\.zip",
+              f"releases/download/v{version}/spec-kit-workflow-preset-v{version}.zip",
+              readme,
+          )
+          readme_path.write_text(readme, encoding="utf-8")
+          PY
 
       - name: Build preset artifact
         id: package
@@ -212,7 +254,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create or update release artifact
-        if: ${{ github.ref_type == 'tag' || env.DISPATCH_FORK == 'true' }}
+        if: ${{ github.ref_type == 'tag' || env.CREATE_INTEGRATION_PR == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
@@ -221,39 +263,113 @@ jobs:
         run: |
           set -euo pipefail
           TAG_NAME="v${VERSION}"
-          if [[ "${GITHUB_REF_TYPE}" != "tag" && "${DISPATCH_FORK}" == "true" ]]; then
+          if [[ "${GITHUB_REF_TYPE}" != "tag" && "${CREATE_INTEGRATION_PR}" == "true" ]]; then
             if ! git rev-parse --verify --quiet "refs/tags/v${VERSION}" >/dev/null; then
-              echo "Manual dispatch with dispatch_fork=true requires refs/tags/v${VERSION} to exist." >&2
+              echo "Manual integration PR creation requires refs/tags/v${VERSION} to exist." >&2
               exit 1
             fi
             HEAD_SHA="$(git rev-parse HEAD)"
             TAG_SHA="$(git rev-parse "refs/tags/v${VERSION}^{}")"
             if [[ "${HEAD_SHA}" != "${TAG_SHA}" ]]; then
-              echo "Manual dispatch with dispatch_fork=true requires HEAD ${HEAD_SHA} to match refs/tags/v${VERSION} ${TAG_SHA}." >&2
+              echo "Manual integration PR creation requires HEAD ${HEAD_SHA} to match refs/tags/v${VERSION} ${TAG_SHA}." >&2
               exit 1
             fi
           fi
           gh release view "${TAG_NAME}" >/dev/null 2>&1 || gh release create "${TAG_NAME}" --verify-tag --title "${TAG_NAME}" --notes ""
           gh release upload "${TAG_NAME}" "${ZIP_PATH}" --clobber
 
-      - name: Dispatch spec-kit fork integration
-        if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.DISPATCH_FORK == 'true') }}
+      - name: Create or update spec-kit integration PR
+        if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true') }}
         env:
-          GH_TOKEN: ${{ secrets.SPEC_KIT_FORK_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.SPEC_KIT_FORK_PR_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN}" ]]; then
-            echo "SPEC_KIT_FORK_DISPATCH_TOKEN is required when fork dispatch is requested." >&2
+            echo "SPEC_KIT_FORK_PR_TOKEN is required when integration PR creation is requested." >&2
             exit 1
           fi
 
-          DOWNLOAD_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/${ZIP_NAME}"
-          gh api --method POST "repos/bigsmartben/spec-kit/dispatches" \
-            --field "event_type=workflow-preset-release" \
-            --field "client_payload[preset_version]=${VERSION}" \
-            --field "client_payload[preset_download_url]=${DOWNLOAD_URL}" \
-            --field "client_payload[source_repository]=${GITHUB_REPOSITORY}" \
-            --field "client_payload[source_sha]=${GITHUB_SHA}" \
-            --field "client_payload[source_run_id]=${GITHUB_RUN_ID}"
+          gh auth setup-git
+          WORKFLOW_PRESET_DOWNLOAD_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/${ZIP_NAME}"
+          fork_dir="$(mktemp -d)"
+          gh repo clone bigsmartben/spec-kit "${fork_dir}/spec-kit" -- --depth 1 --branch "${INPUT_SPEC_KIT_REF}"
+
+          rsync -a --delete \
+            --exclude ".git/" \
+            --exclude ".github/" \
+            --exclude "docs/superpowers/" \
+            --exclude "__pycache__/" \
+            --exclude ".pytest_cache/" \
+            --exclude "spec-kit-workflow-preset-v*.zip" \
+            "${GITHUB_WORKSPACE}/" "${fork_dir}/spec-kit/presets/workflow-preset/"
+
+          cd "${fork_dir}/spec-kit"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          import yaml
+
+          version = os.environ["VERSION"]
+          catalog_path = Path("presets/catalog.json")
+          manifest_path = Path("presets/workflow-preset/preset.yml")
+          catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+          manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+          entry = catalog["presets"]["workflow-preset"]
+          entry["version"] = version
+          entry["repository"] = manifest["preset"]["repository"]
+          entry["requires"]["speckit_version"] = manifest["requires"]["speckit_version"]
+          provided = manifest["provides"]["templates"]
+          entry["provides"]["commands"] = sum(1 for item in provided if item["type"] == "command")
+          entry["provides"]["templates"] = sum(1 for item in provided if item["type"] == "template")
+          entry["tags"] = manifest["tags"]
+          catalog_path.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+          tests_path = Path("tests/test_presets.py")
+          tests_text = tests_path.read_text(encoding="utf-8")
+          tests_text = tests_text.replace(
+              'assert entry["version"] == "1.3.1"',
+              f'assert entry["version"] == "{version}"',
+          )
+          tests_path.write_text(tests_text, encoding="utf-8")
+          PY
+
+          python3 -m pip install -e '.[test]'
+          python3 -m pytest tests/test_presets.py -k 'workflow_preset'
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="workflow-preset-release-v${VERSION}"
+          git switch -C "${branch}" "origin/${INPUT_SPEC_KIT_REF}"
+          git add presets/catalog.json presets/workflow-preset tests/test_presets.py
+          if git diff --cached --quiet; then
+            echo "No workflow-preset integration changes to commit."
+            exit 0
+          fi
+          git commit -m "Update workflow-preset to v${VERSION}"
+          git push --force-with-lease origin "${branch}"
+
+          body_file="$(mktemp)"
+          {
+            echo "## Summary"
+            echo "- Update bundled workflow-preset to v${VERSION}."
+            echo "- Update presets/catalog.json metadata."
+            echo "- Release artifact: ${WORKFLOW_PRESET_DOWNLOAD_URL}"
+            echo
+            echo "## Test Plan"
+            echo "- [x] python3 -m pytest tests/test_presets.py -k 'workflow_preset'"
+          } > "${body_file}"
+          if gh pr view "${branch}" --repo bigsmartben/spec-kit >/dev/null 2>&1; then
+            gh pr edit "${branch}" --repo bigsmartben/spec-kit \
+              --title "Update workflow-preset to v${VERSION}" \
+              --body-file "${body_file}"
+          else
+            gh pr create --repo bigsmartben/spec-kit \
+              --base "${INPUT_SPEC_KIT_REF}" \
+              --head "${branch}" \
+              --title "Update workflow-preset to v${VERSION}" \
+              --body-file "${body_file}"
+          fi
