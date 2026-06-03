@@ -103,6 +103,9 @@ SHARD_ID = "S01-service-flow-01"
 RECEIPT_PATH = f"{HANDOFF_DIR}/results/{SHARD_ID}.json"
 SERVICE_PATH = f"{FEATURE_PATH}/src/service.py"
 TASKS_PATH = f"{FEATURE_PATH}/tasks.md"
+API_CONTRACT_PATH = f"{FEATURE_PATH}/contracts/api/refunds.openapi.yaml"
+SEQUENCES_PATH = f"{FEATURE_PATH}/contracts/sequences.md"
+QUICKSTART_PATH = f"{FEATURE_PATH}/quickstart.md"
 
 
 def minimal_shard(
@@ -166,6 +169,7 @@ def minimal_handoff(
     planner_vertical_capability: str | None = None,
     task_ids: list[str] | None = None,
     allowed_write_paths: list[str] | None = None,
+    task_type: str = "implementation",
 ) -> dict:
     task_ids = ["T001"] if task_ids is None else task_ids
     planner_vertical_capability = planner_vertical_capability or vertical_capability
@@ -207,6 +211,7 @@ def minimal_handoff(
             "context_digest_draft_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.context.md",
         },
         "task_ids": task_ids,
+        "task_type": task_type,
         "task_text": ["Implement service"],
         "context_digest_path": f"{HANDOFF_DIR}/{shard_id}.context.md",
         "context_index_path": f"{HANDOFF_DIR}/context-index.json",
@@ -238,11 +243,16 @@ def minimal_receipt(
     completed_task_ids: list[str] | None = None,
     changed_paths: list[str] | None = None,
     validation_evidence: list[str] | None = None,
+    review_conclusion: dict | None = None,
+    consistency_repairs: list[dict] | None = None,
+    deferred_validation_todos: list[dict] | None = None,
+    task_type: str = "implementation",
 ) -> dict:
     task_ids = task_ids or ["T001"]
-    return {
+    receipt = {
         "contract_type": "speckit.implement.receipt.v1",
         "shard_id": shard_id,
+        "task_type": task_type,
         "task_ids": task_ids,
         "completed_task_ids": completed_task_ids or task_ids,
         "changed_paths": changed_paths or [SERVICE_PATH],
@@ -250,6 +260,13 @@ def minimal_receipt(
         if validation_evidence is not None
         else ["unit tests passed"],
     }
+    if review_conclusion is not None:
+        receipt["review_conclusion"] = review_conclusion
+    if consistency_repairs is not None:
+        receipt["consistency_repairs"] = consistency_repairs
+    if deferred_validation_todos is not None:
+        receipt["deferred_validation_todos"] = deferred_validation_todos
+    return receipt
 
 
 def minimal_behavior_scenarios_draft() -> dict:
@@ -604,6 +621,18 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("derive the test level", tasks)
         self.assertIn("fixture/mock/sandbox/real-system strategy", tasks)
         self.assertIn("inline evidence requirement", tasks)
+        self.assertIn("Final Code Review", tasks)
+        self.assertIn("append the final phase after user-story tasks", tasks)
+        self.assertIn("design, sequence, and contract consistency", tasks)
+        self.assertIn("real e2e environment readiness", tasks)
+        self.assertIn("task_type: code_review", tasks)
+        self.assertIn("review_conclusion", tasks)
+        self.assertIn("checked_sources", tasks)
+        self.assertIn("consistency_repairs", tasks)
+        self.assertIn("deferred_validation_todos", tasks)
+        self.assertIn("quickstart/contract validation command", tasks)
+        self.assertIn("`review_conclusion` and, when applicable", tasks)
+        self.assertNotIn("must require a `speckit.implement.receipt.v1` review receipt with `review_conclusion`, `consistency_repairs`, and `deferred_validation_todos`", tasks)
 
     def test_behavior_first_command_wrapper_contracts(self) -> None:
         specify = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
@@ -911,6 +940,7 @@ class PresetContractTests(unittest.TestCase):
             "allowed_write_paths",
             "context_gaps",
             "task_status_update",
+            "task_type",
             "receipt path does not equal `task_status_update.receipt_path`",
             "results/<shard-id>.json",
             "Do not edit `tasks.md`",
@@ -923,6 +953,7 @@ class PresetContractTests(unittest.TestCase):
             "worker_dispatch",
             "worker_execution",
             "receipt_review",
+            "code_review",
             "task_commit",
             "integration_verification",
             "closeout",
@@ -978,6 +1009,15 @@ class PresetContractTests(unittest.TestCase):
 
         self.assertIn("include relevant `research.md` validation decisions", command)
         self.assertIn("include relevant `quickstart.md` validation paths", command)
+        self.assertIn("Code Review Receipts", command)
+        self.assertIn("task_type: code_review", command)
+        self.assertIn("review_conclusion", command)
+        self.assertIn("checked_sources", command)
+        self.assertIn("consistency_repairs", command)
+        self.assertIn("deferred_validation_todos", command)
+        self.assertIn("quickstart/contract validation command", command)
+        self.assertIn("repair design, sequence, or contract drift", command)
+        self.assertIn("real e2e cannot run", command)
         self.assertNotIn("test-plan.md", command)
 
     def test_contract_schemas_are_decoupled_json_files(self) -> None:
@@ -996,6 +1036,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("agent_topology", handoff["required"])
         self.assertIn("planner_outputs", handoff["required"])
         self.assertIn("draft_source", handoff["required"])
+        self.assertIn("task_type", handoff["required"])
         self.assertIn("allowed_read_paths", handoff["required"])
         self.assertIn("allowed_write_paths", handoff["required"])
         self.assertIn("task_status_update", handoff["required"])
@@ -1006,6 +1047,11 @@ class PresetContractTests(unittest.TestCase):
             "may_execute_implementation",
             agent_topology["properties"]["vertical_planner_agent"]["required"],
         )
+
+        receipt = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        self.assertIn("task_type", receipt["required"])
+        review_conclusion = receipt["properties"]["review_conclusion"]
+        self.assertIn("checked_sources", review_conclusion["required"])
 
     def test_manifest_schema_declares_runtime_neutral_execution_mode(self) -> None:
         schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -1461,6 +1507,66 @@ class PresetContractTests(unittest.TestCase):
         schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
         Draft202012Validator(schema).validate(minimal_receipt())
 
+    def test_receipt_schema_accepts_code_review_receipt_fields(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        Draft202012Validator(schema).validate(
+            minimal_receipt(
+                task_type="code_review",
+                changed_paths=[SERVICE_PATH, RECEIPT_PATH],
+                review_conclusion={
+                    "status": "changes_requested",
+                    "summary": "Implementation drift repaired; e2e environment pending.",
+                    "checked_sources": [
+                        API_CONTRACT_PATH,
+                        SEQUENCES_PATH,
+                        QUICKSTART_PATH,
+                    ],
+                    "findings": [
+                        {
+                            "id": "CR-001",
+                            "severity": "high",
+                            "category": "sequence_drift",
+                            "summary": "Retry order differed from contracts/sequences.md.",
+                            "paths": [SERVICE_PATH],
+                            "resolution": "repaired",
+                        }
+                    ],
+                },
+                consistency_repairs=[
+                    {
+                        "finding_id": "CR-001",
+                        "reason": "Restore planned retry ordering.",
+                        "changed_paths": [SERVICE_PATH],
+                        "evidence": ["contracts/sequences.md retry flow"],
+                    }
+                ],
+                deferred_validation_todos=[
+                    {
+                        "id": "E2E-001",
+                        "reason": "Real payment sandbox unavailable.",
+                        "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                        "validation_path": "quickstart.md#real-e2e",
+                        "commands": ["npm run e2e:payment"],
+                        "blocking": False,
+                    }
+                ],
+            )
+        )
+
+    def test_receipt_schema_rejects_review_conclusion_without_checked_sources(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(
+            task_type="code_review",
+            review_conclusion={
+                "status": "approved",
+                "summary": "Review complete.",
+                "findings": [],
+            },
+        )
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
+
     def test_validate_receipt_contract_rejects_path_mismatch(self) -> None:
         with self.assertRaises(ValueError):
             validate_receipt_contract(
@@ -1479,6 +1585,276 @@ class PresetContractTests(unittest.TestCase):
 
     def test_validate_receipt_contract_accepts_valid_cross_fields(self) -> None:
         validate_receipt_contract(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
+
+    def test_validate_receipt_contract_requires_review_conclusion_for_code_review_task(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["task_text"] = ["T099 Review final implementation readiness"]
+
+        with self.assertRaisesRegex(ValueError, "review_conclusion"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(task_ids=["T099"], task_type="code_review"),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_code_review_receipt_without_task_type(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+
+        with self.assertRaisesRegex(ValueError, "task_type"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(task_ids=["T099"], task_type="implementation"),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_checked_sources_for_code_review_task(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+
+        with self.assertRaisesRegex(ValueError, "checked_sources"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_checked_source_outside_allowed_reads(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+
+        with self.assertRaisesRegex(ValueError, "checked_sources"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [API_CONTRACT_PATH],
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_repair_path_outside_allowed_writes(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SEQUENCES_PATH]
+
+        with self.assertRaisesRegex(ValueError, "consistency repair changed path"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "changes_requested",
+                        "summary": "Contract drift repaired.",
+                        "checked_sources": [SEQUENCES_PATH],
+                        "findings": [],
+                    },
+                    consistency_repairs=[
+                        {
+                            "finding_id": "CR-001",
+                            "reason": "Align API contract.",
+                            "changed_paths": [f"{FEATURE_PATH}/contracts/api/refunds.yaml"],
+                            "evidence": ["plan.md API contract"],
+                        }
+                    ],
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_todo_for_deferred_real_e2e(self) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH]
+        handoff["validation_commands"] = ["npm run e2e:payment"]
+        handoff["task_text"] = ["T099 Review real e2e readiness"]
+
+        with self.assertRaisesRegex(ValueError, "deferred_validation_todos"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    validation_evidence=[
+                        "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
+                    ],
+                    review_conclusion={
+                        "status": "blocked",
+                        "summary": "Real e2e environment unavailable.",
+                        "checked_sources": [QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_approved_with_unresolved_high_finding(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, API_CONTRACT_PATH]
+
+        with self.assertRaisesRegex(ValueError, "unresolved"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Approved despite known API drift.",
+                        "checked_sources": [API_CONTRACT_PATH],
+                        "findings": [
+                            {
+                                "id": "CR-001",
+                                "severity": "high",
+                                "category": "api_contract_drift",
+                                "summary": "Response schema still differs from API contract.",
+                                "paths": [SERVICE_PATH],
+                                "resolution": "todo",
+                            }
+                        ],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_approved_when_real_e2e_deferred(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH]
+        handoff["validation_commands"] = ["npm run e2e:payment"]
+
+        with self.assertRaisesRegex(ValueError, "approved"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    validation_evidence=[
+                        "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
+                    ],
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Approved although real e2e is missing.",
+                        "checked_sources": [QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                    deferred_validation_todos=[
+                        {
+                            "id": "E2E-001",
+                            "reason": "Real e2e environment missing.",
+                            "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                            "validation_path": "quickstart.md#payment-e2e",
+                            "commands": ["npm run e2e:payment"],
+                            "blocking": False,
+                        }
+                    ],
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_code_review_command_evidence(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, API_CONTRACT_PATH, QUICKSTART_PATH]
+        handoff["validation_commands"] = ["npm run test:contract", "npm run e2e:payment"]
+
+        with self.assertRaisesRegex(ValueError, "validation_evidence"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    validation_evidence=["Code review completed."],
+                    review_conclusion={
+                        "status": "changes_requested",
+                        "summary": "Review complete; validation still pending.",
+                        "checked_sources": [API_CONTRACT_PATH, QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_accepts_code_review_with_repair_and_e2e_todo(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [
+            TASKS_PATH,
+            SEQUENCES_PATH,
+            QUICKSTART_PATH,
+        ]
+        handoff["validation_commands"] = ["npm run e2e:payment"]
+        handoff["task_text"] = ["T099 Review design drift and real e2e readiness"]
+
+        validate_receipt_contract(
+            handoff,
+            minimal_receipt(
+                task_ids=["T099"],
+                task_type="code_review",
+                changed_paths=[SERVICE_PATH],
+                validation_evidence=[
+                    "checked contracts/sequences.md; quickstart.md command npm run e2e:payment deferred because PAYMENT_SANDBOX_TOKEN is unavailable; real e2e deferred"
+                ],
+                review_conclusion={
+                    "status": "changes_requested",
+                    "summary": "Sequence drift repaired; real e2e pending.",
+                    "checked_sources": [SEQUENCES_PATH, QUICKSTART_PATH],
+                    "findings": [
+                        {
+                            "id": "CR-001",
+                            "severity": "high",
+                            "category": "sequence_drift",
+                            "summary": "Retry sequence drifted from planned flow.",
+                            "paths": [SERVICE_PATH],
+                            "resolution": "repaired",
+                        }
+                    ],
+                },
+                consistency_repairs=[
+                    {
+                        "finding_id": "CR-001",
+                        "reason": "Align implementation with planned sequence.",
+                        "changed_paths": [SERVICE_PATH],
+                        "evidence": ["contracts/sequences.md"],
+                    }
+                ],
+                deferred_validation_todos=[
+                    {
+                        "id": "E2E-001",
+                        "reason": "Real e2e environment missing.",
+                        "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                        "validation_path": "quickstart.md#payment-e2e",
+                        "commands": ["npm run e2e:payment"],
+                        "blocking": False,
+                    }
+                ],
+            ),
+            RECEIPT_PATH,
+        )
 
     def test_validate_receipt_contract_rejects_generic_behavior_evidence(self) -> None:
         handoff = minimal_handoff()
@@ -1639,6 +2015,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("## 1.2.0", changelog)
         self.assertIn("## 1.1.0", changelog)
         self.assertIn("## 1.0.3", changelog)
+        self.assertIn("Final Code Review", changelog)
+        self.assertIn("structured code review receipts", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)
         self.assertIn("Removed Python dispatch tooling", changelog)
 
@@ -1692,6 +2070,13 @@ class PresetContractTests(unittest.TestCase):
             "API contract",
             "quickstart path",
             "receipt 路径不等于 handoff 中声明的 `task_status_update.receipt_path`",
+            "Code Review Receipts",
+            "task_type: code_review",
+            "review_conclusion",
+            "checked_sources",
+            "consistency_repairs",
+            "deferred_validation_todos",
+            "quickstart/contract validation command",
         ]
         for term in required_terms:
             self.assertIn(term, document)
