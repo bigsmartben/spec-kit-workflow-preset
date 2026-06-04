@@ -38,9 +38,6 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PIP_NO_INPUT: "1"
       PYTEST_ADDOPTS: ""
-      TMPDIR: ${{ runner.temp }}
-      TEMP: ${{ runner.temp }}
-      TMP: ${{ runner.temp }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -232,6 +229,9 @@ jobs:
       - name: Install specify from fork in smoke venv
         run: |
           set -euo pipefail
+          export TMPDIR="${RUNNER_TEMP}"
+          export TEMP="${RUNNER_TEMP}"
+          export TMP="${RUNNER_TEMP}"
           python3 -m venv "${GITHUB_WORKSPACE}/.venv-specify-smoke"
           echo "${GITHUB_WORKSPACE}/.venv-specify-smoke/bin" >> "${GITHUB_PATH}"
           PATH="${GITHUB_WORKSPACE}/.venv-specify-smoke/bin:${PATH}"
@@ -241,6 +241,9 @@ jobs:
       - name: Smoke install preset from checkout on GitHub runner
         run: |
           set -euo pipefail
+          export TMPDIR="${RUNNER_TEMP}"
+          export TEMP="${RUNNER_TEMP}"
+          export TMP="${RUNNER_TEMP}"
           PATH="${GITHUB_WORKSPACE}/.venv-specify-smoke/bin:${PATH}"
           project_dir="$(mktemp -d "${RUNNER_TEMP}/workflow-preset-smoke.XXXXXX")"
           resolve_out="${RUNNER_TEMP}/plan-template-resolve.txt"
@@ -344,7 +347,7 @@ jobs:
           tests_path = Path("tests/test_presets.py")
           tests_text = tests_path.read_text(encoding="utf-8")
           tests_text = tests_text.replace(
-              'assert entry["version"] == "1.3.3"',
+              'assert entry["version"] == "1.3.4"',
               f'assert entry["version"] == "{version}"',
           )
           tests_path.write_text(tests_text, encoding="utf-8")

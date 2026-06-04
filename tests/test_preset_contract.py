@@ -401,7 +401,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.3.3", data["preset"]["version"])
+        self.assertEqual("1.3.4", data["preset"]["version"])
         self.assertEqual(
             "Behavior-first specification, design artifacts, and agent-native handoff orchestration",
             data["preset"]["description"],
@@ -2496,7 +2496,9 @@ class PresetContractTests(unittest.TestCase):
             'resolve_out="${RUNNER_TEMP}/plan-template-resolve.txt"',
             "PIP_CONFIG_FILE: /dev/null",
             'PYTEST_ADDOPTS: ""',
-            "TMPDIR: ${{ runner.temp }}",
+            'export TMPDIR="${RUNNER_TEMP}"',
+            'export TEMP="${RUNNER_TEMP}"',
+            'export TMP="${RUNNER_TEMP}"',
             'specify init --here --ai claude --script sh --ignore-agent-tools',
             "specify preset remove workflow-preset",
             "specify preset add --dev",
@@ -2508,7 +2510,7 @@ class PresetContractTests(unittest.TestCase):
             "gh pr create",
             "gh pr edit",
             "WORKFLOW_PRESET_DOWNLOAD_URL",
-            'assert entry["version"] == "1.3.3"',
+            'assert entry["version"] == "1.3.4"',
             "tests/test_presets.py",
             "speckit-cross-agent-subagents.md",
             "ZipInfo",
