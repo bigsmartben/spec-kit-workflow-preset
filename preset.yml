@@ -45,7 +45,7 @@ provides:
     - type: "command"
       name: "speckit.checklist"
       file: "commands/speckit.checklist.md"
-      description: "Wrap core checklist generation with BDD readiness gate"
+      description: "Wrap core checklist generation with BDD and NFR readiness gate"
       replaces: "speckit.checklist"
       strategy: "wrap"
 
@@ -115,7 +115,7 @@ provides:
     - type: "template"
       name: "behavior-testability-checklist-template"
       file: "templates/behavior/behavior-testability-checklist.md"
-      description: "Template for BDD readiness gate output"
+      description: "Template for BDD and NFR readiness gate output"
       replaces: "behavior-testability-checklist-template"
       strategy: "replace"
 
