@@ -320,7 +320,7 @@ This repository owns preset artifact health:
 
 - run `tests/test_preset_contract.py`;
 - build `spec-kit-workflow-preset-v<version>.zip`;
-- smoke-install this checkout with a `specify` CLI built from `bigsmartben/spec-kit`;
+- smoke-install this checkout on an Ubuntu GitHub runner with a `specify` CLI built from `bigsmartben/spec-kit`;
 - publish or confirm the release artifact for a tag or manual release run;
 - create or update a `workflow-preset-release-v<version>` integration PR in `bigsmartben/spec-kit` on tag releases or manual runs with `create_integration_pr=true`.
 
@@ -330,13 +330,15 @@ The integration PR step requires a repository secret named `SPEC_KIT_FORK_PR_TOK
 
 This repository owns the release artifact and the fork integration PR. It does not open pull requests to `github/spec-kit`. The `bigsmartben/spec-kit` fork owns downstream integration validation, core compatibility fixes, catalog resolver checks, and any later community catalog PR flow.
 
-Validate local installation:
+Optional local CLI sanity check:
 
 ```bash
 specify preset add --dev /path/to/workflow-preset
 specify preset info workflow-preset
 specify preset remove workflow-preset
 ```
+
+Release install smoke validation is intentionally owned by GitHub Actions, not by a local WSL environment.
 
 After tagging a release, validate archive installation:
 

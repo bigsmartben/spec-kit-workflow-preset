@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added Final Code Review task generation and structured code review receipts for implementation consistency repairs and deferred real e2e validation todos.
+- Isolated release install smoke checks to a GitHub runner venv and runner temp paths instead of relying on local environment behavior.
 
 ## 1.3.1
 

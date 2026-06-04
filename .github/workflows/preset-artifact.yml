@@ -34,6 +34,13 @@ jobs:
       INPUT_VERSION: ${{ inputs.version || '' }}
       INPUT_SPEC_KIT_REF: ${{ inputs.spec_kit_ref || 'main' }}
       CREATE_INTEGRATION_PR: ${{ inputs.create_integration_pr || false }}
+      PIP_CONFIG_FILE: /dev/null
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PIP_NO_INPUT: "1"
+      PYTEST_ADDOPTS: ""
+      TMPDIR: ${{ runner.temp }}
+      TEMP: ${{ runner.temp }}
+      TMP: ${{ runner.temp }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -222,22 +229,28 @@ jobs:
               sys.exit(1)
           PY
 
-      - name: Install specify from fork
+      - name: Install specify from fork in smoke venv
         run: |
           set -euo pipefail
+          python3 -m venv "${GITHUB_WORKSPACE}/.venv-specify-smoke"
+          echo "${GITHUB_WORKSPACE}/.venv-specify-smoke/bin" >> "${GITHUB_PATH}"
+          PATH="${GITHUB_WORKSPACE}/.venv-specify-smoke/bin:${PATH}"
+          python3 -m pip install --upgrade pip
           python3 -m pip install "git+https://github.com/bigsmartben/spec-kit.git@${INPUT_SPEC_KIT_REF}"
 
-      - name: Smoke install preset from checkout
+      - name: Smoke install preset from checkout on GitHub runner
         run: |
           set -euo pipefail
-          project_dir="$(mktemp -d)"
+          PATH="${GITHUB_WORKSPACE}/.venv-specify-smoke/bin:${PATH}"
+          project_dir="$(mktemp -d "${RUNNER_TEMP}/workflow-preset-smoke.XXXXXX")"
+          resolve_out="${RUNNER_TEMP}/plan-template-resolve.txt"
           cd "$project_dir"
           specify init --here --ai claude --script sh --ignore-agent-tools
           specify preset remove workflow-preset
           specify preset add --dev "$GITHUB_WORKSPACE"
           specify preset info workflow-preset
-          specify preset resolve plan-template | tee /tmp/plan-template-resolve.txt
-          grep -q "workflow-preset" /tmp/plan-template-resolve.txt
+          specify preset resolve plan-template | tee "$resolve_out"
+          grep -q "workflow-preset" "$resolve_out"
           test -f .specify/presets/workflow-preset/preset.yml
           test -f .specify/presets/workflow-preset/templates/plan-template.md
           test -f .specify/presets/workflow-preset/commands/speckit.implement.md
