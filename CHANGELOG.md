@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.3
+
 - Added NFR readiness to `/speckit.checklist` so `spec.md` must explicitly declare applicable non-functional requirements, mark them not applicable, or block planning for unknown assumptions.
 - Added Final Code Review task generation and structured code review receipts for implementation consistency repairs, post-implementation data side-effect review, and deferred real e2e validation todos.
 - Isolated release install smoke checks to a GitHub runner venv and runner temp paths instead of relying on local environment behavior.
