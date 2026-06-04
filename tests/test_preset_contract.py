@@ -2510,7 +2510,7 @@ class PresetContractTests(unittest.TestCase):
             "gh pr create",
             "gh pr edit",
             "WORKFLOW_PRESET_DOWNLOAD_URL",
-            'assert entry["version"] == "1.3.4"',
+            'assert entry\\["version"\\] == "[0-9]+\\.[0-9]+\\.[0-9]+"',
             "tests/test_presets.py",
             "speckit-cross-agent-subagents.md",
             "ZipInfo",

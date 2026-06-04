@@ -325,6 +325,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import re
           from pathlib import Path
 
           import yaml
@@ -346,9 +347,10 @@ jobs:
 
           tests_path = Path("tests/test_presets.py")
           tests_text = tests_path.read_text(encoding="utf-8")
-          tests_text = tests_text.replace(
-              'assert entry["version"] == "1.3.4"',
+          tests_text = re.sub(
+              r'assert entry\["version"\] == "[0-9]+\.[0-9]+\.[0-9]+"',
               f'assert entry["version"] == "{version}"',
+              tests_text,
           )
           tests_path.write_text(tests_text, encoding="utf-8")
           PY
