@@ -511,7 +511,7 @@ class PresetContractTests(unittest.TestCase):
             template = entries[template_name]
             self.assertEqual("template", template["type"])
             self.assertEqual(
-                str(template_path.relative_to(REPO_ROOT)),
+                template_path.relative_to(REPO_ROOT).as_posix(),
                 template["file"],
             )
             self.assertEqual(template_name, template["replaces"])
@@ -521,7 +521,7 @@ class PresetContractTests(unittest.TestCase):
             schema_name = f"{contract_type}-schema".replace(".", "-").replace("_", "-")
             schema = entries[schema_name]
             self.assertEqual("template", schema["type"])
-            self.assertEqual(str(schema_path.relative_to(REPO_ROOT)), schema["file"])
+            self.assertEqual(schema_path.relative_to(REPO_ROOT).as_posix(), schema["file"])
             self.assertEqual(schema_name, schema["replaces"])
             self.assertEqual("replace", schema["strategy"])
 
@@ -689,12 +689,32 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Product requirements stay in `spec.md`", clarify)
         self.assertIn("non-functional requirement assumptions", clarify)
         self.assertIn("only after user-provided answers", clarify)
+        self.assertIn("Figma Evidence Packet", clarify)
+        self.assertIn("Missing / Needs clarification", clarify)
+        self.assertIn("[NEEDS CLARIFICATION]", clarify)
+        self.assertIn("Inferred from structure", clarify)
+        self.assertIn("Do not call Figma MCP", clarify)
+        self.assertIn("Do not re-extract design facts", clarify)
+        self.assertIn("Ask at most 5 high-impact questions", clarify)
+        self.assertIn("visual fidelity scope", clarify)
+        self.assertIn("missing UI states", clarify)
+        self.assertIn("responsive behavior", clarify)
+        self.assertIn("component mapping", clarify)
+        self.assertIn("data semantics", clarify)
+        self.assertIn("acceptance evidence", clarify)
+        self.assertIn("write confirmed answers back into `spec.md`", clarify)
+        self.assertIn("Do not generate visual restoration checklists", clarify)
         for forbidden in (
             "behavior/bdd.draft.feature",
             "behavior/behavior-scenarios.draft.json",
             "behavior/uif.intent.json",
             "behavior/data-fixtures.intent.json",
             "behavior/open-questions.json",
+            "use_figma",
+            "get_design_context",
+            "fetch Figma URL",
+            "read Figma URL",
+            "update checklists/behavior-testability.md",
         ):
             self.assertNotIn(forbidden, clarify)
 
@@ -2281,6 +2301,9 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("The preset has four goals:", readme)
         self.assertIn("BDD readiness gate", readme)
         self.assertIn("NFR readiness", readme)
+        self.assertIn("Figma Evidence Packet", readme)
+        self.assertIn("clarifies Figma-derived gaps already written in `spec.md`", readme)
+        self.assertIn("does not call Figma", readme)
         self.assertIn("explicit non-functional requirement declarations", readme)
         self.assertIn("Required, Not Applicable, or Unknown", readme)
         self.assertIn("missing or unverifiable NFR assumptions", readme)
@@ -2417,6 +2440,8 @@ class PresetContractTests(unittest.TestCase):
             "BDD and UIF artifacts need independent templates",
             "`/speckit.constitution`: constitution governance and project principles only",
             "`/speckit.checklist`: checklist artifacts and BDD/NFR readiness gates only",
+            "Figma Evidence Packet",
+            "external design extraction is not a clarification responsibility",
             "NFR readiness belongs in `spec.md` product requirements",
             "`/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts",
             "Handoff extensions must update schema, validator, command, and cross-agent documentation together",

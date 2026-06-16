@@ -33,6 +33,7 @@ Requirement capabilities:
 
 - Wraps `/speckit.specify` so it produces or updates `spec.md` only.
 - Wraps `/speckit.clarify` so it resolves requirement ambiguity in `spec.md` only.
+- When a Figma Evidence Packet has already been written into `spec.md`, `/speckit.clarify` clarifies Figma-derived gaps already written in `spec.md` and does not call Figma.
 - Wraps `/speckit.checklist` to add `checklists/behavior-testability.md` as a BDD readiness gate and NFR readiness gate.
 - Checks user stories, acceptance criteria, Given/When/Then readiness, roles, permissions, states, data, validation, boundary, exception, state-conflict behavior, and non-functional requirements directly from `spec.md`.
 - Requires NFR dimensions to be marked Required, Not Applicable, or Unknown in product language before planning.
