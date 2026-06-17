@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.6
+
 - Added a Figma Evidence Packet input template and Figma intake contract for Figma-derived specifications without adding Figma MCP execution to the preset.
 - Hardened Figma intake readiness with raw metadata completeness, metadata index proof, node inventory parity, and blocker lint gates before writing Figma-derived requirements.
 
