@@ -34,15 +34,16 @@ Requirement capabilities:
 - Wraps `/speckit.specify` so it produces or updates `spec.md` only.
 - Wraps `/speckit.clarify` so it resolves requirement ambiguity in `spec.md` only.
 - When a Figma Evidence Packet has already been written into `spec.md`, `/speckit.clarify` clarifies Figma-derived gaps already written in `spec.md` and does not call Figma.
-- Wraps `/speckit.checklist` to add `checklists/behavior-testability.md` as a BDD readiness gate and NFR readiness gate.
+- Wraps `/speckit.checklist` to add `checklists/behavior-testability.md` as a BDD readiness gate, NFR readiness gate, and applicable Visual Fidelity readiness gate.
 - Checks user stories, acceptance criteria, Given/When/Then readiness, roles, permissions, states, data, validation, boundary, exception, state-conflict behavior, and non-functional requirements directly from `spec.md`.
+- Checks Figma-derived requirements for raw metadata completeness, node inventory parity, source traceability, and blocker lint errors before planning.
 - Requires NFR dimensions to be marked Required, Not Applicable, or Unknown in product language before planning.
 - Blocks planning when readiness gaps or missing or unverifiable NFR assumptions must return to `/speckit.clarify` or `/speckit.specify`.
 
 Planning capabilities:
 
 - Wraps `/speckit.plan` to run Phase 0 preflight, Phase 0 behavior projection, and optional/contextual design artifacts when useful.
-- Requires the BDD and NFR readiness gate to pass before planning.
+- Requires the BDD, NFR, and applicable Visual Fidelity readiness gates to pass before planning.
 - Treats Phase 0 preflight failures as report-only/no-write failures.
 - Writes `behavior/bdd.draft.feature`, `behavior/behavior-scenarios.draft.json`, `behavior/uif.intent.json`, and `behavior/data-fixtures.intent.json` during Phase 0 behavior projection.
 - Consumes Phase 0 behavior drafts and must formalize them into `contracts/bdd/`, `contracts/uif/`, and `contracts/behavior/` when the BDD and NFR readiness gate has passed.
@@ -146,6 +147,26 @@ Run the behavior-first workflow:
 /speckit.analyze
 ```
 
+### Figma Input
+
+`/speckit.specify` supports direct Figma URL input when the runtime agent has Figma MCP access:
+
+```text
+/speckit.specify <Figma URL>
+```
+
+The runtime agent should extract design evidence into a Figma Evidence Packet
+before writing `spec.md`. The preset defines the packet format, requirement
+ownership rules, and Figma intake contract; it does not provide Figma MCP connection, authentication, or execution.
+The preset defines the required Figma intake artifact structure and ready gate;
+the runtime agent or external Figma intake calls Figma MCP and writes
+`figma-metadata.part-*.xml`, `figma-metadata.index.yaml`, and
+`figma-node-inventory.yaml`. The preset consumes qualified evidence and does
+not generate the artifact instances.
+Figma-derived requirements are ready only when the packet records raw metadata
+completeness, metadata index completeness proof, node inventory parity, and no
+blocker lint errors.
+
 Then run agent-native orchestrated implementation:
 
 ```text
@@ -172,6 +193,11 @@ The core planning workflow still owns its normal artifacts:
 This preset adds checklist artifacts:
 
 - `specs/<feature>/checklists/behavior-testability.md`
+
+Figma intake artifact instances are written by the runtime agent or external
+Figma intake. The preset defines their required structure and consumes the
+qualified evidence from `spec.md` after `/speckit.specify` writes or marks it as
+`[NEEDS CLARIFICATION]`; it does not generate the artifact instances.
 
 This preset adds Phase 0 behavior artifacts:
 
@@ -213,13 +239,21 @@ Contract files packaged by the preset:
 - `schemas/speckit.implement.handoff.v2.schema.json`
 - `schemas/speckit.implement.receipt.v1.schema.json`
 
+Input evidence template packaged by the preset:
+
+- `templates/figma-evidence-packet-template.md`
+
 Development-only contract helpers:
 
 - `validators/speckit_implement_contract.py`
 
 ## Artifact Roles
 
-`checklists/behavior-testability.md` is the BDD and NFR readiness gate. It checks `spec.md` before planning so user stories, acceptance criteria, Given context, executable When actions, observable Then outcomes, and explicit non-functional requirement declarations are ready for behavior projection and planning. Each NFR dimension is marked Required, Not Applicable, or Unknown; missing or unverifiable NFR assumptions block planning when they affect downstream design.
+`checklists/behavior-testability.md` is the BDD, NFR, and applicable Visual Fidelity readiness gate. It checks `spec.md` before planning so user stories, acceptance criteria, Given context, executable When actions, observable Then outcomes, explicit non-functional requirement declarations, and Figma-derived evidence are ready for behavior projection and planning. Each NFR dimension is marked Required, Not Applicable, or Unknown; missing or unverifiable NFR assumptions block planning when they affect downstream design.
+
+`templates/figma-evidence-packet-template.md` defines how Figma-derived design facts are normalized before `/speckit.specify` writes requirements. It separates observed design facts, structural inferences, missing requirements, and excluded scope so Figma evidence does not get treated as complete product behavior. It references Figma intake contract results for raw metadata completeness, metadata index completeness proof, node inventory parity, and blocker lint errors before Figma-derived requirements can be treated as ready.
+
+`templates/figma-intake-contract.md` defines the raw Figma intake artifact contract for `figma-metadata.part-*.xml`, `figma-metadata.index.yaml`, and `figma-node-inventory.yaml`. It owns raw metadata completeness, metadata index completeness proof, node inventory parity, blocker lint errors, and the ready gate; the Evidence Packet references those results as normalized input for `spec.md`.
 
 `behavior/bdd.draft.feature` captures Phase 0 behavior projection in readable Given/When/Then form. `behavior/behavior-scenarios.draft.json`, `behavior/uif.intent.json`, and `behavior/data-fixtures.intent.json` make the same draft behavior machine-readable enough for planning formalization.
 
