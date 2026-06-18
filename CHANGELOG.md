@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.8
+
 - Aligned code review receipt validation with the receipt schema for data side-effect review required fields.
 - Rejected empty Case Coverage Matrix inputs in the behavior case coverage validator.
 - Restored source-only workflow contract checks to skip when tests run from a packaged preset without `.github/workflows`.
