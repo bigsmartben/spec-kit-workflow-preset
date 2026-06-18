@@ -193,7 +193,11 @@ def validate_behavior_case_coverage(
     }
     blockers_by_id = _case_coverage_blockers_by_id(scenario_instances)
 
-    for row in case_coverage.get("case_coverage", []):
+    coverage_rows = case_coverage.get("case_coverage")
+    if not isinstance(coverage_rows, list) or not coverage_rows:
+        raise ValueError("case_coverage must include a non-empty case_coverage matrix")
+
+    for row in coverage_rows:
         story = row.get("story", "<unknown>")
         case_type = row.get("case_type")
         status = row.get("status")
@@ -714,6 +718,14 @@ def validate_receipt_contract(
                     f"allowed_read_paths or context_digest_path: {path}"
                 )
 
+        runtime_data_writes_found = data_side_effect_review.get("runtime_data_writes_found")
+        if not isinstance(runtime_data_writes_found, bool):
+            raise ValueError("data_side_effect_review must include runtime_data_writes_found")
+
+        mutation_findings = data_side_effect_review.get("mutation_findings")
+        if not isinstance(mutation_findings, list):
+            raise ValueError("data_side_effect_review must include mutation_findings")
+
         validation_commands = list(handoff.get("validation_commands", []))
         if validation_commands and not _receipt_mentions_any_command(
             receipt,
@@ -740,7 +752,7 @@ def validate_receipt_contract(
                     "critical/high findings"
                 )
 
-        for finding in data_side_effect_review.get("mutation_findings", []):
+        for finding in mutation_findings:
             if review_status == "approved" and _unresolved_high_or_critical(finding):
                 raise ValueError(
                     "approved code review receipt must not include unresolved "

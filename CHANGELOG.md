@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Aligned code review receipt validation with the receipt schema for data side-effect review required fields.
+- Rejected empty Case Coverage Matrix inputs in the behavior case coverage validator.
+- Restored source-only workflow contract checks to skip when tests run from a packaged preset without `.github/workflows`.
+
 ## 1.3.7
 
 - Generalized Figma-derived requirement handling into provider-neutral Design Requirement Intake and Requirement Merge templates while keeping Figma MCP execution outside the preset.

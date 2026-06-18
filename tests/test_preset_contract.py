@@ -2267,6 +2267,16 @@ class PresetContractTests(unittest.TestCase):
                 "Validate SCN-001",
             )
 
+    def test_behavior_case_coverage_validator_rejects_empty_matrix(self) -> None:
+        with self.assertRaisesRegex(ValueError, "case_coverage"):
+            validate_behavior_case_coverage(
+                {},
+                minimal_behavior_scenarios_draft(),
+                minimal_behavior_scenario_instances(),
+                "T001 implement SCN-001",
+                "Validate SCN-001",
+            )
+
     def test_behavior_case_coverage_validator_requires_tasks_and_quickstart_evidence(self) -> None:
         with self.assertRaisesRegex(ValueError, "tasks.md"):
             validate_behavior_case_coverage(
@@ -2962,6 +2972,38 @@ class PresetContractTests(unittest.TestCase):
                 ),
                 RECEIPT_PATH,
             )
+
+    def test_validate_receipt_contract_requires_complete_data_side_effect_review(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        for field in (
+            "reviewed_diff_paths",
+            "runtime_data_writes_found",
+            "mutation_findings",
+        ):
+            data_side_effect_review = no_data_side_effects_review()
+            data_side_effect_review.pop(field)
+
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, field):
+                    validate_receipt_contract(
+                        handoff,
+                        minimal_receipt(
+                            task_ids=["T099"],
+                            task_type="code_review",
+                            review_conclusion={
+                                "status": "approved",
+                                "summary": "Review complete.",
+                                "checked_sources": [SERVICE_PATH],
+                                "findings": [],
+                            },
+                            data_side_effect_review=data_side_effect_review,
+                        ),
+                        RECEIPT_PATH,
+                    )
 
     def test_validate_receipt_contract_rejects_unreviewed_diff_path_for_data_side_effect_review(
         self,
@@ -3668,7 +3710,8 @@ class PresetContractTests(unittest.TestCase):
 
     def test_github_actions_contract_workflow(self) -> None:
         workflow_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-        self.assertTrue(workflow_path.exists())
+        if not workflow_path.exists():
+            self.skipTest("source repository workflow file is not packaged in the preset")
         workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
 
         self.assertEqual("Preset Contract", workflow["name"])
@@ -3690,7 +3733,8 @@ class PresetContractTests(unittest.TestCase):
 
     def test_github_actions_artifact_release_and_integration_pr_workflow(self) -> None:
         workflow_path = REPO_ROOT / ".github" / "workflows" / "preset-artifact.yml"
-        self.assertTrue(workflow_path.exists())
+        if not workflow_path.exists():
+            self.skipTest("source repository workflow file is not packaged in the preset")
         workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
 
         self.assertEqual("Preset Artifact", workflow["name"])
