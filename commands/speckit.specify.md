@@ -11,19 +11,24 @@ Product requirements stay in `spec.md`: user stories, acceptance criteria, funct
 
 Keep requirement text implementation-agnostic and scoped to product behavior. Non-functional requirements should be explicit product-level assumptions or constraints, including no-special-requirement or not-applicable statements when that is the confirmed requirement.
 
-## Figma URL Input Policy
+## Design Requirement Input Policy
 
-If the raw request is a Figma URL and the runtime agent has Figma MCP access:
+Product Requirement Intake captures product intent. Design Requirement Intake
+captures provider-neutral design facts. Requirement Merge combines those inputs
+into baseline `spec.md` requirements without changing this command's write
+scope.
 
-- Require a ready Figma Evidence Packet before writing Figma-derived requirements.
-- Use the Figma intake contract: the preset defines the required Figma intake artifact structure and ready gate.
+If the design source is a Figma URL and the runtime agent has Figma MCP access:
+
+- Require a ready Figma Evidence Packet before writing design-derived requirements.
+- Use the Figma provider source readiness contract: the preset defines the required design intake and provider readiness artifact structure and ready gate.
 - Treat the runtime agent or external Figma intake as the source of artifact instances; this command consumes qualified evidence and does not generate the artifact instances.
 - Apply the ready gate:
-- `raw_metadata_complete: true`
-- `node_inventory_coverage: 100%`
-- `parity_passed: true`
-- No blocker lint errors
-- If the packet is not ready, do not write Figma-derived requirements from that evidence. Write only explicit non-Figma requirements and add `[NEEDS CLARIFICATION]` items for missing raw metadata, metadata index, node inventory parity, or blocker lint remediation.
+  - `raw_metadata_complete: true`
+  - `node_inventory_coverage: 100%`
+  - `parity_passed: true`
+  - No blocker lint errors
+- If the packet is not ready, do not write design-derived requirements from that evidence. Write only explicit non-design requirements and add `[NEEDS CLARIFICATION]` items for missing raw metadata, metadata index, node inventory parity, or blocker lint remediation.
 
 Use `Observed from Figma` as design evidence. Treat `Inferred from Structure`,
 `Missing / Needs Clarification`, and `Out of Scope` as interpretation,

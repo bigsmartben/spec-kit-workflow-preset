@@ -4,6 +4,8 @@ from typing import Any
 
 
 VALID_EXECUTION_MODES = {"isolated_subagent", "manual_fresh_worker_session"}
+CASE_TYPES = {"positive", "negative", "boundary", "permission", "validation", "state_conflict"}
+FAILURE_CASE_TYPES = {"negative", "permission", "validation", "state_conflict"}
 
 
 def _duplicate_ids(items: list[dict[str, Any]], *, key: str, context: str) -> set[str]:
@@ -110,6 +112,147 @@ def _validate_expected_uif_contract(uif_contract: dict[str, Any]) -> None:
         elif step_type == "user_event":
             if not step.get("id") and not step.get("label"):
                 raise ValueError(f"{context} user_event requires id or label")
+
+
+def _validate_non_positive_behavior_scenario(
+    scenario: dict[str, Any],
+    assertions_by_id: dict[str, dict[str, Any]],
+) -> None:
+    scenario_id = scenario.get("id", "<unknown>")
+    scenario_type = scenario.get("type")
+    if scenario_type == "positive":
+        return
+
+    request_case = scenario.get("request_case")
+    if not isinstance(request_case, dict):
+        raise ValueError(f"behavior scenario {scenario_id} must include request_case")
+    case_kind = request_case.get("case_kind")
+    if not case_kind:
+        raise ValueError(f"behavior scenario {scenario_id} missing case_kind")
+    if case_kind != scenario_type:
+        raise ValueError(f"behavior scenario {scenario_id} case_kind must match type")
+    outcome = request_case.get("outcome")
+    if outcome not in {"success", "failure"}:
+        raise ValueError(f"behavior scenario {scenario_id} missing outcome")
+    if not request_case.get("trigger"):
+        raise ValueError(f"behavior scenario {scenario_id} missing trigger")
+
+    if scenario_type in FAILURE_CASE_TYPES and outcome != "failure":
+        raise ValueError(f"behavior scenario {scenario_id} failure case must declare failure outcome")
+    if outcome != "failure":
+        return
+
+    expected_response = scenario.get("expected_response")
+    if not isinstance(expected_response, dict) or not expected_response:
+        raise ValueError(f"behavior scenario {scenario_id} missing expected_response")
+    if not expected_response.get("error_code"):
+        raise ValueError(f"behavior scenario {scenario_id} missing error_code")
+
+    expected_feedback = scenario.get("expected_feedback")
+    if not isinstance(expected_feedback, dict) or not expected_feedback:
+        raise ValueError(f"behavior scenario {scenario_id} missing expected_feedback")
+    if not expected_feedback.get("type"):
+        raise ValueError(f"behavior scenario {scenario_id} missing feedback_type")
+    if not expected_feedback.get("message"):
+        raise ValueError(f"behavior scenario {scenario_id} missing feedback_message")
+
+    invariant_intents = {"state_invariant", "rollback", "compensation"}
+    if not any(
+        assertions_by_id.get(assertion_id, {}).get("intent") in invariant_intents
+        for assertion_id in scenario.get("assertion_ids", [])
+    ):
+        raise ValueError(
+            f"behavior scenario {scenario_id} missing state_invariant_rollback_or_compensation_assertion"
+        )
+
+
+def _case_coverage_blockers_by_id(scenario_instances: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        blocker["id"]: blocker
+        for blocker in scenario_instances.get("case_coverage_blockers", [])
+        if "id" in blocker
+    }
+
+
+def validate_behavior_case_coverage(
+    case_coverage: dict[str, Any],
+    scenarios_draft: dict[str, Any],
+    scenario_instances: dict[str, Any],
+    tasks_text: str,
+    quickstart_text: str,
+) -> None:
+    draft_by_id = {
+        scenario.get("id"): scenario
+        for scenario in scenarios_draft.get("scenarios", [])
+        if "id" in scenario
+    }
+    formal_by_id = {
+        scenario.get("id"): scenario
+        for scenario in scenario_instances.get("scenarios", [])
+        if "id" in scenario
+    }
+    blockers_by_id = _case_coverage_blockers_by_id(scenario_instances)
+
+    for row in case_coverage.get("case_coverage", []):
+        story = row.get("story", "<unknown>")
+        case_type = row.get("case_type")
+        status = row.get("status")
+        context = f"{story} {case_type}"
+
+        if case_type not in CASE_TYPES:
+            raise ValueError(f"case coverage row {context} has unknown case_type")
+        if status not in {"Required", "Not Applicable", "Unknown"}:
+            raise ValueError(f"case coverage row {context} has unknown status")
+
+        if status == "Not Applicable":
+            if not row.get("rationale"):
+                raise ValueError(f"Not Applicable case {context} missing rationale")
+            continue
+
+        if status == "Unknown":
+            if not row.get("blocker_id"):
+                raise ValueError(f"Unknown case {context} missing Blocking Items reference")
+            continue
+
+        if status != "Required":
+            continue
+
+        if not row.get("source"):
+            raise ValueError(f"Required case {context} missing source")
+
+        scenario_id = row.get("scenario_id")
+        blocker_id = row.get("blocker_id")
+        if bool(scenario_id) == bool(blocker_id):
+            raise ValueError(
+                f"Required case {context} must name exactly one scenario_id or blocker_id"
+            )
+
+        if blocker_id:
+            blocker = blockers_by_id.get(blocker_id)
+            if blocker is None:
+                raise ValueError(f"Required case {context} references unknown blocker")
+            if blocker.get("case_id") != row.get("case_id"):
+                raise ValueError(f"Required case {context} blocker case_id mismatch")
+            if blocker.get("case_type") != case_type:
+                raise ValueError(f"Required case {context} blocker case_type mismatch")
+            if blocker.get("source") != row.get("source"):
+                raise ValueError(f"Required case {context} blocker source mismatch")
+            if blocker_id not in tasks_text:
+                raise ValueError(f"Required case {context} missing tasks.md blocker evidence")
+            if blocker_id not in quickstart_text:
+                raise ValueError(f"Required case {context} missing quickstart.md blocker evidence")
+            continue
+
+        draft = draft_by_id.get(scenario_id)
+        formal = formal_by_id.get(scenario_id)
+        if draft is None or formal is None:
+            raise ValueError(f"Required case {context} missing draft or formal scenario")
+        if draft.get("type") != case_type or formal.get("type") != case_type:
+            raise ValueError(f"Required case {context} scenario type mismatch")
+        if scenario_id not in tasks_text:
+            raise ValueError(f"Required case {context} missing tasks.md evidence")
+        if scenario_id not in quickstart_text:
+            raise ValueError(f"Required case {context} missing quickstart.md evidence")
 
 
 def _handoff_has_behavior_contract_context(handoff: dict[str, Any]) -> bool:
@@ -243,6 +386,11 @@ def validate_behavior_contract_bundle(
         key="id",
         context="behavior assertions",
     )
+    assertions_by_id = {
+        assertion["id"]: assertion
+        for assertion in assertions.get("assertions", [])
+        if "id" in assertion
+    }
     uif_path_ids = _duplicate_ids(
         uif_expected_contracts,
         key="id",
@@ -274,6 +422,8 @@ def validate_behavior_contract_bundle(
         for assertion_id in scenario.get("assertion_ids", []):
             if assertion_id not in assertion_ids:
                 raise ValueError(f"scenario references unknown assertion: {assertion_id}")
+
+        _validate_non_positive_behavior_scenario(scenario, assertions_by_id)
 
     if len(scenario_ids) != len(scenario_instances.get("scenarios", [])):
         raise ValueError("behavior scenario instances contain duplicate ids")

@@ -1,7 +1,8 @@
 # Figma Evidence Packet
 
-Use this packet to normalize design evidence before `/speckit.specify` writes
-Figma-derived requirements. Raw intake readiness is governed by
+Use this provider-specific packet to normalize Figma design evidence before
+Design Requirement Intake and `/speckit.specify` write design-derived
+requirements. Raw intake readiness is governed by
 `templates/figma-intake-contract.md`.
 
 ## Figma Source

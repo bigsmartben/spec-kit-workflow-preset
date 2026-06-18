@@ -38,8 +38,22 @@ provides:
     - type: "template"
       name: "figma-intake-contract-template"
       file: "templates/figma-intake-contract.md"
-      description: "Define the Figma intake artifact contract for raw metadata readiness"
+      description: "Define the Figma provider source readiness contract for raw metadata readiness"
       replaces: "figma-intake-contract-template"
+      strategy: "replace"
+
+    - type: "template"
+      name: "design-requirement-intake-template"
+      file: "templates/design-requirement-intake-template.md"
+      description: "Define the Design Requirement Intake format for provider-neutral design facts"
+      replaces: "design-requirement-intake-template"
+      strategy: "replace"
+
+    - type: "template"
+      name: "requirement-merge-report-template"
+      file: "templates/requirement-merge-report-template.md"
+      description: "Define the Requirement Merge report format before baseline spec.md generation"
+      replaces: "requirement-merge-report-template"
       strategy: "replace"
 
     - type: "command"
