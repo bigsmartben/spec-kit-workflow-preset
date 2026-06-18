@@ -1,7 +1,6 @@
 # Requirement Merge Report
 
-Use this report to normalize how Product Requirement and Design Requirement
-inputs become baseline `spec.md` requirements.
+Purpose: normalize Product Requirement and Design Requirement merge decisions for baseline `spec.md`.
 
 ## Product Requirement Inputs
 
@@ -39,6 +38,15 @@ Design Requirement owns:
 - layout and responsive behavior
 - motion behavior
 - visual acceptance requirements
+
+## Design Requirement Promotion Rules
+
+- Promote observed design facts with source refs to design requirements.
+- Promote confirmed design facts to design requirements.
+- Inferred design facts remain assumptions or `[NEEDS CLARIFICATION]`.
+- Missing design facts remain `[NEEDS CLARIFICATION]`.
+- Promote screenshot-supported visual facts only as visual requirements with screenshot refs.
+- Screenshot-implied business rules must remain `[NEEDS CLARIFICATION]`.
 
 ## Conflict Resolution
 

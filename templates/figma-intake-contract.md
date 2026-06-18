@@ -1,8 +1,8 @@
 # Figma Intake Contract
 
-This Figma provider source readiness contract defines the required artifact
-formats and gates. The runtime agent or external Figma intake performs
-extraction before Design Requirement Intake consumes provider evidence.
+Required Figma intake artifacts and readiness gates. The runtime agent or
+external Figma intake performs extraction before Design Requirement Intake
+consumes provider evidence.
 
 ## Raw Metadata Shards
 
@@ -97,11 +97,11 @@ nodes, or marked ready without completeness proof.
 
 ## Preset Boundary
 
-The preset defines the required artifact formats and gates.
+Preset boundary:
 
-- does not call Figma MCP
-- does not fetch Figma URLs
-- does not write `figma-metadata.part-*.xml`
-- does not run adapter scripts
-- does not authenticate to Figma
-- does not generate artifact instances
+- must not call Figma MCP
+- must not fetch Figma URLs
+- must not write `figma-metadata.part-*.xml`
+- must not run adapter scripts
+- must not authenticate to Figma
+- must not generate artifact instances

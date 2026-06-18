@@ -1,7 +1,6 @@
 # Design Requirement Intake
 
-Use this provider-neutral intake to normalize design requirements before they
-are merged with product requirements and written into `spec.md`.
+Purpose: normalize provider-neutral design requirements before Requirement Merge writes `spec.md`.
 
 ## Design Sources
 
@@ -97,6 +96,31 @@ are merged with product requirements and written into `spec.md`.
 - Visual difference tolerance:
 - Accepted exceptions:
 - Accessibility requirements:
+
+## Client Asset Contract
+
+- Asset ID:
+- Required resource type:
+- Source refs:
+- Asset source strategy:
+- Required variants:
+- Fallback policy:
+- Blocker status:
+
+## Screenshot Traceability
+
+Design Requirement Intake remains provider-neutral.
+
+Screenshot-derived visual facts must include screenshot refs; screenshots must not create product semantics.
+Keep screenshot files in provider evidence or `sources/`;
+record only requirement-level references here.
+
+- Requirement ID:
+- Screenshot refs:
+- Visual proof refs:
+- Supported visual facts:
+- Unsupported assumptions:
+- Confidence:
 
 ## Traceability
 
