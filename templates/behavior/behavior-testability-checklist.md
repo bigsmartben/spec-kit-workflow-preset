@@ -8,12 +8,27 @@
 ## Acceptance Criteria Quality
 - [ ] Acceptance criteria are observable and verifiable from `spec.md`.
 - [ ] Acceptance criteria avoid implementation-only wording.
-- [ ] Business rules include precise success, rejection, validation, permission, boundary, and state-conflict outcomes when applicable.
+- [ ] Business rules include precise success, rejection, validation, permission, boundary, and state_conflict outcomes when applicable.
 
 ## Scenario Coverage
 - [ ] Primary success behavior is covered.
 - [ ] Alternate and exception behavior is covered when applicable.
-- [ ] Boundary, permission, validation, and state-conflict behavior is covered when applicable.
+- [ ] Boundary, permission, validation, and state_conflict behavior is covered when applicable.
+
+## Case Coverage Matrix
+For each user story or capability, record one row per story or capability case type. Status: Required|Not Applicable|Unknown.
+
+| Case ID | Story/Capability | Case Type | Status | Source `spec.md` section | Blocking Item ID | Rationale |
+| --- | --- | --- | --- | --- | --- | --- |
+| CASE-PERMISSION-001 | Example | permission | Required | `spec.md#...` |  | reason |
+| CASE-BOUNDARY-001 | Example | boundary | Not Applicable | `spec.md#...` |  | reason |
+| CASE-VALIDATION-001 | Example | validation | Unknown | `spec.md#...` | BI-... | missing rule |
+
+- [ ] Required case type must cite the source `spec.md` section.
+- [ ] Each row must have a stable Case ID.
+- [ ] Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`.
+- [ ] Not Applicable requires rationale.
+- [ ] Unknown must appear in Blocking Items.
 
 ## Given Readiness
 - [ ] Required roles and permissions are explicit.
@@ -42,8 +57,8 @@
 - [ ] Unknown NFR entries that affect downstream design are listed as blocking items.
 
 ## Visual Fidelity Readiness
-- [ ] Figma-derived requirements identify the source Figma URL, frame or node IDs, and required fidelity.
-- [ ] Figma intake ready gate evidence in `spec.md` shows raw metadata completeness, metadata index completeness proof, node inventory parity, and no blocker lint errors.
+- [ ] Design-derived requirements identify the design source, provider source refs, and required fidelity.
+- [ ] Provider-specific readiness gate evidence in `spec.md` shows raw metadata completeness, metadata index completeness proof, node inventory parity, and no blocker lint errors when required by the provider.
 - [ ] Layout, spacing, typography, colors, effects, assets, and clipping requirements are explicit.
 - [ ] Required component mappings and variant coverage are explicit or marked as blocking clarification items.
 - [ ] Default, hover, focus, active, disabled, loading, empty, and error states are explicit or marked as missing.

@@ -22,6 +22,11 @@ Check:
 - UIF API calls exist in contracts/api/.
 - behavior contracts cover scenarios, fixtures, and assertions.
 - tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths.
+- case coverage is closed from checklist through implementation tasks.
+- Required case types in `checklists/behavior-testability.md` map to behavior draft scenarios, formal behavior contracts, tasks, and quickstart validation paths.
+- positive, negative, boundary, permission, validation, and state_conflict case types are either covered or have `N/A or blocker` evidence.
+- failure scenarios declare error code, failure feedback, and state invariant, rollback, or compensation assertion.
+- quickstart validation paths cover Required failure scenarios.
 
 Report missing, inconsistent, or stale links by source artifact and target artifact. Keep findings actionable and separate blockers from warnings.
 

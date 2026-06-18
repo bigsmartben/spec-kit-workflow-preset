@@ -12,6 +12,7 @@ Include these sections:
 - User Story Readiness
 - Acceptance Criteria Quality
 - Scenario Coverage
+- Case Coverage Matrix
 - Given Readiness
 - When Readiness
 - Then Readiness
@@ -20,7 +21,9 @@ Include these sections:
 - Gate Status
 - Blocking Items
 
-Check that each applicable user story has observable acceptance behavior, each acceptance criterion is verifiable, and primary, alternate, exception, boundary, permission, validation, and state-conflict paths are covered when applicable.
+Check that each applicable user story has observable acceptance behavior, each acceptance criterion is verifiable, and primary, alternate, exception, boundary, permission, validation, and state_conflict paths are covered when applicable.
+
+Build a Case Coverage Matrix with one row per story or capability case type. Use case status: Required|Not Applicable|Unknown. Cover positive, negative, boundary, permission, validation, and state_conflict case types. Each row must have a stable Case ID. Required rows must cite the source `spec.md` section. Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`. Not Applicable requires rationale. Unknown must appear in Blocking Items. Required case type without observable acceptance behavior blocks PASS.
 
 Check Given readiness from `spec.md`: required roles, permissions, starting state, entity state, and data are explicit enough for later fixture setup.
 
@@ -28,12 +31,12 @@ Check When readiness from `spec.md`: each trigger is an executable user action, 
 
 Check Then readiness from `spec.md`: each outcome can become feedback, business state, error semantics, or assertion intent.
 
-Check Visual Fidelity Readiness when `spec.md` contains Figma-derived requirements.
-Require source traceability, ready gate evidence, and clear visual requirements for
+Check Visual Fidelity Readiness when `spec.md` contains design-derived requirements.
+Require source traceability, provider-specific ready gate evidence, and clear visual requirements for
 state, responsive, accessibility, component mapping, and accepted exception
 coverage. Missing raw metadata completeness, metadata index completeness proof,
 node inventory parity, or blocker lint errors are blocking items for
-Figma-derived requirements.
+provider-derived requirements.
 
 Check Non-Functional Requirement Readiness from `spec.md`: applicable performance, security and privacy, reliability and recovery, accessibility, compliance and auditability, observability, compatibility, data lifecycle, and cost or operational constraints are explicitly declared in `spec.md` as `Required`, `Not Applicable`, or `Unknown`.
 

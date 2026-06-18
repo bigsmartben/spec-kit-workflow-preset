@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
 from validators.speckit_implement_contract import (
+    validate_behavior_case_coverage,
     validate_behavior_contract_bundle,
     validate_behavior_draft_contract,
     validate_implement_contract,
@@ -39,6 +40,12 @@ FIGMA_EVIDENCE_PACKET_TEMPLATE_PATH = (
     REPO_ROOT / "templates" / "figma-evidence-packet-template.md"
 )
 FIGMA_INTAKE_CONTRACT_TEMPLATE_PATH = REPO_ROOT / "templates" / "figma-intake-contract.md"
+DESIGN_REQUIREMENT_INTAKE_TEMPLATE_PATH = (
+    REPO_ROOT / "templates" / "design-requirement-intake-template.md"
+)
+REQUIREMENT_MERGE_REPORT_TEMPLATE_PATH = (
+    REPO_ROOT / "templates" / "requirement-merge-report-template.md"
+)
 REQUIREMENTS_DEV_PATH = REPO_ROOT / "requirements-dev.txt"
 MANIFEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.manifest.v1.schema.json"
 HANDOFF_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.handoff.v2.schema.json"
@@ -284,15 +291,19 @@ def minimal_receipt(
     return receipt
 
 
-def minimal_behavior_scenarios_draft() -> dict:
+def minimal_behavior_scenarios_draft(
+    *,
+    scenario_id: str = "SCN-001",
+    scenario_type: str = "positive",
+) -> dict:
     return {
         "contract_type": "speckit.behavior.scenarios.draft.v1",
         "feature": "refund-application",
         "scenarios": [
             {
-                "id": "SCN-001",
+                "id": scenario_id,
                 "title": "Submit refund",
-                "type": "positive",
+                "type": scenario_type,
                 "given": ["FIX-BUYER"],
                 "when": ["click_refund", "submit_refund"],
                 "then": ["show_refund_submitted"],
@@ -368,6 +379,61 @@ def minimal_behavior_scenario_instances() -> dict:
     }
 
 
+def minimal_exception_behavior_scenario_instances(*, scenario_type: str = "permission") -> dict:
+    instances = minimal_behavior_scenario_instances()
+    scenario = instances["scenarios"][0]
+    scenario["id"] = "SCN-ERR-001"
+    scenario["title"] = "Reject refund request"
+    scenario["type"] = scenario_type
+    scenario["request_case"] = {
+        "id": "REQ-ERR-001",
+        "case_kind": scenario_type,
+        "outcome": "failure",
+        "trigger": "submit_refund_without_required_permission",
+    }
+    scenario["expected_response"] = {
+        "business_code": "REJECTED",
+        "status": 403,
+        "error_code": "ERR_PERMISSION_DENIED",
+    }
+    scenario["expected_feedback"] = {
+        "type": "inline_error",
+        "message": "Permission denied",
+    }
+    scenario["assertion_ids"] = ["AST-001"]
+    return instances
+
+
+def minimal_case_coverage() -> dict:
+    return {
+        "case_coverage": [
+            {
+                "story": "Refund request",
+                "case_id": "CASE-001",
+                "case_type": "permission",
+                "status": "Required",
+                "source": "spec.md#user-story-1",
+                "scenario_id": "SCN-ERR-001",
+            }
+        ]
+    }
+
+
+def minimal_case_coverage_with_blocker() -> dict:
+    return {
+        "case_coverage": [
+            {
+                "story": "Refund request",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "status": "Required",
+                "source": "spec.md#user-story-1",
+                "blocker_id": "BLK-001",
+            }
+        ]
+    }
+
+
 def minimal_behavior_data_fixtures() -> dict:
     return {
         "contract_type": "speckit.behavior.data_fixtures.v1",
@@ -398,6 +464,16 @@ def minimal_behavior_assertions() -> dict:
     }
 
 
+def minimal_exception_behavior_assertions() -> dict:
+    return minimal_exception_behavior_assertions_with_intent("state_invariant")
+
+
+def minimal_exception_behavior_assertions_with_intent(intent: str) -> dict:
+    assertions = minimal_behavior_assertions()
+    assertions["assertions"][0]["intent"] = intent
+    return assertions
+
+
 class PresetContractTests(unittest.TestCase):
     def test_preset_manifest_contract(self) -> None:
         data = yaml.safe_load(PRESET_PATH.read_text(encoding="utf-8"))
@@ -423,7 +499,7 @@ class PresetContractTests(unittest.TestCase):
         )
 
         provides = data["provides"]["templates"]
-        self.assertEqual(32, len(provides))
+        self.assertEqual(34, len(provides))
         entries = {entry["name"]: entry for entry in provides}
         self.assertNotIn("behavior-open-questions-template", entries)
         self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
@@ -458,7 +534,33 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("templates/figma-intake-contract.md", figma_intake_contract["file"])
         self.assertEqual("figma-intake-contract-template", figma_intake_contract["replaces"])
         self.assertEqual("replace", figma_intake_contract["strategy"])
-        self.assertIn("Figma intake artifact contract", figma_intake_contract["description"])
+        self.assertIn("Figma provider source readiness contract", figma_intake_contract["description"])
+
+        design_intake_template = entries["design-requirement-intake-template"]
+        self.assertEqual("template", design_intake_template["type"])
+        self.assertEqual(
+            "templates/design-requirement-intake-template.md",
+            design_intake_template["file"],
+        )
+        self.assertEqual(
+            "design-requirement-intake-template",
+            design_intake_template["replaces"],
+        )
+        self.assertEqual("replace", design_intake_template["strategy"])
+        self.assertIn("Design Requirement Intake", design_intake_template["description"])
+
+        merge_report_template = entries["requirement-merge-report-template"]
+        self.assertEqual("template", merge_report_template["type"])
+        self.assertEqual(
+            "templates/requirement-merge-report-template.md",
+            merge_report_template["file"],
+        )
+        self.assertEqual(
+            "requirement-merge-report-template",
+            merge_report_template["replaces"],
+        )
+        self.assertEqual("replace", merge_report_template["strategy"])
+        self.assertIn("Requirement Merge", merge_report_template["description"])
 
         for command_name in ("speckit.plan", "speckit.tasks"):
             command = entries[command_name]
@@ -690,16 +792,19 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("non-functional requirements", specify)
         self.assertIn("report the `spec.md` sections created or updated", specify)
         for term in (
-            "Figma URL Input Policy",
+            "Design Requirement Input Policy",
+            "Product Requirement Intake",
+            "Design Requirement Intake",
+            "Requirement Merge",
             "Figma Evidence Packet",
-            "Figma intake contract",
+            "Figma provider source readiness contract",
             "runtime agent has Figma MCP access",
             "runtime agent or external Figma intake",
-            "preset defines the required Figma intake artifact structure",
+            "preset defines the required design intake and provider readiness artifact structure",
             "does not generate the artifact instances",
             "ready gate",
             "not ready",
-            "do not write Figma-derived requirements",
+            "do not write design-derived requirements",
             "blocker lint errors",
             "Observed from Figma",
             "Inferred from Structure",
@@ -734,7 +839,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Product requirements stay in `spec.md`", clarify)
         self.assertIn("non-functional requirement assumptions", clarify)
         self.assertIn("only after user-provided answers", clarify)
+        self.assertIn("Design Requirement Clarification Strategy", clarify)
+        self.assertIn("Design Requirement Intake", clarify)
         self.assertIn("Figma Evidence Packet", clarify)
+        self.assertIn("provider-specific evidence", clarify)
         self.assertIn("Missing / Needs clarification", clarify)
         self.assertIn("[NEEDS CLARIFICATION]", clarify)
         self.assertIn("Inferred from structure", clarify)
@@ -772,6 +880,15 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("User Story Readiness", checklist)
         self.assertIn("Acceptance Criteria Quality", checklist)
         self.assertIn("Scenario Coverage", checklist)
+        self.assertIn("Case Coverage Matrix", checklist)
+        self.assertIn("one row per story or capability case type", checklist)
+        self.assertIn("case status: Required|Not Applicable|Unknown", checklist)
+        self.assertIn("Each row must have a stable Case ID", checklist)
+        self.assertIn("Required rows must cite the source `spec.md` section", checklist)
+        self.assertIn("Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`", checklist)
+        self.assertIn("Not Applicable requires rationale", checklist)
+        self.assertIn("Unknown must appear in Blocking Items", checklist)
+        self.assertIn("Required case type without observable acceptance behavior blocks PASS", checklist)
         self.assertIn("Given Readiness", checklist)
         self.assertIn("When Readiness", checklist)
         self.assertIn("Then Readiness", checklist)
@@ -790,9 +907,9 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Unknown and affects downstream design", checklist)
         for term in (
             "Visual Fidelity Readiness",
-            "Figma-derived requirements",
+            "design-derived requirements",
+            "provider-specific ready gate evidence",
             "source traceability",
-            "ready gate evidence",
             "state, responsive, accessibility, component mapping, and accepted exception",
             "raw metadata completeness",
             "metadata index completeness proof",
@@ -831,6 +948,13 @@ class PresetContractTests(unittest.TestCase):
             "UIFPath",
             "FeedbackView",
             "BehaviorAssertion",
+            "Required case types from `checklists/behavior-testability.md`",
+            "must project into `behavior/behavior-scenarios.draft.json`",
+            "must formalize into `contracts/behavior/scenario-instances.json`",
+            "Do not continue with only positive scenarios when Required case types exist",
+            "Map each Required Case ID to a Scenario ID or `case_coverage_blockers` entry",
+            "write `case_coverage_blockers`",
+            "record `N/A or blocker` with the Case ID",
         ):
             self.assertIn(term, plan)
 
@@ -871,6 +995,10 @@ class PresetContractTests(unittest.TestCase):
             "derive the test level",
             "fixture/mock/sandbox/real-system strategy",
             "inline evidence requirement",
+            "Missing Required case scenarios must become blockers, not silently skipped tasks",
+            "negative, boundary, permission, validation, state_conflict, or error behavior",
+            "For each non-positive BehaviorScenarioInstance",
+            "derive fixture, contract or BDD test, implementation, and verification evidence tasks",
         ):
             self.assertIn(term, tasks)
 
@@ -936,6 +1064,14 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("UIF API calls exist in contracts/api/", analyze)
         self.assertIn("behavior contracts cover scenarios, fixtures, and assertions", analyze)
         self.assertIn("tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths", analyze)
+        self.assertIn("case coverage", analyze)
+        self.assertIn("Required case types in `checklists/behavior-testability.md`", analyze)
+        self.assertIn("case types are either covered or have `N/A or blocker` evidence", analyze)
+        self.assertIn(
+            "failure scenarios declare error code, failure feedback, and state invariant, rollback, or compensation assertion",
+            analyze,
+        )
+        self.assertIn("quickstart validation paths cover Required failure scenarios", analyze)
         self.assertNotIn("uif.actual.json", analyze)
         self.assertNotIn("uif.diff.json", analyze)
         self.assertNotIn("Actual UIF", analyze)
@@ -979,6 +1115,24 @@ class PresetContractTests(unittest.TestCase):
         behavior_checklist_template = BEHAVIOR_TEMPLATE_PATHS[
             "behavior-testability-checklist-template"
         ].read_text(encoding="utf-8")
+        self.assertIn("Case Coverage Matrix", behavior_checklist_template)
+        self.assertIn("one row per story or capability case type", behavior_checklist_template)
+        self.assertIn("Status: Required|Not Applicable|Unknown", behavior_checklist_template)
+        self.assertIn("| Case ID | Story/Capability | Case Type | Status | Source `spec.md` section | Blocking Item ID | Rationale |", behavior_checklist_template)
+        self.assertIn(
+            "Required case type must cite the source `spec.md` section",
+            behavior_checklist_template,
+        )
+        self.assertIn(
+            "Each row must have a stable Case ID",
+            behavior_checklist_template,
+        )
+        self.assertIn(
+            "Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`",
+            behavior_checklist_template,
+        )
+        self.assertIn("Not Applicable requires rationale", behavior_checklist_template)
+        self.assertIn("Unknown must appear in Blocking Items", behavior_checklist_template)
         self.assertIn("Non-Functional Requirement Readiness", behavior_checklist_template)
         self.assertIn("Status: Required|Not Applicable|Unknown", behavior_checklist_template)
         self.assertIn("Performance", behavior_checklist_template)
@@ -993,7 +1147,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("explicitly declared in `spec.md`", behavior_checklist_template)
         self.assertIn("without prescribing architecture", behavior_checklist_template)
         self.assertIn("Visual Fidelity Readiness", behavior_checklist_template)
-        self.assertIn("Figma-derived requirements", behavior_checklist_template)
+        self.assertIn("Design-derived requirements", behavior_checklist_template)
+        self.assertIn("Provider-specific readiness gate evidence", behavior_checklist_template)
         self.assertIn("raw metadata completeness", behavior_checklist_template)
         self.assertIn("metadata index completeness proof", behavior_checklist_template)
         self.assertIn("node inventory parity", behavior_checklist_template)
@@ -1031,6 +1186,20 @@ class PresetContractTests(unittest.TestCase):
                 BEHAVIOR_TEMPLATE_PATHS[template_name].read_text(encoding="utf-8"),
             )
 
+        scenario_instances_template = BEHAVIOR_TEMPLATE_PATHS[
+            "behavior-scenario-instances-template"
+        ].read_text(encoding="utf-8")
+        self.assertIn('"case_coverage_blockers"', scenario_instances_template)
+        self.assertIn('"type": "permission"', scenario_instances_template)
+        self.assertIn('"case_kind": "permission"', scenario_instances_template)
+        self.assertIn('"error_code"', scenario_instances_template)
+        self.assertIn('"expected_feedback"', scenario_instances_template)
+
+        assertions_template = BEHAVIOR_TEMPLATE_PATHS["behavior-assertions-template"].read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"intent": "state_invariant"', assertions_template)
+
     def test_figma_evidence_packet_template_contract(self) -> None:
         self.assertTrue(FIGMA_EVIDENCE_PACKET_TEMPLATE_PATH.exists())
         document = FIGMA_EVIDENCE_PACKET_TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -1062,6 +1231,74 @@ class PresetContractTests(unittest.TestCase):
             "test-plan.md",
             "Endpoint / Client Requirements",
             "Acceptance Criteria",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, document)
+
+    def test_design_requirement_intake_template_contract(self) -> None:
+        self.assertTrue(DESIGN_REQUIREMENT_INTAKE_TEMPLATE_PATH.exists())
+        document = DESIGN_REQUIREMENT_INTAKE_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        required_terms = [
+            "Design Requirement Intake",
+            "Design Sources",
+            "Provider Evidence",
+            "Page Inventory",
+            "Page Hierarchy",
+            "User Paths",
+            "Component Inventory",
+            "Component States",
+            "Interaction Rules",
+            "Visual Tokens",
+            "Layout Rules",
+            "Responsive Rules",
+            "Motion Rules",
+            "State Coverage",
+            "Visual Acceptance Requirements",
+            "Traceability",
+            "Source refs",
+            "[NEEDS CLARIFICATION]",
+        ]
+        for term in required_terms:
+            self.assertIn(term, document)
+
+        forbidden_terms = [
+            "Figma MCP authentication",
+            "raw get_metadata",
+            "node coordinate dump",
+            "implementation test",
+            "test-plan.md",
+            "Endpoint / Client Requirements",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, document)
+
+    def test_requirement_merge_report_template_contract(self) -> None:
+        self.assertTrue(REQUIREMENT_MERGE_REPORT_TEMPLATE_PATH.exists())
+        document = REQUIREMENT_MERGE_REPORT_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        required_terms = [
+            "Requirement Merge Report",
+            "Product Requirement Inputs",
+            "Design Requirement Inputs",
+            "Merge Rules",
+            "Product Requirement owns",
+            "Design Requirement owns",
+            "Conflict Resolution",
+            "Clarification Outputs",
+            "Baseline Spec Handoff",
+            "spec.md",
+            "[NEEDS CLARIFICATION]",
+        ]
+        for term in required_terms:
+            self.assertIn(term, document)
+
+        forbidden_terms = [
+            "Figma-only",
+            "directly call Figma MCP",
+            "generate tasks",
+            "write implementation",
+            "test-plan.md",
         ]
         for term in forbidden_terms:
             self.assertNotIn(term, document)
@@ -1332,6 +1569,147 @@ class PresetContractTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(instances)
 
+    def test_behavior_scenario_instances_schema_accepts_structured_exception_cases(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+
+        for scenario_type in ("negative", "boundary", "permission", "validation", "state_conflict"):
+            with self.subTest(scenario_type=scenario_type):
+                Draft202012Validator(schema).validate(
+                    minimal_exception_behavior_scenario_instances(
+                        scenario_type=scenario_type,
+                    )
+                )
+
+    def test_behavior_scenario_instances_schema_rejects_exception_case_shells(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        invalid_mutations = [
+            ("case_kind", lambda scenario: scenario["request_case"].pop("case_kind")),
+            ("trigger", lambda scenario: scenario["request_case"].pop("trigger")),
+            ("expected_response", lambda scenario: scenario.update({"expected_response": {}})),
+            ("error_code", lambda scenario: scenario["expected_response"].pop("error_code")),
+            ("expected_feedback", lambda scenario: scenario.update({"expected_feedback": {}})),
+            ("feedback_type", lambda scenario: scenario["expected_feedback"].pop("type")),
+            ("feedback_message", lambda scenario: scenario["expected_feedback"].pop("message")),
+        ]
+
+        for label, mutate in invalid_mutations:
+            with self.subTest(label=label):
+                instances = minimal_exception_behavior_scenario_instances()
+                mutate(instances["scenarios"][0])
+
+                with self.assertRaises(ValidationError):
+                    Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_rejects_mismatched_exception_case_kind(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="permission")
+        instances["scenarios"][0]["request_case"]["case_kind"] = "validation"
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_accepts_case_coverage_blockers(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#user-story-1",
+                "reason": "Validation rule is marked Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_rejects_incomplete_case_coverage_blockers(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        required_fields = (
+            "id",
+            "case_id",
+            "case_type",
+            "source",
+            "reason",
+            "downstream_contract_path",
+        )
+
+        for field in required_fields:
+            with self.subTest(field=field):
+                instances = minimal_behavior_scenario_instances()
+                blocker = {
+                    "id": "BLK-001",
+                    "case_id": "CASE-002",
+                    "case_type": "validation",
+                    "source": "spec.md#user-story-1",
+                    "reason": "Validation rule is marked Unknown in checklist.",
+                    "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+                }
+                blocker.pop(field)
+                instances["case_coverage_blockers"] = [blocker]
+
+                with self.assertRaises(ValidationError):
+                    Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_accepts_success_boundary_case(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "success"
+        scenario["expected_response"] = {"business_code": "ACCEPTED_AT_LIMIT"}
+        scenario["expected_feedback"] = {"message": "Limit accepted"}
+
+        Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_rejects_boundary_failure_without_error(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "failure"
+        scenario["expected_response"] = {"status": 422}
+        scenario["expected_feedback"] = {"message": "Limit exceeded"}
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_assertions_schema_accepts_exception_assertion_intent(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.assertions.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+
+        Draft202012Validator(schema).validate(minimal_exception_behavior_assertions())
+
     def test_expected_uif_schema_rejects_underspecified_typed_steps(self) -> None:
         schema = json.loads(
             BEHAVIOR_SCHEMA_PATHS["speckit.behavior.uif.expected.v1"].read_text(
@@ -1423,6 +1801,226 @@ class PresetContractTests(unittest.TestCase):
                         minimal_behavior_assertions(),
                         [uif],
                     )
+
+    def test_behavior_contract_validator_rejects_exception_case_shells(self) -> None:
+        invalid_mutations = [
+            ("case_kind", lambda scenario: scenario["request_case"].pop("case_kind")),
+            ("trigger", lambda scenario: scenario["request_case"].pop("trigger")),
+            ("expected_response", lambda scenario: scenario.update({"expected_response": {}})),
+            ("error_code", lambda scenario: scenario["expected_response"].pop("error_code")),
+            ("expected_feedback", lambda scenario: scenario.update({"expected_feedback": {}})),
+            ("feedback_type", lambda scenario: scenario["expected_feedback"].pop("type")),
+            ("feedback_message", lambda scenario: scenario["expected_feedback"].pop("message")),
+        ]
+
+        for label, mutate in invalid_mutations:
+            with self.subTest(label=label):
+                instances = minimal_exception_behavior_scenario_instances()
+                mutate(instances["scenarios"][0])
+
+                with self.assertRaisesRegex(ValueError, label):
+                    validate_behavior_contract_bundle(
+                        instances,
+                        minimal_behavior_data_fixtures(),
+                        minimal_exception_behavior_assertions(),
+                        [minimal_uif_expected()],
+                    )
+
+    def test_behavior_contract_validator_rejects_exception_without_state_or_rollback_assertion(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "state_invariant_rollback_or_compensation_assertion",
+        ):
+            validate_behavior_contract_bundle(
+                minimal_exception_behavior_scenario_instances(),
+                minimal_behavior_data_fixtures(),
+                minimal_behavior_assertions(),
+                [minimal_uif_expected()],
+            )
+
+    def test_behavior_contract_validator_rejects_mismatched_exception_case_kind(self) -> None:
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="permission")
+        instances["scenarios"][0]["request_case"]["case_kind"] = "validation"
+
+        with self.assertRaisesRegex(ValueError, "case_kind"):
+            validate_behavior_contract_bundle(
+                instances,
+                minimal_behavior_data_fixtures(),
+                minimal_exception_behavior_assertions(),
+                [minimal_uif_expected()],
+            )
+
+    def test_behavior_contract_validator_accepts_structured_exception_cases(self) -> None:
+        for scenario_type in ("negative", "boundary", "permission", "validation", "state_conflict"):
+            with self.subTest(scenario_type=scenario_type):
+                validate_behavior_contract_bundle(
+                    minimal_exception_behavior_scenario_instances(
+                        scenario_type=scenario_type,
+                    ),
+                    minimal_behavior_data_fixtures(),
+                    minimal_exception_behavior_assertions(),
+                    [minimal_uif_expected()],
+                )
+
+    def test_behavior_contract_validator_accepts_rollback_and_compensation_assertions(self) -> None:
+        for intent in ("rollback", "compensation"):
+            with self.subTest(intent=intent):
+                validate_behavior_contract_bundle(
+                    minimal_exception_behavior_scenario_instances(),
+                    minimal_behavior_data_fixtures(),
+                    minimal_exception_behavior_assertions_with_intent(intent),
+                    [minimal_uif_expected()],
+                )
+
+    def test_behavior_contract_validator_accepts_success_boundary_case(self) -> None:
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "success"
+        scenario["expected_response"] = {"business_code": "ACCEPTED_AT_LIMIT"}
+        scenario["expected_feedback"] = {"message": "Limit accepted"}
+
+        validate_behavior_contract_bundle(
+            instances,
+            minimal_behavior_data_fixtures(),
+            minimal_behavior_assertions(),
+            [minimal_uif_expected()],
+        )
+
+    def test_behavior_contract_validator_rejects_boundary_failure_without_error(self) -> None:
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "failure"
+        scenario["expected_response"] = {"status": 422}
+        scenario["expected_feedback"] = {"message": "Limit exceeded"}
+
+        with self.assertRaisesRegex(ValueError, "error_code"):
+            validate_behavior_contract_bundle(
+                instances,
+                minimal_behavior_data_fixtures(),
+                minimal_exception_behavior_assertions(),
+                [minimal_uif_expected()],
+            )
+
+    def test_behavior_case_coverage_validator_rejects_missing_required_case(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Required case"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage(),
+                minimal_behavior_scenarios_draft(),
+                minimal_behavior_scenario_instances(),
+                "T001 implement SCN-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_requires_tasks_and_quickstart_evidence(self) -> None:
+        with self.assertRaisesRegex(ValueError, "tasks.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage(),
+                minimal_behavior_scenarios_draft(
+                    scenario_type="permission",
+                    scenario_id="SCN-ERR-001",
+                ),
+                minimal_exception_behavior_scenario_instances(),
+                "T001 implement SCN-001",
+                "Validate SCN-ERR-001",
+            )
+
+        with self.assertRaisesRegex(ValueError, "quickstart.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage(),
+                minimal_behavior_scenarios_draft(
+                    scenario_type="permission",
+                    scenario_id="SCN-ERR-001",
+                ),
+                minimal_exception_behavior_scenario_instances(),
+                "T001 implement SCN-ERR-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_accepts_closed_required_case(self) -> None:
+        validate_behavior_case_coverage(
+            minimal_case_coverage(),
+            minimal_behavior_scenarios_draft(
+                scenario_type="permission",
+                scenario_id="SCN-ERR-001",
+            ),
+            minimal_exception_behavior_scenario_instances(),
+            "T001 implement SCN-ERR-001 and AST-001",
+            "Validate SCN-ERR-001 through quickstart path",
+        )
+
+    def test_behavior_case_coverage_validator_accepts_formal_blocker_for_required_case(self) -> None:
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#user-story-1",
+                "reason": "Validation rule is still Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        validate_behavior_case_coverage(
+            minimal_case_coverage_with_blocker(),
+            minimal_behavior_scenarios_draft(),
+            instances,
+            "T001 blocked by BLK-001",
+            "BLK-001 blocks quickstart validation",
+        )
+
+    def test_behavior_case_coverage_validator_requires_blocker_downstream_evidence(self) -> None:
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#user-story-1",
+                "reason": "Validation rule is still Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        with self.assertRaisesRegex(ValueError, "tasks.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage_with_blocker(),
+                minimal_behavior_scenarios_draft(),
+                instances,
+                "T001 implement SCN-001",
+                "BLK-001 blocks quickstart validation",
+            )
+
+        with self.assertRaisesRegex(ValueError, "quickstart.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage_with_blocker(),
+                minimal_behavior_scenarios_draft(),
+                instances,
+                "T001 blocked by BLK-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_rejects_blocker_source_mismatch(self) -> None:
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#different-story",
+                "reason": "Validation rule is still Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        with self.assertRaisesRegex(ValueError, "source"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage_with_blocker(),
+                minimal_behavior_scenarios_draft(),
+                instances,
+                "T001 blocked by BLK-001",
+                "BLK-001 blocks quickstart validation",
+            )
 
     def test_behavior_contract_validator_accepts_valid_cross_fields(self) -> None:
         validate_behavior_contract_bundle(
@@ -2450,25 +3048,39 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("The preset has four goals:", readme)
         self.assertIn("BDD readiness gate", readme)
         self.assertIn("NFR readiness", readme)
+        self.assertIn("Design Requirement Intake", readme)
+        self.assertIn("Requirement Merge", readme)
+        self.assertIn("Product Requirement + Design Requirement", readme)
+        self.assertIn("Figma is a Design Requirement provider", readme)
         self.assertIn("Figma Evidence Packet", readme)
         self.assertIn("direct Figma URL input", readme)
         self.assertIn("runtime agent has Figma MCP access", readme)
         self.assertIn("Visual Fidelity readiness gate", readme)
-        self.assertIn("preset defines the required Figma intake artifact structure", readme)
+        self.assertIn("preset defines the required design intake and provider readiness artifact structure", readme)
         self.assertIn("runtime agent or external Figma intake", readme)
         self.assertIn("does not generate the artifact instances", readme)
         self.assertIn("raw metadata completeness", readme)
         self.assertIn("node inventory parity", readme)
         self.assertIn("does not provide Figma MCP connection, authentication, or execution", readme)
-        self.assertIn("clarifies Figma-derived gaps already written in `spec.md`", readme)
+        self.assertIn("clarifies design-derived gaps already written in `spec.md`", readme)
         self.assertIn("does not call Figma", readme)
         self.assertIn("explicit non-functional requirement declarations", readme)
         self.assertIn("Required, Not Applicable, or Unknown", readme)
         self.assertIn("missing or unverifiable NFR assumptions", readme)
         self.assertIn("Phase 0 behavior projection", readme)
+        self.assertIn("Case Coverage Matrix", readme)
+        self.assertIn("case coverage", readme)
+        self.assertIn("Required, Not Applicable, or Unknown", readme)
+        self.assertIn("failure scenarios", readme)
+        self.assertIn(
+            "error code, failure feedback, and state invariant, rollback, or compensation assertion",
+            readme,
+        )
         self.assertIn("validation_evidence", readme)
         self.assertIn("Context-load controls", readme)
         self.assertIn("context-load controls", changelog)
+        self.assertIn("Case Coverage Matrix", changelog)
+        self.assertIn("failure behavior scenarios", changelog)
         self.assertIn("Change Scope Granularity", changelog)
         self.assertIn("/speckit.constitution", changelog)
         self.assertIn("Moved behavior draft generation from `/speckit.specify` to `/speckit.plan` Phase 0", changelog)
@@ -2594,6 +3206,9 @@ class PresetContractTests(unittest.TestCase):
             "structured JSON artifacts require schemas",
             "validators/",
             "Do not put downstream prohibitions in upstream commands",
+            "Design Requirement Intake",
+            "Requirement Merge",
+            "Figma is a provider-specific design source",
             "Behavior-first extension rule",
             "BDD and UIF artifacts need independent templates",
             "`/speckit.constitution`: constitution governance and project principles only",

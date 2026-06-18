@@ -9,9 +9,9 @@ Use `spec.md` as the clarification source. Ask and record clarification only for
 
 Do not read or update behavior draft artifacts. Do not use behavior drafts as clarification inputs, and do not open a separate behavior-question channel. Product requirements stay in `spec.md`; update `spec.md` only after user-provided answers make the requirement clear.
 
-## Figma-Derived Clarification Strategy
+## Design Requirement Clarification Strategy
 
-When `spec.md` was created from a Figma Evidence Packet, prioritize clarification questions for Figma-derived gaps already written in `spec.md`. Scan `spec.md` first for `Missing / Needs clarification`, `[NEEDS CLARIFICATION]`, `Inferred from structure`, and gaps about Figma-unprovided states, responsive behavior, business rules, permissions, and error handling.
+When `spec.md` was created from Design Requirement Intake or provider-specific evidence such as a Figma Evidence Packet, prioritize clarification questions for design-derived gaps already written in `spec.md`. Scan `spec.md` first for `Missing / Needs clarification`, `[NEEDS CLARIFICATION]`, `Inferred from structure`, and gaps about provider-unprovided states, responsive behavior, business rules, permissions, and error handling.
 
 Do not call Figma MCP. Do not re-extract design facts, re-parse Figma links, or turn clarification into a Figma extraction step. `/speckit.specify` owns writing Figma evidence into `spec.md`; `/speckit.clarify` only selects high-impact questions from existing `spec.md` gaps and records confirmed answers.
 

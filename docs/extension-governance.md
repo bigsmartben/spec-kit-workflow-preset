@@ -26,6 +26,8 @@ adapter scripts, or worker dispatch from scripts.
 Evidence templates: packaged evidence templates are allowed preset artifacts.
 Intake contract templates are also allowed when they define input shape,
 completeness gates, and blocker lint rules without executing an external system.
+Design Requirement Intake and Requirement Merge templates may define
+provider-neutral design facts and merge reports. Figma is a provider-specific design source;
 Figma MCP execution, hooks, adapter scripts, and authentication are external
 integration concerns and remain outside this preset.
 
@@ -50,8 +52,9 @@ Stage ownership:
 - `/speckit.analyze`: vertical consistency checks across requirements, behavior drafts, contracts, and tasks only.
 - `/speckit.implement`: implementation handoff execution only.
 
-When a Figma Evidence Packet has already been written into `spec.md`,
-`/speckit.clarify` may clarify those requirement gaps from `spec.md`, but
+When Design Requirement Intake or a Figma Evidence Packet has already been
+written into `spec.md`, `/speckit.clarify` may clarify those requirement gaps
+from `spec.md`, but extraction remains outside clarification.
 external design extraction is not a clarification responsibility.
 
 ## Structured Artifact Rules

@@ -43,6 +43,8 @@ After Phase 0 preflight passes and before core research or design work, project 
 - `behavior/uif.intent.json`: interaction intent extracted from accepted requirements.
 - `behavior/data-fixtures.intent.json`: data setup intent required by draft scenarios.
 
+Required case types from `checklists/behavior-testability.md` must project into `behavior/behavior-scenarios.draft.json`. Do not continue with only positive scenarios when Required case types exist. If a Required case type cannot be projected without inventing requirements, stop with a report-only/no-write failure and return to `/speckit.checklist` or `/speckit.clarify`.
+
 Phase 0 behavior projection is a projection step, not a new requirement-discovery step:
 
 - Do not discover new requirement problems.
@@ -99,6 +101,8 @@ During Phase 1, if behavior drafts exist and checklists/behavior-testability.md 
 - `contracts/bdd/`: acceptance-level BDD contracts.
 - `contracts/uif/`: Expected UIF contracts.
 - `contracts/behavior/`: scenario instance, fixture, and assertion contracts.
+
+Required case types from `checklists/behavior-testability.md` must formalize into `contracts/behavior/scenario-instances.json`. Do not continue with only positive scenarios when Required case types exist. Map each Required Case ID to a Scenario ID or `case_coverage_blockers` entry. When a Required case type cannot be formalized, write `case_coverage_blockers` in `contracts/behavior/scenario-instances.json` and record `N/A or blocker` with the Case ID, missing planning input, and downstream contract path.
 
 When formalizing BDD Draft into `contracts/bdd/*.feature`:
 

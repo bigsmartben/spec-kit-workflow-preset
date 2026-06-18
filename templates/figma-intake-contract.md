@@ -1,7 +1,8 @@
 # Figma Intake Contract
 
-This preset defines the required artifact formats and gates. The runtime agent
-or external Figma intake performs extraction.
+This Figma provider source readiness contract defines the required artifact
+formats and gates. The runtime agent or external Figma intake performs
+extraction before Design Requirement Intake consumes provider evidence.
 
 ## Raw Metadata Shards
 

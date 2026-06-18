@@ -22,6 +22,8 @@ When present, treat these files as optional task-generation inputs under FEATURE
 
 Use these inputs to derive implementation, integration, orchestration, failure-handling, and validation tasks. For behavior contracts, derive test-first tasks in user-story order: fixture setup, BDD/E2E or contract test, implementation, and verification evidence. Keep task output in the existing checklist format and user-story organization.
 
+Missing Required case scenarios must become blockers, not silently skipped tasks. If `checklists/behavior-testability.md` marks a case type Required but the matching BDD or behavior contract is absent and no `N/A or blocker` exists, report the missing case instead of generating a complete-looking task list.
+
 ## Test Strategy Derivation
 
 Do not create or require a standalone test strategy artifact. Instead, derive the test level, fixture/mock/sandbox/real-system strategy, and inline evidence requirement while generating `tasks.md`.
@@ -39,7 +41,7 @@ Use this data and external-system strategy:
 - Use fixture intent only when it is recorded in `research.md` or formal `contracts/behavior/` blocker notes for a scenario documented as `N/A or blocker`.
 - Use mock, sandbox, or real-system decisions from `research.md`.
 - Prefer mock or sandbox for external systems unless `research.md` and `quickstart.md` explicitly require a real-system validation path.
-- Add a separate validation task for high-risk, non-functional, external-system, async, retry, rollback, permission, validation, state-conflict, or security-relevant behavior.
+- Add a separate validation task for high-risk, non-functional, external-system, async, retry, rollback, permission, validation, state_conflict, negative, boundary, or error behavior.
 
 Every generated test or validation task must include an inline evidence requirement. Evidence should name the relevant BDD scenario, behavior assertion, API contract, UIF path, quickstart validation path, or command output.
 
@@ -53,6 +55,7 @@ Example task shape:
 Behavior task derivation must be explicit:
 
 - For each BehaviorScenarioInstance, create a fixture task, BDD/E2E or contract test task, implementation task, and verification evidence task unless the scenario is documented as `N/A` with a planning blocker.
+- For each non-positive BehaviorScenarioInstance, derive fixture, contract or BDD test, implementation, and verification evidence tasks. The task text must preserve the negative, boundary, permission, validation, state_conflict, or error behavior and name the expected error code, failure feedback, and state invariant, rollback, or compensation assertion when present.
 - For each UIF user_event, create the frontend, CLI, or interaction task that emits or handles the event.
 - For each UIF api_call, create the backend/API or contract task that provides the declared method and path.
 - For each quickstart validation path, create a validation task that can collect evidence for the relevant scenario IDs and assertions.

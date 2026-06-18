@@ -33,10 +33,12 @@ Requirement capabilities:
 
 - Wraps `/speckit.specify` so it produces or updates `spec.md` only.
 - Wraps `/speckit.clarify` so it resolves requirement ambiguity in `spec.md` only.
-- When a Figma Evidence Packet has already been written into `spec.md`, `/speckit.clarify` clarifies Figma-derived gaps already written in `spec.md` and does not call Figma.
+- Treats Product Requirement + Design Requirement as the requirement inputs for `spec.md`; Figma is a Design Requirement provider, not a core SDD stage.
+- When Design Requirement Intake or a Figma Evidence Packet has already been written into `spec.md`, `/speckit.clarify` clarifies design-derived gaps already written in `spec.md` and does not call Figma.
 - Wraps `/speckit.checklist` to add `checklists/behavior-testability.md` as a BDD readiness gate, NFR readiness gate, and applicable Visual Fidelity readiness gate.
-- Checks user stories, acceptance criteria, Given/When/Then readiness, roles, permissions, states, data, validation, boundary, exception, state-conflict behavior, and non-functional requirements directly from `spec.md`.
-- Checks Figma-derived requirements for raw metadata completeness, node inventory parity, source traceability, and blocker lint errors before planning.
+- Checks user stories, acceptance criteria, Given/When/Then readiness, roles, permissions, states, data, validation, boundary, exception, state_conflict behavior, and non-functional requirements directly from `spec.md`.
+- Adds a Case Coverage Matrix with one row per story or capability case type so positive, negative, boundary, permission, validation, and state_conflict cases are marked Required, Not Applicable, or Unknown before planning.
+- Checks design-derived requirements for source traceability, provider-specific readiness evidence, visual fidelity scope, and blocker lint errors before planning.
 - Requires NFR dimensions to be marked Required, Not Applicable, or Unknown in product language before planning.
 - Blocks planning when readiness gaps or missing or unverifiable NFR assumptions must return to `/speckit.clarify` or `/speckit.specify`.
 
@@ -46,8 +48,10 @@ Planning capabilities:
 - Requires the BDD, NFR, and applicable Visual Fidelity readiness gates to pass before planning.
 - Treats Phase 0 preflight failures as report-only/no-write failures.
 - Writes `behavior/bdd.draft.feature`, `behavior/behavior-scenarios.draft.json`, `behavior/uif.intent.json`, and `behavior/data-fixtures.intent.json` during Phase 0 behavior projection.
+- Projects Required case coverage into `behavior/behavior-scenarios.draft.json` instead of allowing Required cases to disappear behind positive-only drafts.
 - Consumes Phase 0 behavior drafts and must formalize them into `contracts/bdd/`, `contracts/uif/`, and `contracts/behavior/` when the BDD and NFR readiness gate has passed.
-- Records `N/A or blocker` when behavior drafts cannot be formalized.
+- Requires failure scenarios in `contracts/behavior/` to carry an explicit trigger, case kind, error code, failure feedback, and state invariant, rollback, or compensation assertion reference.
+- Records `N/A or blocker` and `case_coverage_blockers` when behavior drafts cannot be formalized.
 - Keeps `plan.md` focused on technical decisions and navigation.
 - Adds plan-template navigation to the core plan output.
 - Stores internal object design in `class-diagram.md`.
@@ -59,6 +63,7 @@ Task generation capabilities:
 
 - Wraps `/speckit.tasks` so task generation can consume the design artifacts.
 - Uses formal BDD, UIF, and behavior contracts to derive test-first fixture, acceptance test, implementation, and verification tasks.
+- Treats missing Required failure behavior scenarios as blockers instead of generating complete-looking happy-path-only tasks.
 - Performs test strategy derivation from BDD contracts, Expected UIF contracts, behavior contracts, interface contracts, `research.md`, and `quickstart.md` without writing a separate strategy artifact.
 - Uses design artifacts to derive implementation, integration, orchestration, failure-handling, and validation tasks.
 - Preserves the existing checklist format and user-story organization.
@@ -67,6 +72,7 @@ Analysis capabilities:
 
 - Wraps `/speckit.analyze` to check vertical consistency from `spec.md` through BDD/UIF intent, formal contracts, and `tasks.md`.
 - Checks that user stories, Given/When/Then steps, UIF API calls, behavior contracts, tasks, and quickstart validation paths remain traceable.
+- Adds case coverage checks so Required case types remain traceable through behavior drafts, formal contracts, tasks, and quickstart validation paths.
 - Treats UIF as a requirement behavior projection, formalized during planning as Expected UIF contracts.
 
 Implementation capabilities:
@@ -147,23 +153,39 @@ Run the behavior-first workflow:
 /speckit.analyze
 ```
 
-### Figma Input
+### Design Requirement Input
 
-`/speckit.specify` supports direct Figma URL input when the runtime agent has Figma MCP access:
+The SDD requirement model is:
+
+```text
+Product Requirement + Design Requirement -> Requirement Merge -> baseline spec.md
+```
+
+Design Requirement Intake is provider-neutral. Figma is a Design Requirement
+provider for the current toolchain; other providers can supply screenshots,
+prototype documents, design-system documentation, or other design evidence.
+Requirement Merge resolves Product Requirement and Design Requirement inputs
+into `spec.md` while leaving unresolved conflicts as `[NEEDS CLARIFICATION]`.
+
+### Figma Provider Input
+
+Some runtime environments support direct Figma URL input when the runtime agent has Figma MCP access:
 
 ```text
 /speckit.specify <Figma URL>
 ```
 
-The runtime agent should extract design evidence into a Figma Evidence Packet
-before writing `spec.md`. The preset defines the packet format, requirement
-ownership rules, and Figma intake contract; it does not provide Figma MCP connection, authentication, or execution.
-The preset defines the required Figma intake artifact structure and ready gate;
+The preset does not extract from the URL. When the runtime agent or external
+Figma intake has extracted provider evidence into a Figma Evidence Packet, the
+preset can consume the qualified evidence before writing `spec.md`. The preset
+defines the packet format, Design Requirement ownership rules, and Figma
+provider source readiness contract; it does not provide Figma MCP connection, authentication, or execution.
+The preset defines the required design intake and provider readiness artifact structure and ready gate;
 the runtime agent or external Figma intake calls Figma MCP and writes
 `figma-metadata.part-*.xml`, `figma-metadata.index.yaml`, and
 `figma-node-inventory.yaml`. The preset consumes qualified evidence and does
 not generate the artifact instances.
-Figma-derived requirements are ready only when the packet records raw metadata
+Design-derived requirements from Figma are ready only when the packet records raw metadata
 completeness, metadata index completeness proof, node inventory parity, and no
 blocker lint errors.
 
@@ -194,10 +216,11 @@ This preset adds checklist artifacts:
 
 - `specs/<feature>/checklists/behavior-testability.md`
 
-Figma intake artifact instances are written by the runtime agent or external
-Figma intake. The preset defines their required structure and consumes the
-qualified evidence from `spec.md` after `/speckit.specify` writes or marks it as
-`[NEEDS CLARIFICATION]`; it does not generate the artifact instances.
+Design requirement intake and provider artifact instances are written by the
+runtime agent, external design intake, or provider-specific intake. The preset
+defines their required structure and consumes the qualified evidence from
+`spec.md` after `/speckit.specify` writes or marks it as `[NEEDS CLARIFICATION]`;
+it does not generate the artifact instances.
 
 This preset adds Phase 0 behavior artifacts:
 
@@ -241,7 +264,10 @@ Contract files packaged by the preset:
 
 Input evidence template packaged by the preset:
 
+- `templates/design-requirement-intake-template.md`
+- `templates/requirement-merge-report-template.md`
 - `templates/figma-evidence-packet-template.md`
+- `templates/figma-intake-contract.md`
 
 Development-only contract helpers:
 
@@ -249,15 +275,19 @@ Development-only contract helpers:
 
 ## Artifact Roles
 
-`checklists/behavior-testability.md` is the BDD, NFR, and applicable Visual Fidelity readiness gate. It checks `spec.md` before planning so user stories, acceptance criteria, Given context, executable When actions, observable Then outcomes, explicit non-functional requirement declarations, and Figma-derived evidence are ready for behavior projection and planning. Each NFR dimension is marked Required, Not Applicable, or Unknown; missing or unverifiable NFR assumptions block planning when they affect downstream design.
+`checklists/behavior-testability.md` is the BDD, NFR, and applicable Visual Fidelity readiness gate. It checks `spec.md` before planning so user stories, acceptance criteria, Given context, executable When actions, observable Then outcomes, explicit non-functional requirement declarations, and design-derived evidence are ready for behavior projection and planning. Its Case Coverage Matrix uses one row per story or capability case type. Each row marks a case as Required, Not Applicable, or Unknown, and Required rows name a Scenario ID or Blocker ID. Missing Required case coverage or Unknown case applicability blocks planning when it affects downstream behavior projection. Each NFR dimension is marked Required, Not Applicable, or Unknown; missing or unverifiable NFR assumptions block planning when they affect downstream design.
 
-`templates/figma-evidence-packet-template.md` defines how Figma-derived design facts are normalized before `/speckit.specify` writes requirements. It separates observed design facts, structural inferences, missing requirements, and excluded scope so Figma evidence does not get treated as complete product behavior. It references Figma intake contract results for raw metadata completeness, metadata index completeness proof, node inventory parity, and blocker lint errors before Figma-derived requirements can be treated as ready.
+`templates/design-requirement-intake-template.md` defines the provider-neutral Design Requirement Intake shape for page inventory, hierarchy, user paths, component states, visual tokens, layout, responsive, motion, state coverage, visual acceptance requirements, and traceability.
 
-`templates/figma-intake-contract.md` defines the raw Figma intake artifact contract for `figma-metadata.part-*.xml`, `figma-metadata.index.yaml`, and `figma-node-inventory.yaml`. It owns raw metadata completeness, metadata index completeness proof, node inventory parity, blocker lint errors, and the ready gate; the Evidence Packet references those results as normalized input for `spec.md`.
+`templates/requirement-merge-report-template.md` defines how Product Requirement and Design Requirement inputs are reconciled before baseline `spec.md` generation. It records merge rules, product-owned facts, design-owned facts, conflicts, clarification outputs, and the `spec.md` handoff.
+
+`templates/figma-evidence-packet-template.md` defines how Figma-derived provider evidence is normalized before Design Requirement Intake and `/speckit.specify` write requirements. It separates observed design facts, structural inferences, missing requirements, and excluded scope so Figma evidence does not get treated as complete product behavior. It references Figma provider source readiness contract results for raw metadata completeness, metadata index completeness proof, node inventory parity, and blocker lint errors before Figma-derived requirements can be treated as ready.
+
+`templates/figma-intake-contract.md` defines the raw Figma provider source readiness contract for `figma-metadata.part-*.xml`, `figma-metadata.index.yaml`, and `figma-node-inventory.yaml`. It owns raw metadata completeness, metadata index completeness proof, node inventory parity, blocker lint errors, and the ready gate; the Evidence Packet references those results as normalized provider input for `spec.md`.
 
 `behavior/bdd.draft.feature` captures Phase 0 behavior projection in readable Given/When/Then form. `behavior/behavior-scenarios.draft.json`, `behavior/uif.intent.json`, and `behavior/data-fixtures.intent.json` make the same draft behavior machine-readable enough for planning formalization.
 
-`contracts/bdd/`, `contracts/uif/`, and `contracts/behavior/` contain planning-phase formal behavior contracts. They are generated from Phase 0 drafts after planning has resolved fixture strategy, data model, interface contracts, and validation paths, unless planning records `N/A or blocker` for missing planning input.
+`contracts/bdd/`, `contracts/uif/`, and `contracts/behavior/` contain planning-phase formal behavior contracts. They are generated from Phase 0 drafts after planning has resolved fixture strategy, data model, interface contracts, and validation paths, unless planning records `N/A or blocker` for missing planning input. `contracts/behavior/scenario-instances.json` carries `case_coverage_blockers` for Required cases that cannot be formalized. Failure scenarios must be structured enough to constrain implementation, including error code, failure feedback, and state invariant, rollback, or compensation assertion references.
 
 `class-diagram.md` captures internal implementation object structure: classes, interfaces, abstract types, composition, dependencies, references, and design pattern participants. It is the object design map that helps implementation preserve boundaries between services, adapters, repositories, strategies, factories, controllers, coordinators, and extension points.
 

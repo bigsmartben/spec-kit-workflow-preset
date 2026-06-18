@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Generalized Figma-derived requirement handling into provider-neutral Design Requirement Intake and Requirement Merge templates while keeping Figma MCP execution outside the preset.
+- Added a row-per-case Case Coverage Matrix to make positive, negative, boundary, permission, validation, and state_conflict applicability explicit before planning.
+- Hardened failure behavior scenarios so permission, validation, state_conflict, and other error paths require structured request cases, error responses, failure feedback, and assertions before tasks are generated.
+
 ## 1.3.6
 
 - Added a Figma Evidence Packet input template and Figma intake contract for Figma-derived specifications without adding Figma MCP execution to the preset.
