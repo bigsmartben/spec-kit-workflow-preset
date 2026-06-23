@@ -1100,7 +1100,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("visual fidelity scope", clarify)
         self.assertIn("missing UI states", clarify)
         self.assertIn("responsive behavior", clarify)
-        self.assertIn("component mapping", clarify)
+        self.assertIn("component reuse constraints", clarify)
         self.assertIn("data semantics", clarify)
         self.assertIn("acceptance evidence", clarify)
         self.assertIn("write confirmed answers back into `spec.md`", clarify)
@@ -2061,7 +2061,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("quickstart/contract validation command", command)
         self.assertIn("execute validation and code review only when those tasks are already present in `tasks.md`", command)
         self.assertIn("do not invent validation strategy, add lifecycle roles, change requirements, update contracts, or widen scope", command)
-        self.assertIn("repair design, sequence, or contract drift", command)
+        self.assertIn("repair implementation drift against existing design, sequence, or contract constraints", command)
+        self.assertIn("exclude upstream requirement, contract, research, quickstart, checklist, and planning artifacts from repair write paths", command)
         self.assertIn("real e2e cannot run", command)
         self.assertNotIn("test-plan.md", command)
 
