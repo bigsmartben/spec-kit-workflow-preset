@@ -7,8 +7,7 @@ $ARGUMENTS
 ```
 Optional runtime hint: `agent-runtime=<spec-kit-integration-key>`.
 ## Mode
-- Core mode: no handoff JSON path in `$ARGUMENTS`
-- Worker mode: `.json` handoff path in `$ARGUMENTS` or `Use handoff JSON <path>`
+- Core mode: no handoff JSON path in `$ARGUMENTS`; Worker mode: `.json` handoff path in `$ARGUMENTS` or `Use handoff JSON <path>`
 - Forbidden: external dispatch scripts, workflow runners
 ## Authority
 - Only Vertical Planner Agents may produce shard plans and digest drafts.
@@ -33,7 +32,7 @@ Map planned `U` design objects to concrete source, test, fixture, configuration,
 - write final `handoff-manifest.json`
 - dispatch Worker Agent runs from final manifest only for `isolated_subagent`
 - review receipts
-- commit `tasks.md` only during `task_commit`
+- commit `tasks.md` only during `task_commit`; mark `[x]` only for receipt `completed_task_ids` that passed `receipt_review`, required code review, and `integration_verification` with no `deferred_validation_todos`; leave all other task checkboxes unchanged
 - run `integration_verification`, closeout
 - must not produce shard plans or digest drafts
 ## Vertical Planner Agent
@@ -57,6 +56,7 @@ Map planned `U` design objects to concrete source, test, fixture, configuration,
 - read only `allowed_read_paths`
 - write only `allowed_write_paths`
 - write `task_status_update.receipt_path` as `speckit.implement.receipt.v1`
+- use empty `completed_task_ids` when the handoff is blocked, validation is deferred, required evidence is missing, or code review status is not `approved`
 - execute validation and code review only when those tasks are already present in `tasks.md`; do not invent validation strategy, add lifecycle roles, change requirements, update contracts, or widen scope during implementation; validation_evidence must reference the relevant BDD scenario, behavior assertion, API contract, or quickstart path when the handoff context includes behavior contracts
 - asset binding must map Client Asset Contract entries to local asset paths or code asset mappings from the handoff context; missing required client visual assets, mappings, variants, or fallbacks become `context_gaps`
 - Code review tasks must echo `task_type: code_review`, write `review_conclusion.checked_sources`, `data_side_effect_review`, `consistency_repairs`, and `deferred_validation_todos`; use empty arrays or objects when there are no entries
@@ -109,7 +109,7 @@ Map planned `U` design objects to concrete source, test, fixture, configuration,
 - mismatched `shard_id`
 - mismatched `task_type`
 - `task_ids` outside handoff
-- `completed_task_ids` outside handoff
+- `completed_task_ids` outside handoff, with `deferred_validation_todos`, or on code review receipts whose `review_conclusion.status` is not `approved`
 - empty `validation_evidence`
 - behavior-contract task receipt missing evidence references to the relevant BDD scenario, behavior assertion, API contract, or quickstart path
 - receipt path does not equal `task_status_update.receipt_path`
