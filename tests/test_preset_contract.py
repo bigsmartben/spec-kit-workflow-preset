@@ -26,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PRESET_PATH = REPO_ROOT / "preset.yml"
 README_PATH = REPO_ROOT / "README.md"
 CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
-CROSS_AGENT_SUBAGENTS_PATH = REPO_ROOT / "speckit-cross-agent-subagents.md"
+CROSS_AGENT_SUBAGENTS_PATH = REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-subagents.md"
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 EXTENSION_GOVERNANCE_PATH = REPO_ROOT / "docs" / "extension-governance.md"
 SPECIFY_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.specify.md"
@@ -3802,7 +3802,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("vertical capability", readme)
         self.assertIn("speckit.implement.handoff.v2", readme)
         self.assertIn("speckit.implement.receipt.v1", readme)
-        self.assertIn("speckit-cross-agent-subagents.md", readme)
+        self.assertIn("tests/contracts/speckit-cross-agent-subagents.md", readme)
         self.assertIn("Problem Addressed", readme)
         self.assertIn("reasoning quality", readme)
         self.assertNotIn("compatible with the core workflow", readme)
@@ -4174,7 +4174,7 @@ class PresetContractTests(unittest.TestCase):
             "WORKFLOW_PRESET_DOWNLOAD_URL",
             'assert entry\\["version"\\] == "[0-9]+\\.[0-9]+\\.[0-9]+"',
             "tests/test_presets.py",
-            "speckit-cross-agent-subagents.md",
+            "tests/contracts/speckit-cross-agent-subagents.md",
             "ZipInfo",
             "1980, 1, 1",
             "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true')",
