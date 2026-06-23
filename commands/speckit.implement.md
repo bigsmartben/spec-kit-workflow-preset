@@ -61,7 +61,7 @@ Map planned `U` design objects to concrete source, test, fixture, configuration,
 - asset binding must map Client Asset Contract entries to local asset paths or code asset mappings from the handoff context; missing required client visual assets, mappings, variants, or fallbacks become `context_gaps`
 - Code review tasks must echo `task_type: code_review`, write `review_conclusion.checked_sources`, `data_side_effect_review`, `consistency_repairs`, and `deferred_validation_todos`; use empty arrays or objects when there are no entries
 - For data side-effect review, inspect the actual implementation diff for runtime database writes and field-level update/delete behavior, bulk writes, soft deletes, ORM whole-object saves, migrations/backfills, retries, rollback/compensation, and external-system writes
-- repair design, sequence, or contract drift and high-risk data side effects only inside `allowed_write_paths`; when real e2e cannot run, Worker receipt must record missing environment and commands in `deferred_validation_todos`
+- repair implementation drift against existing design, sequence, or contract constraints and high-risk data side effects only inside `allowed_write_paths`; if the design, sequence, contract, requirement, checklist, or planning artifact itself is incorrect or insufficient, record a blocker or todo instead of editing upstream artifacts; when real e2e cannot run, Worker receipt must record missing environment and commands in `deferred_validation_todos`
 - Do not edit `tasks.md`, create handoffs, dispatch workers
 ## Lifecycle
 `intake` -> `context_indexing` -> `vertical_planning` -> `manifest_assembly` -> `worker_dispatch` -> `worker_execution` -> `receipt_review` -> `code_review` -> `task_commit` -> `integration_verification` -> `closeout`
@@ -87,7 +87,7 @@ Map planned `U` design objects to concrete source, test, fixture, configuration,
 - omit unrelated full `spec.md`, `plan.md`, `research.md`, `contracts/`, `class-diagram.md`, and `quickstart.md`; record unresolved required context as `context_gaps`
 ## Path Rules
 - derive `allowed_write_paths` from paths referenced by assigned task text, including specific source, test, fixture, or configuration file paths for the planned `U` design object and target component or module
-- If no concrete file path can be derived, record `context_gaps`
+- If no concrete file path can be derived, record `context_gaps`; exclude upstream requirement, contract, research, quickstart, checklist, and planning artifacts from repair write paths
 - include receipt path in `allowed_write_paths`
 - derive `allowed_read_paths` from allowed write parents, validation files, context digest, and context index
 - include `tasks.md` in `allowed_read_paths`
