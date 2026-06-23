@@ -13,6 +13,7 @@ from validators.speckit_implement_contract import (
     validate_behavior_case_coverage,
     validate_behavior_contract_bundle,
     validate_behavior_draft_contract,
+    validate_design_requirement_intake_trace_contract,
     validate_visual_item_matrix_contract,
     validate_implement_contract,
     validate_handoff_contract,
@@ -537,6 +538,25 @@ def minimal_visual_item_matrix() -> dict:
                 "spec_requirement_target": "spec.md#visual-requirements",
             }
         ],
+    }
+
+
+def minimal_design_requirement_intake_trace() -> dict:
+    return {
+        "visual_restoration_trace": [
+            {
+                "visual_item_id": "VI-001",
+                "provider_source_refs": ["figma://file/page/frame/node"],
+                "requirement_id": "FR-001",
+                "ui_surface": "HomePage",
+                "fidelity_scope": "design-system-faithful",
+                "promoted_requirement_facts": [
+                    "Header preserves the accepted hierarchy and primary action role."
+                ],
+                "supporting_evidence_refs": ["figma-evidence-packet.md#VI-001"],
+                "unresolved_gaps": [],
+            }
+        ]
     }
 
 
@@ -2159,6 +2179,37 @@ class PresetContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "requires L3 proof"):
             validate_visual_item_matrix_contract(matrix)
 
+    def test_design_requirement_intake_trace_validator_accepts_minimal_trace(self) -> None:
+        validate_design_requirement_intake_trace_contract(
+            minimal_design_requirement_intake_trace()
+        )
+
+    def test_design_requirement_intake_trace_validator_rejects_full_provider_matrix_copy(self) -> None:
+        intake = minimal_design_requirement_intake_trace()
+        intake["visual_restoration_trace"][0]["visual_item_matrix"] = minimal_visual_item_matrix()
+
+        with self.assertRaisesRegex(ValueError, "must not copy full provider Visual Item Matrix"):
+            validate_design_requirement_intake_trace_contract(intake)
+
+    def test_design_requirement_intake_trace_validator_rejects_provider_field_copy(self) -> None:
+        intake = minimal_design_requirement_intake_trace()
+        intake["visual_restoration_trace"][0].update(
+            {
+                "layout_facts": ["copied provider layout fact"],
+                "typography_facts": ["copied provider typography fact"],
+                "variant_state_evidence": [
+                    {
+                        "variant_ref": "state=disabled",
+                        "source_refs": ["figma://component/button-disabled"],
+                        "observed_state_or_role": "disabled",
+                    }
+                ],
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "must record only requirement-level facts"):
+            validate_design_requirement_intake_trace_contract(intake)
+
     def test_behavior_draft_schema_rejects_empty_given_when_then(self) -> None:
         schema = json.loads(
             BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenarios.draft.v1"].read_text(
@@ -3716,6 +3767,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Design Requirement Intake", readme)
         self.assertIn("Requirement Merge", readme)
         self.assertIn("Product Requirement + Design Requirement", readme)
+        self.assertIn("rejects full provider Visual Item Matrix copies inside Visual Restoration Trace rows", readme)
         self.assertIn("stable Visual Item ID", readme)
         self.assertIn("does not translate Figma variants into code props", readme)
         self.assertIn("requirement-level component roles", readme)
@@ -3829,6 +3881,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("## 1.0.3", changelog)
         self.assertIn("Final Code Review", changelog)
         self.assertIn("structured code review receipts", changelog)
+        self.assertIn("rejects full provider Visual Item Matrix copies inside Design Requirement Intake Visual Restoration Trace rows", changelog)
         self.assertIn("/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation", changelog)
         self.assertIn("/speckit.implement` only executes those tasks and records receipt evidence", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)

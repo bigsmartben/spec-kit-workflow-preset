@@ -21,6 +21,24 @@ EXPLICIT_DRAWING_CONSTRAINTS = {
     "figma-export-required",
     "existing-asset-required",
 }
+PROVIDER_MATRIX_COPY_KEYS = {
+    "figma_frame_node_refs",
+    "requirement_target",
+    "layout_facts",
+    "typography_facts",
+    "color_token_facts",
+    "effect_facts",
+    "variant_state_evidence",
+    "visual_proof_level",
+    "spec_requirement_target",
+}
+FULL_PROVIDER_MATRIX_KEYS = {
+    "source",
+    "readiness",
+    "visual_items",
+    "visual_item_matrix",
+    "provider_visual_item_matrix",
+}
 
 
 def _duplicate_ids(items: list[dict[str, Any]], *, key: str, context: str) -> set[str]:
@@ -312,6 +330,37 @@ def validate_visual_item_matrix_contract(matrix: dict[str, Any]) -> None:
                 raise ValueError(
                     f"visual item {item_id} pixel-perfect or brand-critical requires screenshot_refs"
                 )
+
+
+def validate_design_requirement_intake_trace_contract(intake: dict[str, Any]) -> None:
+    rows = intake.get("visual_restoration_trace", [])
+    if rows in (None, []):
+        return
+    if not isinstance(rows, list):
+        raise ValueError("visual restoration trace must be a list")
+
+    _duplicate_ids(rows, key="visual_item_id", context="visual restoration trace")
+
+    for row in rows:
+        item_id = row.get("visual_item_id", "<unknown>")
+        copied_structures = FULL_PROVIDER_MATRIX_KEYS.intersection(row)
+        if copied_structures:
+            raise ValueError(
+                f"visual restoration trace {item_id} must not copy full provider Visual Item Matrix"
+            )
+
+        copied_provider_fields = PROVIDER_MATRIX_COPY_KEYS.intersection(row)
+        if len(copied_provider_fields) >= 3:
+            raise ValueError(
+                f"visual restoration trace {item_id} must record only requirement-level facts"
+            )
+
+        if not row.get("requirement_id") and not row.get("spec_requirement_ref"):
+            raise ValueError(f"visual restoration trace {item_id} missing requirement reference")
+        if not row.get("supporting_evidence_refs") and not row.get("provider_source_refs"):
+            raise ValueError(
+                f"visual restoration trace {item_id} missing supporting evidence refs"
+            )
 
 
 def _handoff_has_behavior_contract_context(handoff: dict[str, Any]) -> bool:
