@@ -248,7 +248,7 @@ jobs:
           project_dir="$(mktemp -d "${RUNNER_TEMP}/workflow-preset-smoke.XXXXXX")"
           resolve_out="${RUNNER_TEMP}/plan-template-resolve.txt"
           cd "$project_dir"
-          specify init --here --ai claude --script sh --ignore-agent-tools
+          specify init --here --integration claude --script sh --ignore-agent-tools
           specify preset remove workflow-preset
           specify preset add --dev "$GITHUB_WORKSPACE"
           specify preset info workflow-preset
