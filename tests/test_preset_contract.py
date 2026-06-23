@@ -299,7 +299,7 @@ def minimal_receipt(
         "shard_id": shard_id,
         "task_type": task_type,
         "task_ids": task_ids,
-        "completed_task_ids": completed_task_ids or task_ids,
+        "completed_task_ids": task_ids if completed_task_ids is None else completed_task_ids,
         "changed_paths": changed_paths or [SERVICE_PATH],
         "validation_evidence": validation_evidence
         if validation_evidence is not None
@@ -3221,6 +3221,50 @@ class PresetContractTests(unittest.TestCase):
     def test_validate_receipt_contract_accepts_valid_cross_fields(self) -> None:
         validate_receipt_contract(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
 
+    def test_validate_receipt_contract_rejects_completed_tasks_with_deferred_validation(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "completed_task_ids"):
+            validate_receipt_contract(
+                minimal_handoff(),
+                minimal_receipt(
+                    deferred_validation_todos=[
+                        {
+                            "id": "VAL-001",
+                            "reason": "Sandbox credentials unavailable.",
+                            "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                            "validation_path": "quickstart.md#payment",
+                            "commands": ["npm run e2e:payment"],
+                            "blocking": False,
+                        }
+                    ],
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_completed_code_review_without_approval(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "approved"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "changes_requested",
+                        "summary": "Review found pending repairs.",
+                        "checked_sources": [SERVICE_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(),
+                ),
+                RECEIPT_PATH,
+            )
+
     def test_validate_receipt_contract_requires_review_conclusion_for_code_review_task(
         self,
     ) -> None:
@@ -3419,6 +3463,7 @@ class PresetContractTests(unittest.TestCase):
                 minimal_receipt(
                     task_ids=["T099"],
                     task_type="code_review",
+                    completed_task_ids=[],
                     review_conclusion={
                         "status": "changes_requested",
                         "summary": "Contract drift repaired.",
@@ -3452,6 +3497,7 @@ class PresetContractTests(unittest.TestCase):
                 minimal_receipt(
                     task_ids=["T099"],
                     task_type="code_review",
+                    completed_task_ids=[],
                     validation_evidence=[
                         "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
                     ],
@@ -3515,6 +3561,7 @@ class PresetContractTests(unittest.TestCase):
                 minimal_receipt(
                     task_ids=["T099"],
                     task_type="code_review",
+                    completed_task_ids=[],
                     validation_evidence=[
                         "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
                     ],
@@ -3554,6 +3601,7 @@ class PresetContractTests(unittest.TestCase):
                 minimal_receipt(
                     task_ids=["T099"],
                     task_type="code_review",
+                    completed_task_ids=[],
                     validation_evidence=["Code review completed."],
                     review_conclusion={
                         "status": "changes_requested",
@@ -3586,6 +3634,7 @@ class PresetContractTests(unittest.TestCase):
             minimal_receipt(
                 task_ids=["T099"],
                 task_type="code_review",
+                completed_task_ids=[],
                 changed_paths=[SERVICE_PATH],
                 validation_evidence=[
                     "checked contracts/sequences.md; quickstart.md command npm run e2e:payment deferred because PAYMENT_SANDBOX_TOKEN is unavailable; real e2e deferred"

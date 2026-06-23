@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Hardened implement receipt completion gates so deferred validation or unapproved code review cannot mark `tasks.md` items complete.
 - Added Final Code Review visual consistency checks for implemented UI states, viewport behavior, visual proof evidence, and Client Asset Contract bindings.
 - Clarified that `/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation, and scope-aware code review tasks, while `/speckit.implement` only executes those tasks and records receipt evidence without inventing validation strategy or widening scope.
 - Added Visual Item Matrix and Visual Restoration Trace fields so Figma/provider evidence can carry stable UI/UX restoration refs into `spec.md` and Visual Fidelity readiness.

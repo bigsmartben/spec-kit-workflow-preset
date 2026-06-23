@@ -771,10 +771,15 @@ def validate_receipt_contract(
     handoff_task_ids = set(handoff.get("task_ids", []))
     if not set(receipt.get("task_ids", [])).issubset(handoff_task_ids):
         raise ValueError("receipt task_ids outside handoff")
-    if not set(receipt.get("completed_task_ids", [])).issubset(handoff_task_ids):
+    completed_task_ids = set(receipt.get("completed_task_ids", []))
+    if not completed_task_ids.issubset(handoff_task_ids):
         raise ValueError("receipt completed_task_ids outside handoff")
-    if not set(receipt.get("completed_task_ids", [])).issubset(set(receipt.get("task_ids", []))):
+    if not completed_task_ids.issubset(set(receipt.get("task_ids", []))):
         raise ValueError("receipt completed_task_ids outside receipt task_ids")
+    if completed_task_ids and receipt.get("deferred_validation_todos"):
+        raise ValueError(
+            "receipt completed_task_ids must be empty when deferred_validation_todos exist"
+        )
 
     if not receipt.get("validation_evidence"):
         raise ValueError("receipt validation_evidence must not be empty")
@@ -798,6 +803,10 @@ def validate_receipt_contract(
             raise ValueError("code review receipt must include review_conclusion")
 
         review_conclusion = receipt["review_conclusion"]
+        if completed_task_ids and review_conclusion.get("status") != "approved":
+            raise ValueError(
+                "code review receipt completed_task_ids require approved review_conclusion"
+            )
         checked_sources = review_conclusion.get("checked_sources")
         if not isinstance(checked_sources, list) or not checked_sources:
             raise ValueError("code review receipt must include checked_sources")
