@@ -4162,7 +4162,7 @@ class PresetContractTests(unittest.TestCase):
             'export TMPDIR="${RUNNER_TEMP}"',
             'export TEMP="${RUNNER_TEMP}"',
             'export TMP="${RUNNER_TEMP}"',
-            'specify init --here --ai claude --script sh --ignore-agent-tools',
+            'specify init --here --integration claude --script sh --ignore-agent-tools',
             "specify preset remove workflow-preset",
             "specify preset add --dev",
             "specify preset resolve plan-template",
