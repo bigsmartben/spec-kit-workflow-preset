@@ -2,6 +2,51 @@
 
 ## Unreleased
 
+## 1.3.10
+
+- Tightened implement handoff, manifest, and receipt shard IDs to the `S00-capability-00` format.
+- Added validator checks that shard ID capabilities match declared vertical capabilities.
+- Moved detailed `/speckit.implement` subagent lifecycle, shard, context digest, path, receipt, and review rules into the cross-agent contract reference.
+- Clarified `/speckit.tasks`, `/speckit.specify`, and `/speckit.clarify` wrapper boundaries.
+
+## 1.3.9
+
+- Hardened implement receipt completion gates so deferred validation or unapproved code review cannot mark `tasks.md` items complete.
+- Added Final Code Review visual consistency checks for implemented UI states, viewport behavior, visual proof evidence, and Client Asset Contract bindings.
+- Clarified that `/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation, and scope-aware code review tasks, while `/speckit.implement` only executes those tasks and records receipt evidence without inventing validation strategy or widening scope.
+- Added Visual Item Matrix and Visual Restoration Trace fields so Figma/provider evidence can carry stable UI/UX restoration refs into `spec.md` and Visual Fidelity readiness.
+- Added a normalized Visual Item Matrix JSON schema and validator checks for deterministic UI/UX restoration intake.
+- Added validator coverage that rejects full provider Visual Item Matrix copies inside Design Requirement Intake Visual Restoration Trace rows.
+- Clarified that provider evidence artifacts may record screenshot/proof refs and provider blockers, while only the checklist Visual Fidelity Evidence Matrix decides visual planning readiness, proof sufficiency, Gate Status, Blocking Items, and accepted exception rules.
+- Clarified implementation repair boundaries so workers repair only authorized implementation drift and record upstream artifact gaps as blockers or todos.
+
+## 1.3.8
+
+- Aligned code review receipt validation with the receipt schema for data side-effect review required fields.
+- Rejected empty Case Coverage Matrix inputs in the behavior case coverage validator.
+- Restored source-only workflow contract checks to skip when tests run from a packaged preset without `.github/workflows`.
+
+## 1.3.7
+
+- Generalized Figma-derived requirement handling into provider-neutral Design Requirement Intake and Requirement Merge templates while keeping Figma MCP execution outside the preset.
+- Added a row-per-case Case Coverage Matrix to make positive, negative, boundary, permission, validation, and state_conflict applicability explicit before planning.
+- Hardened failure behavior scenarios so permission, validation, state_conflict, and other error paths require structured request cases, error responses, failure feedback, and assertions before tasks are generated.
+- Hardened UI task generation so UI implementation and acceptance tasks are paired with explicit state coverage, viewport coverage, visual proof refs, screenshot refs, and readiness blockers for missing visual or asset evidence.
+
+## 1.3.6
+
+- Added a Figma Evidence Packet input template and Figma intake contract for Figma-derived specifications without adding Figma MCP execution to the preset.
+- Hardened Figma intake readiness with raw metadata completeness, metadata index proof, node inventory parity, and blocker lint gates before writing Figma-derived requirements.
+
+## 1.3.4
+
+- Added NFR readiness to `/speckit.checklist` so `spec.md` must explicitly declare applicable non-functional requirements, mark them not applicable, or block planning for unknown assumptions.
+- Added Final Code Review task generation and structured code review receipts for implementation consistency repairs, post-implementation data side-effect review, and deferred real e2e validation todos.
+- Isolated release install smoke checks to a GitHub runner venv and runner temp paths instead of relying on local environment behavior.
+
+## 1.3.1
+
+- Added GitHub Actions boundaries for preset contract tests, release artifact verification, project-scoped install smoke checks, and fail-fast fork integration dispatch.
 - Added Change Scope Granularity governance through `/speckit.constitution`, the constitution template, and stage-local plan/tasks/analyze/implement references.
 
 ## 1.3.0

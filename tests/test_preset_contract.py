@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -9,8 +10,11 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
 from validators.speckit_implement_contract import (
+    validate_behavior_case_coverage,
     validate_behavior_contract_bundle,
     validate_behavior_draft_contract,
+    validate_design_requirement_intake_trace_contract,
+    validate_visual_item_matrix_contract,
     validate_implement_contract,
     validate_handoff_contract,
     validate_manifest_contract,
@@ -22,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PRESET_PATH = REPO_ROOT / "preset.yml"
 README_PATH = REPO_ROOT / "README.md"
 CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
-CROSS_AGENT_SUBAGENTS_PATH = REPO_ROOT / "speckit-cross-agent-subagents.md"
+CROSS_AGENT_SUBAGENTS_PATH = REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-subagents.md"
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 EXTENSION_GOVERNANCE_PATH = REPO_ROOT / "docs" / "extension-governance.md"
 SPECIFY_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.specify.md"
@@ -35,6 +39,35 @@ TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
 IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
 CONSTITUTION_TEMPLATE_PATH = REPO_ROOT / "templates" / "constitution-template.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
+FIGMA_EVIDENCE_PACKET_TEMPLATE_PATH = (
+    REPO_ROOT / "templates" / "figma-evidence-packet-template.md"
+)
+
+CANONICAL_RESPONSIVE_VISUAL_RULE = (
+    "Responsive visual requirements block PASS only when they are complex, "
+    "multi-state, or declare L2 or L3 visual proof"
+)
+FORBIDDEN_VISUAL_COMPAT_TERMS = (
+    "legacy visual",
+    "previous-version",
+    "previous version",
+    "backward-compatible",
+    "backward compatible",
+    "fallback visual",
+    "fallback visual rule",
+    "compatibility mode",
+    "历史版本",
+    "旧版兼容",
+    "兼容旧版",
+    "回退视觉规则",
+)
+FIGMA_INTAKE_CONTRACT_TEMPLATE_PATH = REPO_ROOT / "templates" / "figma-intake-contract.md"
+DESIGN_REQUIREMENT_INTAKE_TEMPLATE_PATH = (
+    REPO_ROOT / "templates" / "design-requirement-intake-template.md"
+)
+REQUIREMENT_MERGE_REPORT_TEMPLATE_PATH = (
+    REPO_ROOT / "templates" / "requirement-merge-report-template.md"
+)
 REQUIREMENTS_DEV_PATH = REPO_ROOT / "requirements-dev.txt"
 MANIFEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.manifest.v1.schema.json"
 HANDOFF_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.handoff.v2.schema.json"
@@ -62,6 +95,9 @@ BEHAVIOR_SCHEMA_PATHS = {
     / "schemas"
     / "speckit.behavior.assertions.v1.schema.json",
 }
+VISUAL_ITEM_MATRIX_SCHEMA_PATH = (
+    REPO_ROOT / "schemas" / "speckit.design.visual-item-matrix.v1.schema.json"
+)
 BEHAVIOR_TEMPLATE_PATHS = {
     "behavior-bdd-draft-template": REPO_ROOT / "templates" / "behavior" / "bdd-draft.feature",
     "behavior-scenarios-draft-template": REPO_ROOT
@@ -103,6 +139,17 @@ SHARD_ID = "S01-service-flow-01"
 RECEIPT_PATH = f"{HANDOFF_DIR}/results/{SHARD_ID}.json"
 SERVICE_PATH = f"{FEATURE_PATH}/src/service.py"
 TASKS_PATH = f"{FEATURE_PATH}/tasks.md"
+API_CONTRACT_PATH = f"{FEATURE_PATH}/contracts/api/refunds.openapi.yaml"
+SEQUENCES_PATH = f"{FEATURE_PATH}/contracts/sequences.md"
+QUICKSTART_PATH = f"{FEATURE_PATH}/quickstart.md"
+
+
+def no_data_side_effects_review(*, paths: list[str] | None = None) -> dict:
+    return {
+        "reviewed_diff_paths": paths or [SERVICE_PATH],
+        "runtime_data_writes_found": False,
+        "mutation_findings": [],
+    }
 
 
 def minimal_shard(
@@ -166,6 +213,7 @@ def minimal_handoff(
     planner_vertical_capability: str | None = None,
     task_ids: list[str] | None = None,
     allowed_write_paths: list[str] | None = None,
+    task_type: str = "implementation",
 ) -> dict:
     task_ids = ["T001"] if task_ids is None else task_ids
     planner_vertical_capability = planner_vertical_capability or vertical_capability
@@ -207,6 +255,7 @@ def minimal_handoff(
             "context_digest_draft_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.context.md",
         },
         "task_ids": task_ids,
+        "task_type": task_type,
         "task_text": ["Implement service"],
         "context_digest_path": f"{HANDOFF_DIR}/{shard_id}.context.md",
         "context_index_path": f"{HANDOFF_DIR}/context-index.json",
@@ -238,29 +287,48 @@ def minimal_receipt(
     completed_task_ids: list[str] | None = None,
     changed_paths: list[str] | None = None,
     validation_evidence: list[str] | None = None,
+    review_conclusion: dict | None = None,
+    data_side_effect_review: dict | None = None,
+    consistency_repairs: list[dict] | None = None,
+    deferred_validation_todos: list[dict] | None = None,
+    task_type: str = "implementation",
 ) -> dict:
     task_ids = task_ids or ["T001"]
-    return {
+    receipt = {
         "contract_type": "speckit.implement.receipt.v1",
         "shard_id": shard_id,
+        "task_type": task_type,
         "task_ids": task_ids,
-        "completed_task_ids": completed_task_ids or task_ids,
+        "completed_task_ids": task_ids if completed_task_ids is None else completed_task_ids,
         "changed_paths": changed_paths or [SERVICE_PATH],
         "validation_evidence": validation_evidence
         if validation_evidence is not None
         else ["unit tests passed"],
     }
+    if review_conclusion is not None:
+        receipt["review_conclusion"] = review_conclusion
+    if data_side_effect_review is not None:
+        receipt["data_side_effect_review"] = data_side_effect_review
+    if consistency_repairs is not None:
+        receipt["consistency_repairs"] = consistency_repairs
+    if deferred_validation_todos is not None:
+        receipt["deferred_validation_todos"] = deferred_validation_todos
+    return receipt
 
 
-def minimal_behavior_scenarios_draft() -> dict:
+def minimal_behavior_scenarios_draft(
+    *,
+    scenario_id: str = "SCN-001",
+    scenario_type: str = "positive",
+) -> dict:
     return {
         "contract_type": "speckit.behavior.scenarios.draft.v1",
         "feature": "refund-application",
         "scenarios": [
             {
-                "id": "SCN-001",
+                "id": scenario_id,
                 "title": "Submit refund",
-                "type": "positive",
+                "type": scenario_type,
                 "given": ["FIX-BUYER"],
                 "when": ["click_refund", "submit_refund"],
                 "then": ["show_refund_submitted"],
@@ -336,6 +404,61 @@ def minimal_behavior_scenario_instances() -> dict:
     }
 
 
+def minimal_exception_behavior_scenario_instances(*, scenario_type: str = "permission") -> dict:
+    instances = minimal_behavior_scenario_instances()
+    scenario = instances["scenarios"][0]
+    scenario["id"] = "SCN-ERR-001"
+    scenario["title"] = "Reject refund request"
+    scenario["type"] = scenario_type
+    scenario["request_case"] = {
+        "id": "REQ-ERR-001",
+        "case_kind": scenario_type,
+        "outcome": "failure",
+        "trigger": "submit_refund_without_required_permission",
+    }
+    scenario["expected_response"] = {
+        "business_code": "REJECTED",
+        "status": 403,
+        "error_code": "ERR_PERMISSION_DENIED",
+    }
+    scenario["expected_feedback"] = {
+        "type": "inline_error",
+        "message": "Permission denied",
+    }
+    scenario["assertion_ids"] = ["AST-001"]
+    return instances
+
+
+def minimal_case_coverage() -> dict:
+    return {
+        "case_coverage": [
+            {
+                "story": "Refund request",
+                "case_id": "CASE-001",
+                "case_type": "permission",
+                "status": "Required",
+                "source": "spec.md#user-story-1",
+                "scenario_id": "SCN-ERR-001",
+            }
+        ]
+    }
+
+
+def minimal_case_coverage_with_blocker() -> dict:
+    return {
+        "case_coverage": [
+            {
+                "story": "Refund request",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "status": "Required",
+                "source": "spec.md#user-story-1",
+                "blocker_id": "BLK-001",
+            }
+        ]
+    }
+
+
 def minimal_behavior_data_fixtures() -> dict:
     return {
         "contract_type": "speckit.behavior.data_fixtures.v1",
@@ -366,6 +489,87 @@ def minimal_behavior_assertions() -> dict:
     }
 
 
+def minimal_visual_item_matrix() -> dict:
+    return {
+        "contract_type": "speckit.design.visual_item_matrix.v1",
+        "source": {
+            "provider": "figma",
+            "source_refs": ["figma://file/page/frame/node"],
+            "capture_timestamp": "2026-06-22T00:00:00Z",
+        },
+        "readiness": {
+            "status": "PASS",
+            "raw_metadata_complete": True,
+            "node_inventory_coverage": 100,
+            "parity_passed": True,
+            "blocker_lint_errors": [],
+        },
+        "visual_items": [
+            {
+                "id": "VI-001",
+                "source_refs": ["figma://file/page/frame/node"],
+                "requirement_target": "Home screen header",
+                "ui_surface": "HomePage",
+                "fidelity_scope": "design-system-faithful",
+                "layout_facts": ["Header is aligned to the top safe area."],
+                "typography_facts": ["Title uses the observed display style."],
+                "color_token_facts": ["Primary action uses the observed brand token."],
+                "effect_facts": [],
+                "asset_refs": [],
+                "variant_state_evidence": [
+                    {
+                        "variant_ref": "component=Button,state=disabled",
+                        "source_refs": ["figma://component/button-disabled"],
+                        "observed_state_or_role": "disabled",
+                        "confidence": "high",
+                    }
+                ],
+                "component_requirement_role": "primary action",
+                "component_use_constraint": "unspecified",
+                "constraint_source_refs": [],
+                "copy_content_constraint": "unspecified",
+                "drawing_asset_constraint": "unspecified",
+                "required_states": ["default", "disabled"],
+                "required_viewport_coverage": ["desktop"],
+                "screenshot_refs": ["screenshots/home-desktop.png"],
+                "visual_proof_level": "L1",
+                "allowed_deviations": [],
+                "blockers": [],
+                "spec_requirement_target": "spec.md#visual-requirements",
+            }
+        ],
+    }
+
+
+def minimal_design_requirement_intake_trace() -> dict:
+    return {
+        "visual_restoration_trace": [
+            {
+                "visual_item_id": "VI-001",
+                "provider_source_refs": ["figma://file/page/frame/node"],
+                "requirement_id": "FR-001",
+                "ui_surface": "HomePage",
+                "fidelity_scope": "design-system-faithful",
+                "promoted_requirement_facts": [
+                    "Header preserves the accepted hierarchy and primary action role."
+                ],
+                "supporting_evidence_refs": ["figma-evidence-packet.md#VI-001"],
+                "unresolved_gaps": [],
+            }
+        ]
+    }
+
+
+def minimal_exception_behavior_assertions() -> dict:
+    return minimal_exception_behavior_assertions_with_intent("state_invariant")
+
+
+def minimal_exception_behavior_assertions_with_intent(intent: str) -> dict:
+    assertions = minimal_behavior_assertions()
+    assertions["assertions"][0]["intent"] = intent
+    return assertions
+
+
 class PresetContractTests(unittest.TestCase):
     def test_preset_manifest_contract(self) -> None:
         data = yaml.safe_load(PRESET_PATH.read_text(encoding="utf-8"))
@@ -373,7 +577,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.3.0", data["preset"]["version"])
+        self.assertEqual("1.3.10", data["preset"]["version"])
         self.assertEqual(
             "Behavior-first specification, design artifacts, and agent-native handoff orchestration",
             data["preset"]["description"],
@@ -391,7 +595,7 @@ class PresetContractTests(unittest.TestCase):
         )
 
         provides = data["provides"]["templates"]
-        self.assertEqual(30, len(provides))
+        self.assertEqual(35, len(provides))
         entries = {entry["name"]: entry for entry in provides}
         self.assertNotIn("behavior-open-questions-template", entries)
         self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
@@ -407,6 +611,52 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("templates/constitution-template.md", constitution_template["file"])
         self.assertEqual("constitution-template", constitution_template["replaces"])
         self.assertEqual("wrap", constitution_template["strategy"])
+
+        figma_packet_template = entries["figma-evidence-packet-template"]
+        self.assertEqual("template", figma_packet_template["type"])
+        self.assertEqual(
+            "templates/figma-evidence-packet-template.md",
+            figma_packet_template["file"],
+        )
+        self.assertEqual(
+            "figma-evidence-packet-template",
+            figma_packet_template["replaces"],
+        )
+        self.assertEqual("replace", figma_packet_template["strategy"])
+        self.assertIn("Figma Evidence Packet", figma_packet_template["description"])
+
+        figma_intake_contract = entries["figma-intake-contract-template"]
+        self.assertEqual("template", figma_intake_contract["type"])
+        self.assertEqual("templates/figma-intake-contract.md", figma_intake_contract["file"])
+        self.assertEqual("figma-intake-contract-template", figma_intake_contract["replaces"])
+        self.assertEqual("replace", figma_intake_contract["strategy"])
+        self.assertIn("Figma provider source readiness contract", figma_intake_contract["description"])
+
+        design_intake_template = entries["design-requirement-intake-template"]
+        self.assertEqual("template", design_intake_template["type"])
+        self.assertEqual(
+            "templates/design-requirement-intake-template.md",
+            design_intake_template["file"],
+        )
+        self.assertEqual(
+            "design-requirement-intake-template",
+            design_intake_template["replaces"],
+        )
+        self.assertEqual("replace", design_intake_template["strategy"])
+        self.assertIn("Design Requirement Intake", design_intake_template["description"])
+
+        merge_report_template = entries["requirement-merge-report-template"]
+        self.assertEqual("template", merge_report_template["type"])
+        self.assertEqual(
+            "templates/requirement-merge-report-template.md",
+            merge_report_template["file"],
+        )
+        self.assertEqual(
+            "requirement-merge-report-template",
+            merge_report_template["replaces"],
+        )
+        self.assertEqual("replace", merge_report_template["strategy"])
+        self.assertIn("Requirement Merge", merge_report_template["description"])
 
         for command_name in ("speckit.plan", "speckit.tasks"):
             command = entries[command_name]
@@ -428,7 +678,7 @@ class PresetContractTests(unittest.TestCase):
             entries["speckit.clarify"]["description"],
         )
         self.assertEqual(
-            "Wrap core checklist generation with BDD readiness gate",
+            "Wrap core checklist generation with BDD, NFR, and Visual Fidelity readiness gate",
             entries["speckit.checklist"]["description"],
         )
 
@@ -483,7 +733,7 @@ class PresetContractTests(unittest.TestCase):
             template = entries[template_name]
             self.assertEqual("template", template["type"])
             self.assertEqual(
-                str(template_path.relative_to(REPO_ROOT)),
+                template_path.relative_to(REPO_ROOT).as_posix(),
                 template["file"],
             )
             self.assertEqual(template_name, template["replaces"])
@@ -493,9 +743,19 @@ class PresetContractTests(unittest.TestCase):
             schema_name = f"{contract_type}-schema".replace(".", "-").replace("_", "-")
             schema = entries[schema_name]
             self.assertEqual("template", schema["type"])
-            self.assertEqual(str(schema_path.relative_to(REPO_ROOT)), schema["file"])
+            self.assertEqual(schema_path.relative_to(REPO_ROOT).as_posix(), schema["file"])
             self.assertEqual(schema_name, schema["replaces"])
             self.assertEqual("replace", schema["strategy"])
+
+        visual_matrix_schema = entries["speckit-design-visual-item-matrix-v1-schema"]
+        self.assertEqual("template", visual_matrix_schema["type"])
+        self.assertEqual(
+            "schemas/speckit.design.visual-item-matrix.v1.schema.json",
+            visual_matrix_schema["file"],
+        )
+        self.assertIn("normalized design visual item matrix", visual_matrix_schema["description"])
+        self.assertEqual("speckit-design-visual-item-matrix-v1-schema", visual_matrix_schema["replaces"])
+        self.assertEqual("replace", visual_matrix_schema["strategy"])
 
         self.assertNotIn("scripts", data["provides"])
         self.assertNotIn("files", data["provides"])
@@ -515,7 +775,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("contracts/sequences.md", command)
         self.assertNotIn("test-plan.md", command)
         self.assertIn("strategy: wrap", command)
-        self.assertIn("Generate the two design artifacts only when useful", command)
+        self.assertIn("Generate design artifacts only when the feature requires internal object design or cross-boundary sequence constraints", command)
         self.assertIn("Keep `plan.md` as summary/navigation", command)
         self.assertIn("validation decisions belong in `research.md`", command)
         self.assertIn("executable validation paths belong in `quickstart.md`", command)
@@ -534,6 +794,44 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("./data-model.md", template)
         self.assertIn("./contracts/", template)
         self.assertIn("./quickstart.md", template)
+
+    def test_plan_visual_substage_enhancement_contract(self) -> None:
+        command = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
+        template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
+        readme = README_PATH.read_text(encoding="utf-8")
+        governance = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
+
+        for term in (
+            "Visual Planning Responsibilities",
+            "Visual validation decisions",
+            "Visual Item ID",
+            "viewport/state coverage strategy",
+            "visual regression or baseline proof strategy",
+            "Do not copy the Visual Fidelity Evidence Matrix into `research.md`",
+            "do not rebuild provider evidence matrices",
+            "visual_item_refs",
+            "viewport_matrix_refs",
+            "state_matrix_refs",
+            "visual_proof_refs",
+            "accepted_exception_refs",
+            "UI interaction sequence",
+            "visual state handoff points",
+            "responsive branch trigger refs",
+        ):
+            self.assertIn(term, command)
+
+        for term in (
+            "Visual fidelity navigation",
+            "Visual validation decisions: `./research.md`",
+            "Visual interaction contracts: `./contracts/uif/` and `./contracts/behavior/`",
+            "Visual flow sequences: `./contracts/sequences.md`",
+        ):
+            self.assertIn(term, template)
+
+        for document in (readme, governance):
+            self.assertIn("research.md records visual validation decisions", document)
+            self.assertIn("contracts formalize visual interaction and state constraints", document)
+            self.assertIn("contracts/sequences.md records visual state flow only when it affects cross-boundary sequencing", document)
 
     def test_constitution_change_scope_granularity_contract(self) -> None:
         command = CONSTITUTION_COMMAND_PATH.read_text(encoding="utf-8")
@@ -563,17 +861,16 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Do not lock operation-level implementation details or concrete write paths.", plan)
 
         self.assertIn("Preserve the planned `M + U` scope", tasks)
-        self.assertIn("Do not generate handoff fields or `allowed_write_paths`.", tasks)
+        self.assertIn("Do not generate execution metadata or write-path fields.", tasks)
 
         self.assertIn("Check that tasks preserve the planned `M + U` scope.", analyze)
         self.assertIn("Report missing, widened, or ambiguous scope boundaries as blockers.", analyze)
 
-        self.assertIn(
-            "Map planned `U` design objects to concrete source, test, fixture, configuration, and receipt paths before worker execution.",
-            implement,
-        )
-        self.assertIn("If the mapping is ambiguous, record `context_gaps`", implement)
-        self.assertIn("do not widen to repository scope or broad module scope.", implement)
+        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
+        self.assertIn("Map planned `U` design objects to concrete source", implement)
+        self.assertIn("planned `U` design object", cross_agent)
+        self.assertIn("specific source, test, fixture, configuration, or receipt paths", cross_agent)
+        self.assertIn("context_gaps", cross_agent)
 
     def test_preplanning_commands_do_not_infer_scope_granularity(self) -> None:
         for path in (SPECIFY_COMMAND_PATH, CLARIFY_COMMAND_PATH, CHECKLIST_COMMAND_PATH):
@@ -600,10 +897,69 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("strategy: wrap", tasks)
         self.assertIn("implementation, integration, orchestration", tasks)
         self.assertIn("existing checklist format and user-story organization", tasks)
-        self.assertIn("Test Strategy Derivation", tasks)
-        self.assertIn("derive the test level", tasks)
-        self.assertIn("fixture/mock/sandbox/real-system strategy", tasks)
+        self.assertIn("`/speckit.tasks` owns implementation, validation, and review task definition in `tasks.md`", tasks)
+        self.assertIn("must not invent validation strategy", tasks)
+        self.assertIn("change requirements, update contracts, or widen scope", tasks)
+        self.assertIn("Planning Input Taxonomy", tasks)
+        self.assertIn("validation level taxonomy", tasks)
+        self.assertIn("fixture strategy and external-system execution mode taxonomy", tasks)
+        self.assertIn("Evidence binding", tasks)
+        self.assertIn("Validation Task Derivation", tasks)
+        self.assertIn("derive the validation level", tasks)
+        self.assertIn("fixture strategy, external-system execution mode", tasks)
         self.assertIn("inline evidence requirement", tasks)
+        self.assertIn("validation task taxonomy", tasks)
+        for validation_scope in (
+            "`contract_validation`",
+            "`visual_verification` or `ui_acceptance`",
+            "`data_side_effect_validation`",
+            "`integration_e2e_validation`",
+        ):
+            self.assertIn(validation_scope, tasks)
+        self.assertIn("Final Code Review", tasks)
+        self.assertIn("append the final phase after user-story tasks", tasks)
+        self.assertIn("final review scope taxonomy", tasks)
+        self.assertIn("`boundary`, `interface_contract`, `visual`, `data_side_effect`, `behavior_contract`, `sequence_consistency`, and `asset_binding`", tasks)
+        self.assertIn("Checked sources include", tasks)
+        self.assertIn("`contracts/uif/`", tasks)
+        self.assertIn("`spec.md` Client Asset Contract entries", tasks)
+        self.assertIn("Visual Fidelity Readiness", tasks)
+        self.assertIn("data side-effect review", tasks)
+        self.assertIn("field-level update/delete", tasks)
+        self.assertIn("runtime database writes", tasks)
+        self.assertIn("boundary review", tasks)
+        self.assertIn("task scope stays within planned `M + U`", tasks)
+        self.assertIn("no implementation task changed `spec.md`, `contracts/`, readiness checklists, or Visual Fidelity Readiness", tasks)
+        self.assertIn("visual consistency review", tasks)
+        self.assertIn("implemented UI states and viewport behavior", tasks)
+        self.assertIn("screenshot refs, visual proof refs", tasks)
+        self.assertIn("visual task taxonomy", tasks)
+        self.assertIn("story-local task granularity", tasks)
+        self.assertIn("`visual_setup` -> `visual_validation` -> `visual_implementation` -> `visual_evidence`", tasks)
+        self.assertIn("Do not create a separate visual lifecycle phase", tasks)
+        self.assertIn("Visual tasks must name concrete source, test, fixture, configuration, or asset paths", tasks)
+        self.assertIn("report a readiness blocker instead of generating an ambiguous visual task", tasks)
+        self.assertIn("Client Asset Contract bindings, variants, and fallback policy", tasks)
+        self.assertIn("real-system e2e environment readiness", tasks)
+        self.assertIn("Review evidence binding", tasks)
+        self.assertIn("concrete review scope, source artifacts, implementation surfaces, and evidence refs", tasks)
+        self.assertIn("bounded repair permission", tasks)
+        self.assertIn("review evidence, bounded repair permission, or a blocker", tasks)
+        self.assertIn("record a blocker instead of treating the change as implementation work", tasks)
+        self.assertNotIn("handoff", tasks)
+        self.assertNotIn("allowed_write_paths", tasks)
+        self.assertNotIn("receipt", tasks)
+        self.assertNotIn("speckit.implement.receipt.v1", tasks)
+        self.assertNotIn("task_type: code_review", tasks)
+        self.assertNotIn("data_side_effect_review", tasks)
+        self.assertNotIn("review_conclusion", tasks)
+        self.assertNotIn("checked_sources", tasks)
+        self.assertNotIn("consistency_repairs", tasks)
+        self.assertNotIn("deferred_validation_todos", tasks)
+        self.assertNotIn("empty arrays or objects indicate no entries", tasks)
+        self.assertNotIn("task_type: visual_verification", tasks)
+        self.assertNotIn("task_type: interface_validation", tasks)
+        self.assertNotIn("task_type: data_side_effect_validation", tasks)
 
     def test_behavior_first_command_wrapper_contracts(self) -> None:
         specify = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
@@ -613,15 +969,91 @@ class PresetContractTests(unittest.TestCase):
         for command in (specify, clarify, checklist):
             self.assertIn("{CORE_TEMPLATE}", command)
             self.assertIn("strategy: wrap", command)
+            self.assertIn(
+                "This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.",
+                command,
+            )
 
         self.assertIn("Spec-Only Requirement Policy", specify)
-        self.assertIn("produce or update `spec.md` only", specify)
-        self.assertIn("This command writes only `spec.md`", specify)
+        self.assertIn("Wrapper Input Additions", specify)
+        self.assertIn("Wrapper Preflight Additions", specify)
+        self.assertIn("Wrapper Outline Additions", specify)
+        self.assertNotIn("## User Input", specify)
+        self.assertNotIn("## Pre-Execution Checks", specify)
+        self.assertIn("Preset-added requirement output writes only `spec.md`", specify)
         self.assertIn("Product requirements stay in `spec.md`", specify)
+        self.assertIn("non-functional requirements", specify)
         self.assertIn("report the `spec.md` sections created or updated", specify)
+        for term in (
+            "Official Style Alignment",
+            "Focus on WHAT users need and WHY",
+            "Avoid HOW to implement",
+            "Limit [NEEDS CLARIFICATION] markers to the highest-impact unresolved product decisions",
+            "Specification Quality Validation",
+            "Done When",
+        ):
+            self.assertIn(term, specify)
+        for term in (
+            "Design Requirement Input Policy",
+            "Stage 0: Product Requirement Intake",
+            "Product intake input",
+            "Product intake output",
+            "Stage 1: Design Requirement Intake",
+            "Design intake input",
+            "Design intake output",
+            "recorded only in `spec.md`",
+            "stable Visual Item ID trace refs",
+            "observed variant/state facts",
+            "provider-neutral design evidence",
+            "source refs",
+            "Stage 2: Requirement Merge",
+            "Merge input",
+            "Merge output",
+            "Design Requirement Promotion Rules",
+            "preserve Visual Item ID trace refs for visual requirements",
+            "conflicts",
+            "provider blockers",
+            "Stage 3: Generate baseline spec.md",
+            "Baseline spec output",
+            "Figma Evidence Packet",
+            "Figma provider source readiness contract",
+            "ready packet is supplied by a runtime agent or external Figma intake that has Figma MCP access",
+            "runtime agent or external Figma intake",
+            "does not call Figma MCP",
+            "preset defines the required design intake and provider readiness artifact structure",
+            "does not generate the artifact instances",
+            "ready gate",
+            "not ready",
+            "do not write design-derived requirements",
+            "metadata index completeness proof",
+            "Provider evidence readiness blockers",
+            "[BLOCKED: PROVIDER_EVIDENCE]",
+            "must not become product `[NEEDS CLARIFICATION]` items",
+            "blocker lint errors",
+            "Observed from Figma",
+            "Inferred from Structure",
+            "Missing / Needs Clarification",
+            "Out of Scope",
+            "[NEEDS CLARIFICATION]",
+            "Screenshots support visual facts only",
+            "screenshots must not create product semantics",
+            "Client Asset Contract facts",
+            "asset source strategy",
+            "required variants",
+            "fallback policy",
+            "blocker status",
+            "Screenshot-implied business rules",
+            "Do not invent code props, code state names, component reuse decisions, self-drawing bans, or copy restrictions from Figma structure",
+            "Record component use, no-self-draw, and no-new-copy constraints only when product input or qualified provider evidence states them explicitly",
+            "Continue to write only `spec.md`",
+            "stage-wise report",
+        ):
+            self.assertIn(term, specify)
+        self.assertLessEqual(len(specify.splitlines()), 70)
         for forbidden in (
             "/speckit.plan",
             "/speckit.checklist",
+            "`[NEEDS CLARIFICATION]` item requesting a filled Figma Evidence Packet",
             "behavior/bdd.draft.feature",
             "behavior/behavior-scenarios.draft.json",
             "behavior/uif.intent.json",
@@ -632,42 +1064,180 @@ class PresetContractTests(unittest.TestCase):
             "validation commands",
             "task plans",
             "design artifacts",
+            "local asset path",
+            "asset hash",
+            "allowed_write_paths",
         ):
             self.assertNotIn(forbidden, specify)
         self.assertNotIn("contracts/bdd/", specify)
         self.assertNotIn("contracts/uif/", specify)
 
         self.assertIn("Spec-Only Clarification Policy", clarify)
+        self.assertIn("Wrapper Input Additions", clarify)
+        self.assertIn("Wrapper Preflight Additions", clarify)
+        self.assertIn("Wrapper Outline Additions", clarify)
+        self.assertNotIn("## User Input", clarify)
+        self.assertNotIn("## Pre-Execution Checks", clarify)
         self.assertIn("Use `spec.md` as the clarification source", clarify)
         self.assertIn("Do not read or update behavior draft artifacts", clarify)
         self.assertIn("Product requirements stay in `spec.md`", clarify)
+        self.assertIn("non-functional requirement assumptions", clarify)
         self.assertIn("only after user-provided answers", clarify)
+        self.assertIn("Design Requirement Clarification Strategy", clarify)
+        self.assertIn("Design Requirement Intake", clarify)
+        self.assertIn("Figma Evidence Packet", clarify)
+        self.assertIn("provider-specific evidence", clarify)
+        self.assertIn("Missing / Needs Clarification", clarify)
+        self.assertIn("[NEEDS CLARIFICATION]", clarify)
+        self.assertIn("Inferred from Structure", clarify)
+        self.assertIn("Do not call Figma MCP", clarify)
+        self.assertIn("Do not re-extract design facts", clarify)
+        self.assertIn("qualified evidence-backed design-derived requirements and trace refs", clarify)
+        self.assertIn("does not write raw Figma evidence into `spec.md`", clarify)
+        self.assertIn("Do not ask the user to fix provider extraction artifacts", clarify)
+        self.assertIn("Ask at most 5 high-impact questions", clarify)
+        self.assertIn("Present EXACTLY ONE question at a time", clarify)
+        self.assertIn("Do NOT output them all at once", clarify)
+        self.assertIn("Never reveal future queued questions", clarify)
+        self.assertIn("Maximum of 5 total questions", clarify)
+        self.assertIn("Format recommendations as `**Recommended:** Option [X] - <brief rationale>`", clarify)
+        self.assertIn("Keep the rationale short and decision-focused", clarify)
+        self.assertNotIn("<reasoning>", clarify)
+        self.assertIn("Suggested", clarify)
+        self.assertIn("2-5", clarify)
+        self.assertIn("<=5 words", clarify)
+        self.assertIn("yes", clarify)
+        self.assertIn("recommended", clarify)
+        self.assertIn("suggested", clarify)
+        self.assertIn("Save `spec.md` after each accepted answer", clarify)
+        self.assertIn("## Clarifications", clarify)
+        self.assertIn("### Session YYYY-MM-DD", clarify)
+        self.assertIn("Q:", clarify)
+        self.assertIn("A:", clarify)
+        self.assertIn("Validation after each write", clarify)
+        self.assertIn("after EACH write plus final pass", clarify)
+        self.assertIn("Total asked", clarify)
+        self.assertIn("no contradictory earlier statement remains", clarify)
+        self.assertIn("Do not update checklist artifacts", clarify)
+        self.assertIn("report checklist impact as unresolved readiness context", clarify)
+        self.assertNotIn("FEATURE_DIR/checklists/requirements.md", clarify)
+        self.assertNotIn("Only toggle the `[ ]`/`[x]` marker", clarify)
+        self.assertIn("hooks.before_clarify", clarify)
+        self.assertIn("hooks.after_clarify", clarify)
+        self.assertIn("EXECUTE_COMMAND", clarify)
+        self.assertIn("Completion Report", clarify)
+        self.assertIn("visual fidelity scope", clarify)
+        self.assertIn("missing UI states", clarify)
+        self.assertIn("responsive behavior", clarify)
+        self.assertIn("component reuse constraints", clarify)
+        self.assertIn("data semantics", clarify)
+        self.assertIn("acceptance evidence", clarify)
+        self.assertIn("write confirmed answers back into `spec.md`", clarify)
+        self.assertIn("Do not generate visual restoration checklists", clarify)
         for forbidden in (
             "behavior/bdd.draft.feature",
             "behavior/behavior-scenarios.draft.json",
             "behavior/uif.intent.json",
             "behavior/data-fixtures.intent.json",
             "behavior/open-questions.json",
+            "use_figma",
+            "get_design_context",
+            "fetch Figma URL",
+            "read Figma URL",
+            "update checklists/behavior-testability.md",
         ):
             self.assertNotIn(forbidden, clarify)
 
+        self.assertIn('Checklist Purpose: "Unit Tests for English"', checklist)
+        self.assertIn("NOT for verification/testing", checklist)
+        self.assertIn("CORE PRINCIPLE - Test the Requirements, Not the Implementation", checklist)
+        self.assertIn("Checklist questions must use requirement-quality forms", checklist)
+        self.assertIn("$ARGUMENTS", checklist)
+        self.assertIn("dynamic clarifying questions", checklist)
+        self.assertIn("no pre-baked catalog", checklist)
+        self.assertIn("Q1/Q2/Q3", checklist)
+        self.assertIn("Q4/Q5", checklist)
+        self.assertIn("create the file when absent", checklist)
+        self.assertIn("append or update without deleting existing checklist content", checklist)
+        self.assertIn("update mode", checklist)
+        self.assertIn("full path", checklist)
+        self.assertIn("item count", checklist)
+        self.assertIn("focus areas", checklist)
+        self.assertIn("depth level", checklist)
+        self.assertIn("actor/timing", checklist)
+        self.assertIn("must-have items", checklist)
         self.assertIn("BDD Readiness Gate", checklist)
         self.assertIn("checklists/behavior-testability.md", checklist)
         self.assertIn("directly from `spec.md`", checklist)
         self.assertIn("plan-entry quality gate", checklist)
         self.assertIn("Do not proceed to `/speckit.plan`", checklist)
-        self.assertIn("Return to `/speckit.clarify` or `/speckit.specify`", checklist)
+        self.assertIn("Requirement ambiguity returns to `/speckit.clarify` or `/speckit.specify`", checklist)
         self.assertIn("User Story Readiness", checklist)
         self.assertIn("Acceptance Criteria Quality", checklist)
         self.assertIn("Scenario Coverage", checklist)
+        self.assertIn("Case Coverage Matrix", checklist)
+        self.assertIn("one row per story or capability case type", checklist)
+        self.assertIn("case status: Required|Not Applicable|Unknown", checklist)
+        self.assertIn("Each row must have a stable Case ID", checklist)
+        self.assertIn("Required rows must cite the source `spec.md` section", checklist)
+        self.assertIn("Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`", checklist)
+        self.assertIn("Not Applicable requires rationale", checklist)
+        self.assertIn("Unknown must appear in Blocking Items", checklist)
+        self.assertIn("Required case type without observable acceptance behavior blocks PASS", checklist)
         self.assertIn("Given Readiness", checklist)
         self.assertIn("When Readiness", checklist)
         self.assertIn("Then Readiness", checklist)
+        self.assertIn("Non-Functional Requirement Readiness", checklist)
+        self.assertIn("Required", checklist)
+        self.assertIn("Not Applicable", checklist)
+        self.assertIn("Unknown", checklist)
+        self.assertIn("performance, security and privacy, reliability and recovery", checklist)
+        self.assertIn("accessibility, compliance and auditability, observability", checklist)
+        self.assertIn("compatibility, data lifecycle, and cost or operational constraints", checklist)
+        self.assertIn("explicitly declared in `spec.md`", checklist)
+        self.assertIn("verifiable product-level criteria", checklist)
+        self.assertIn("Do not require technical designs", checklist)
+        self.assertIn("Required but missing", checklist)
+        self.assertIn("Required but not verifiable", checklist)
+        self.assertIn("Unknown and affects downstream design", checklist)
+        for term in (
+            "Visual Fidelity Readiness",
+            "design-derived requirements",
+            "design source, provider evidence blockers, or provider-specific design evidence requests",
+            "product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements",
+            "Visual Fidelity Evidence Matrix",
+            "Use the behavior-testability checklist template as the visual gate authority",
+            "provider readiness status, evidence refs, and blockers",
+            "source traceability",
+            "Screenshot evidence level",
+            "BDD, NFR, and Visual Fidelity readiness gate",
+            "declared visual proof required",
+            "Gate Status: BLOCKED",
+            "state, responsive, accessibility, component mapping, and accepted exception",
+            "Responsive visual requirements block PASS only when they are complex, multi-state, or declare L2 or L3 visual proof",
+            "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
+            "Do not add historical visual rules or alternate visual decision paths",
+        ):
+            self.assertIn(term, checklist)
+        for term in (
+            "| Visual Item ID | Source `spec.md` section | Fidelity Scope | Screenshot Level | Evidence Refs | Visual Proof Required | Blocking Item ID | Exception Rule |",
+            "raw metadata completeness",
+            "metadata index completeness proof",
+            "node inventory parity",
+            "blocker lint errors",
+            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
+        ):
+            self.assertNotIn(term, checklist)
         self.assertIn("Gate Status", checklist)
         self.assertIn("PASS", checklist)
         self.assertIn("BLOCKED", checklist)
         self.assertIn("Blocking Items", checklist)
         self.assertIn("checklist artifacts only", checklist)
+        self.assertIn("BDD, NFR, and Visual Fidelity readiness status", checklist)
+        self.assertIn(
+            "Provider evidence readiness blockers return to `/speckit.specify` or provider intake, not `/speckit.clarify`",
+            checklist,
+        )
 
     def test_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
@@ -694,6 +1264,13 @@ class PresetContractTests(unittest.TestCase):
             "UIFPath",
             "FeedbackView",
             "BehaviorAssertion",
+            "Required case types from `checklists/behavior-testability.md`",
+            "must project into `behavior/behavior-scenarios.draft.json`",
+            "must formalize into `contracts/behavior/scenario-instances.json`",
+            "Do not continue with only positive scenarios when Required case types exist",
+            "Map each Required Case ID to a Scenario ID or `case_coverage_blockers` entry",
+            "write `case_coverage_blockers`",
+            "record `N/A or blocker` with the Case ID",
         ):
             self.assertIn(term, plan)
 
@@ -701,7 +1278,12 @@ class PresetContractTests(unittest.TestCase):
             "Phase 0 Preflight",
             "Phase 0 Behavior Projection",
             "checklists/behavior-testability.md has passed",
+            "Blocking Items: none` or a `Blocking Items` section containing only `- none`",
             "before core research or design work",
+            "visual fidelity scope",
+            "screenshot refs",
+            "visual proof refs",
+            "Design Requirement trace refs",
             "behavior/behavior-scenarios.draft.json",
             "report-only/no-write failure",
             "must not create or update behavior artifacts",
@@ -721,6 +1303,11 @@ class PresetContractTests(unittest.TestCase):
             "contracts/bdd/",
             "contracts/uif/",
             "contracts/behavior/",
+            "`spec.md` visual acceptance requirements",
+            "`checklists/behavior-testability.md` Visual Fidelity Readiness",
+            "screenshot refs",
+            "visual proof refs",
+            "visual fidelity requirements",
             "test-first",
             "existing checklist format and user-story organization",
             "For each BehaviorScenarioInstance",
@@ -728,15 +1315,62 @@ class PresetContractTests(unittest.TestCase):
             "BDD/E2E or contract test task",
             "implementation task",
             "verification evidence task",
-            "For each UIF user_event",
-            "For each UIF api_call",
+            "Expected UIF contract step with type `user_event`",
+            "Expected UIF contract step with type `api_call`",
+            "visual task taxonomy",
+            "`visual_verification` or `ui_acceptance`",
+            "UI acceptance task",
+            "state coverage",
+            "viewport coverage",
+            "visual proof ref",
             "For each quickstart validation path",
-            "derive the test level",
-            "fixture/mock/sandbox/real-system strategy",
+            "derive the validation level",
+            "fixture strategy, external-system execution mode",
             "inline evidence requirement",
+            "Planning Input Taxonomy",
+            "`/speckit.tasks` owns implementation, validation, and review task definition in `tasks.md`",
+            "must not invent validation strategy",
+            "validation level taxonomy",
+            "fixture strategy and external-system execution mode taxonomy",
+            "Evidence binding",
+            "validation task taxonomy",
+            "`contract_validation`",
+            "`visual_verification` or `ui_acceptance`",
+            "`data_side_effect_validation`",
+            "`integration_e2e_validation`",
+            "Client Asset Contract",
+            "derive asset preparation, binding, implementation, and validation tasks",
+            "Missing required client visual assets are readiness blockers",
+            "Use Visual Fidelity Readiness as the only visual planning readiness source",
+            "Do not create a second readiness rule",
+            "Screenshot Coverage Matrix",
+            "Visual Restoration Trace",
+            "Do not generate execution metadata or write-path fields.",
+            "Missing Required case coverage is a coverage blocker, not silently skipped work",
+            "`negative`, `boundary`, `permission`, `validation`, or `state_conflict`",
+            "For each BehaviorScenarioInstance with type",
+            "derive fixture, contract or BDD test, implementation, and verification evidence tasks",
+            "visual consistency review",
+            "implemented UI states and viewport behavior",
+            "visual task taxonomy",
+            "story-local task granularity",
+            "`visual_setup` -> `visual_validation` -> `visual_implementation` -> `visual_evidence`",
+            "Do not create a separate visual lifecycle phase",
+            "Visual tasks must name concrete source, test, fixture, configuration, or asset paths",
+            "report a readiness blocker instead of generating an ambiguous visual task",
+            "Client Asset Contract bindings, variants, and fallback policy",
+            "Review evidence binding",
+            "bounded repair permission",
+            "final review scope taxonomy",
+            "`boundary`, `interface_contract`, `visual`, `data_side_effect`, `behavior_contract`, `sequence_consistency`, and `asset_binding`",
+            "boundary review",
+            "no implementation task changed `spec.md`, `contracts/`, readiness checklists, or Visual Fidelity Readiness",
         ):
             self.assertIn(term, tasks)
 
+        self.assertNotIn("task_type: visual_verification", tasks)
+        self.assertNotIn("task_type: interface_validation", tasks)
+        self.assertNotIn("task_type: data_side_effect_validation", tasks)
         self.assertNotIn("test-plan.md", tasks)
 
         self.assertIn("./behavior/bdd.draft.feature", template)
@@ -744,15 +1378,27 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("./contracts/uif/", template)
         self.assertIn("./contracts/behavior/", template)
 
-        self.assertIn("contracts/bdd/", implement)
-        self.assertIn("contracts/uif/", implement)
-        self.assertIn("contracts/behavior/", implement)
-        self.assertIn("behavior contract constraints", implement)
-        self.assertIn("validation_evidence must reference", implement)
-        self.assertIn("BDD scenario", implement)
-        self.assertIn("behavior assertion", implement)
-        self.assertIn("API contract", implement)
-        self.assertIn("quickstart path", implement)
+        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
+        self.assertIn("tests/contracts/speckit-cross-agent-subagents.md", implement)
+        self.assertIn("contracts/bdd/", cross_agent)
+        self.assertIn("contracts/uif/", cross_agent)
+        self.assertIn("contracts/behavior/", cross_agent)
+        self.assertIn("behavior contract constraints", cross_agent)
+        self.assertIn("validation_evidence references", cross_agent)
+        self.assertIn("BDD scenario", cross_agent)
+        self.assertIn("behavior assertion", cross_agent)
+        self.assertIn("API contract", cross_agent)
+        self.assertIn("quickstart path", cross_agent)
+        self.assertIn("visual fidelity requirements", cross_agent)
+        self.assertIn("screenshot refs", cross_agent)
+        self.assertIn("visual proof refs", cross_agent)
+        self.assertIn("Design Requirement trace refs", cross_agent)
+        self.assertIn("Client Asset Contract", cross_agent)
+        self.assertIn("asset binding", cross_agent)
+        self.assertIn("local asset paths or code asset mappings", cross_agent)
+        self.assertIn("missing required client visual assets", cross_agent)
+        self.assertIn("planned `U` design object", cross_agent)
+        self.assertIn("specific source, test, fixture, configuration, or receipt paths", cross_agent)
 
     def test_bdd_formalization_strengthens_reasoning_without_traceability_system(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
@@ -799,6 +1445,24 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("UIF API calls exist in contracts/api/", analyze)
         self.assertIn("behavior contracts cover scenarios, fixtures, and assertions", analyze)
         self.assertIn("tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths", analyze)
+        self.assertIn("case coverage", analyze)
+        self.assertIn("Required case types in `checklists/behavior-testability.md`", analyze)
+        self.assertIn("case types are either covered or have `N/A or blocker` evidence", analyze)
+        self.assertIn(
+            "failure scenarios declare error code, failure feedback, and state invariant, rollback, or compensation assertion",
+            analyze,
+        )
+        self.assertIn("quickstart validation paths cover Required failure scenarios", analyze)
+        self.assertIn("Build a one-pass artifact inventory before deep reading", analyze)
+        self.assertIn("Use stable IDs as the primary consistency surface", analyze)
+        self.assertIn("CASE-", analyze)
+        self.assertIn("SCN-", analyze)
+        self.assertIn("UIF-", analyze)
+        self.assertIn("FIX-", analyze)
+        self.assertIn("AST-", analyze)
+        self.assertIn("BLK-", analyze)
+        self.assertIn("Read surrounding prose only when a required ID, source section, or blocker explanation is missing or ambiguous", analyze)
+        self.assertIn("Stop expanding a branch after the first blocker that proves the downstream link cannot be closed", analyze)
         self.assertNotIn("uif.actual.json", analyze)
         self.assertNotIn("uif.diff.json", analyze)
         self.assertNotIn("Actual UIF", analyze)
@@ -842,6 +1506,50 @@ class PresetContractTests(unittest.TestCase):
         behavior_checklist_template = BEHAVIOR_TEMPLATE_PATHS[
             "behavior-testability-checklist-template"
         ].read_text(encoding="utf-8")
+        self.assertIn("Case Coverage Matrix", behavior_checklist_template)
+        self.assertIn("one row per story or capability case type", behavior_checklist_template)
+        self.assertIn("Status: Required|Not Applicable|Unknown", behavior_checklist_template)
+        self.assertIn("| Case ID | Story/Capability | Case Type | Status | Source `spec.md` section | Blocking Item ID | Rationale |", behavior_checklist_template)
+        self.assertIn(
+            "Required case type must cite the source `spec.md` section",
+            behavior_checklist_template,
+        )
+        self.assertIn(
+            "Each row must have a stable Case ID",
+            behavior_checklist_template,
+        )
+        self.assertIn(
+            "Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`",
+            behavior_checklist_template,
+        )
+        self.assertIn("Not Applicable requires rationale", behavior_checklist_template)
+        self.assertIn("Unknown must appear in Blocking Items", behavior_checklist_template)
+        self.assertIn("Non-Functional Requirement Readiness", behavior_checklist_template)
+        self.assertIn("Status: Required|Not Applicable|Unknown", behavior_checklist_template)
+        self.assertIn("Performance", behavior_checklist_template)
+        self.assertIn("Security and Privacy", behavior_checklist_template)
+        self.assertIn("Reliability and Recovery", behavior_checklist_template)
+        self.assertIn("Accessibility", behavior_checklist_template)
+        self.assertIn("Compliance and Auditability", behavior_checklist_template)
+        self.assertIn("Observability", behavior_checklist_template)
+        self.assertIn("Compatibility", behavior_checklist_template)
+        self.assertIn("Data Lifecycle", behavior_checklist_template)
+        self.assertIn("Cost and Operational Constraints", behavior_checklist_template)
+        self.assertIn("explicitly declared in `spec.md`", behavior_checklist_template)
+        self.assertIn("without prescribing architecture", behavior_checklist_template)
+        self.assertIn("Visual Fidelity Readiness", behavior_checklist_template)
+        self.assertIn("Design-derived requirements", behavior_checklist_template)
+        self.assertIn(
+            "provider readiness status, evidence refs, and blockers",
+            behavior_checklist_template,
+        )
+        self.assertNotIn("raw metadata completeness", behavior_checklist_template)
+        self.assertNotIn("metadata index completeness proof", behavior_checklist_template)
+        self.assertNotIn("node inventory parity", behavior_checklist_template)
+        self.assertNotIn("blocker lint errors", behavior_checklist_template)
+        self.assertIn("component mappings and variant coverage", behavior_checklist_template)
+        self.assertIn("responsive behavior is explicit", behavior_checklist_template)
+        self.assertIn("accessibility requirements are explicit", behavior_checklist_template)
         self.assertIn("Gate Status: PASS|BLOCKED", behavior_checklist_template)
         self.assertIn("Blocking Items:", behavior_checklist_template)
         self.assertIn("none", behavior_checklist_template)
@@ -872,8 +1580,411 @@ class PresetContractTests(unittest.TestCase):
                 BEHAVIOR_TEMPLATE_PATHS[template_name].read_text(encoding="utf-8"),
             )
 
+        scenario_instances_template = BEHAVIOR_TEMPLATE_PATHS[
+            "behavior-scenario-instances-template"
+        ].read_text(encoding="utf-8")
+        self.assertIn('"case_coverage_blockers"', scenario_instances_template)
+        self.assertIn('"type": "permission"', scenario_instances_template)
+        self.assertIn('"case_kind": "permission"', scenario_instances_template)
+        self.assertIn('"error_code"', scenario_instances_template)
+        self.assertIn('"expected_feedback"', scenario_instances_template)
+
+        assertions_template = BEHAVIOR_TEMPLATE_PATHS["behavior-assertions-template"].read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"intent": "state_invariant"', assertions_template)
+
+    def test_figma_evidence_packet_template_contract(self) -> None:
+        self.assertTrue(FIGMA_EVIDENCE_PACKET_TEMPLATE_PATH.exists())
+        document = FIGMA_EVIDENCE_PACKET_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        required_terms = [
+            "Figma Evidence Packet",
+            "Figma Source",
+            "Extraction Context",
+            "Screenshot Evidence",
+            "Screenshot Coverage Matrix",
+            "visual proof",
+            "Screenshot evidence must declare L0-L3 coverage and coverage gaps",
+            "not the primary Design Requirement Intake carrier",
+            "Screenshot evidence and the Screenshot Coverage Matrix record coverage facts and gaps only",
+            "must not decide visual planning readiness",
+            "proof sufficiency",
+            "checklist Gate Status",
+            "checklist Blocking Items",
+            "Screenshot level: L0|L1|L2|L3",
+            "L0: no screenshot evidence",
+            "L1: static screenshot reference",
+            "L2: viewport or state screenshot coverage",
+            "L3: visual diff baseline or approved visual proof",
+            "high-fidelity",
+            "pixel-perfect",
+            "brand-critical",
+            "visual regression",
+            "Screenshot refs",
+            "Viewport",
+            "State",
+            "Capture timestamp",
+            "Design version",
+            "Redaction required",
+            "Baseline usage",
+            "Missing coverage",
+            "Blocking item",
+            "Visual baseline usage: none|manual review|visual diff",
+            "Observed from Figma",
+            "Inferred from Structure",
+            "Missing / Needs Clarification",
+            "Out of Scope",
+            "Figma Intake Readiness",
+            "Figma Intake Readiness is provider source readiness only",
+            "separate from Visual Fidelity planning readiness",
+            "Visual Facts for Spec",
+            "Visual Item Matrix",
+            "one row per restorable UI surface, component, state, or visual proof obligation",
+            "provider-normalized visual facts",
+            "provider evidence blockers",
+            "proof level sufficiency",
+            "Visual Item ID",
+            "Figma frame/node refs",
+            "Requirement target",
+            "UI surface",
+            "Required fidelity: functional-equivalent|design-system-faithful|pixel-perfect|brand-critical|responsive-visual",
+            "Layout facts",
+            "Typography facts",
+            "Color/token facts",
+            "Effect facts",
+            "Asset refs",
+            "Variant/state evidence",
+            "Component requirement role",
+            "Component use constraint: visual-reference-only|must-reuse-existing|figma-export-required|unspecified",
+            "Constraint source refs",
+            "Copy/content constraint: no-new-copy|figma-copy-required|product-copy-required|unspecified",
+            "Drawing/asset constraint: no-self-draw|figma-export-required|existing-asset-required|unspecified",
+            "Required states",
+            "Required viewport coverage",
+            "Visual proof level: L0|L1|L2|L3",
+            "Allowed deviations",
+            "Spec requirement target",
+            "Client Asset Inventory",
+            "Asset ID",
+            "Asset role",
+            "Resource type: image|icon|video|lottie|svg|font",
+            "Figma node/component ref",
+            "Asset source strategy: figma_export_required|code_asset|existing_repo_asset|remote_runtime_asset",
+            "Export/use contract",
+            "Required variants",
+            "Fallback policy",
+            "Blocker status",
+            "Component Mapping",
+            "Figma component -> requirement-level component role",
+            "Variant -> observed state or semantic role",
+            "Existing code component constraint, only if explicitly provided",
+            "Visual-reference-only components",
+            "Must-reuse-existing components",
+            "No self-draw / no new copy constraints",
+            "Spec Handoff Notes",
+            "Open Questions",
+            "Frame / Node IDs",
+            "Required fidelity",
+            "[NEEDS CLARIFICATION]",
+        ]
+        for term in required_terms:
+            self.assertIn(term, document)
+
+        forbidden_terms = [
+            "Figma MCP authentication",
+            "run a script",
+            "implementation test",
+            "test-plan.md",
+            "Endpoint / Client Requirements",
+            "Acceptance Criteria",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, document)
+
+    def test_design_requirement_intake_template_contract(self) -> None:
+        self.assertTrue(DESIGN_REQUIREMENT_INTAKE_TEMPLATE_PATH.exists())
+        document = DESIGN_REQUIREMENT_INTAKE_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        required_terms = [
+            "Design Requirement Intake",
+            "Design Sources",
+            "Provider Evidence",
+            "Page Inventory",
+            "Page Hierarchy",
+            "User Paths",
+            "Component Inventory",
+            "Existing code constraint, only if explicitly provided",
+            "Component States",
+            "Interaction Rules",
+            "Visual Tokens",
+            "Layout Rules",
+            "Responsive Rules",
+            "Motion Rules",
+            "State Coverage",
+            "Visual Acceptance Requirements",
+            "Visual Restoration Trace",
+            "accepted Visual Item ID",
+            "Do not copy the full provider Visual Item Matrix",
+            "Record only requirement-level facts promoted toward `spec.md`",
+            "must not decide visual planning readiness",
+            "checklist Gate Status",
+            "checklist Blocking Items",
+            "Provider source refs",
+            "Fidelity scope: functional-equivalent|design-system-faithful|pixel-perfect|brand-critical|responsive-visual",
+            "Layout constraints",
+            "Typography constraints",
+            "Color/token constraints",
+            "Effect constraints",
+            "Asset bindings",
+            "Requirement-level component role",
+            "Variant/state coverage",
+            "Component use constraint: visual-reference-only|must-reuse-existing|figma-export-required|unspecified",
+            "Constraint source refs",
+            "Copy/content constraint: no-new-copy|figma-copy-required|product-copy-required|unspecified",
+            "Drawing/asset constraint: no-self-draw|figma-export-required|existing-asset-required|unspecified",
+            "Required viewport coverage",
+            "Client Asset Contract",
+            "Asset ID",
+            "Required resource type",
+            "Asset source strategy",
+            "Required variants",
+            "Fallback policy",
+            "Blocker status",
+            "Screenshot Traceability",
+            "Design Requirement Intake remains provider-neutral",
+            "Visual proof refs",
+            "Supported visual facts",
+            "Unsupported assumptions",
+            "Screenshot-derived visual facts must include screenshot refs",
+            "screenshots must not create product semantics",
+            "Screenshot Traceability records supported facts and unsupported assumptions only",
+            "must not create an independent visual readiness decision",
+            "Traceability",
+            "Visual Item ID",
+            "Source refs",
+            "[NEEDS CLARIFICATION]",
+        ]
+        for term in required_terms:
+            self.assertIn(term, document)
+
+        forbidden_terms = [
+            "Figma MCP authentication",
+            "raw get_metadata",
+            "node coordinate dump",
+            "implementation test",
+            "test-plan.md",
+            "Endpoint / Client Requirements",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, document)
+
+    def test_requirement_merge_report_template_contract(self) -> None:
+        self.assertTrue(REQUIREMENT_MERGE_REPORT_TEMPLATE_PATH.exists())
+        document = REQUIREMENT_MERGE_REPORT_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        required_terms = [
+            "Requirement Merge Report",
+            "Product Requirement Inputs",
+            "Design Requirement Inputs",
+            "Merge Rules",
+            "Product Requirement owns",
+            "Design Requirement owns",
+            "Conflict Resolution",
+            "Clarification Outputs",
+            "Baseline Spec Handoff",
+            "Design Requirement Promotion Rules",
+            "Promote screenshot-supported visual facts",
+            "Screenshot-implied business rules",
+            "Promote observed",
+            "Promote confirmed",
+            "Inferred",
+            "Missing",
+            "spec.md",
+            "[NEEDS CLARIFICATION]",
+        ]
+        for term in required_terms:
+            self.assertIn(term, document)
+
+        forbidden_terms = [
+            "Figma-only",
+            "directly call Figma MCP",
+            "generate tasks",
+            "write implementation",
+            "test-plan.md",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, document)
+
+    def test_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
+        command = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
+        template = BEHAVIOR_TEMPLATE_PATHS[
+            "behavior-testability-checklist-template"
+        ].read_text(encoding="utf-8")
+
+        for term in (
+            "Use the behavior-testability checklist template as the visual gate authority",
+            "provider readiness status, evidence refs, and blockers",
+            "Visual Fidelity Evidence Matrix alone decides visual planning readiness",
+            "proof level sufficiency",
+            "screenshot sufficiency",
+            "accepted exception rules",
+            "Read visual facts from `spec.md` and evidence refs",
+            "do not call Figma",
+            "rebuild provider matrices",
+            "another visual readiness path",
+            CANONICAL_RESPONSIVE_VISUAL_RULE,
+            "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
+            "Do not add historical visual rules or alternate visual decision paths",
+            "Blocking Items",
+        ):
+            self.assertIn(term, command)
+        for term in (
+            "| Visual Item ID | Source `spec.md` section | Fidelity Scope | Screenshot Level | Evidence Refs | Visual Proof Required | Blocking Item ID | Exception Rule |",
+            "raw metadata completeness",
+            "metadata index completeness proof",
+            "node inventory parity",
+            "blocker lint errors",
+            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
+        ):
+            self.assertNotIn(term, command)
+
+        for term in (
+            "Screenshot evidence level",
+            "visual proof refs",
+            "L0|L1|L2|L3",
+            "declared visual proof required",
+            "only artifact that decides visual planning readiness",
+            "proof level sufficiency",
+            "screenshot sufficiency",
+            "accepted exception rules",
+            "does not call Figma",
+            "re-extract provider evidence",
+            "rebuild provider matrices",
+            "another visual readiness path",
+            "Missing screenshot evidence sets Gate Status: BLOCKED",
+            "High-fidelity requirements without L3 screenshot evidence set Gate Status: BLOCKED",
+            "Pixel-perfect requirements without L3 screenshot evidence set Gate Status: BLOCKED",
+            CANONICAL_RESPONSIVE_VISUAL_RULE,
+            "Visual Fidelity Evidence Matrix",
+            "Source `spec.md` section",
+            "Evidence Refs",
+            "Exception Rule",
+            "lists the item in Blocking Items",
+            "Pixel-perfect",
+            "Blocking Items",
+            "provider readiness status, evidence refs, and blockers",
+            "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
+            "Do not add historical visual rules or alternate visual decision paths",
+        ):
+            self.assertIn(term, template)
+        self.assertIn(
+            "Required client visual assets have source refs, asset source strategy, required variants, fallback policy, and blocker status.",
+            template,
+        )
+        self.assertEqual(
+            len(
+                re.findall(
+                    r"^## Visual Fidelity Evidence Matrix$",
+                    template,
+                    flags=re.MULTILINE,
+                )
+            ),
+            1,
+        )
+        self.assertEqual(
+            template.count(
+                "| Visual Item ID | Source `spec.md` section | Fidelity Scope | Screenshot Level | Evidence Refs | Visual Proof Required | Blocking Item ID | Exception Rule |"
+            ),
+            1,
+        )
+        self.assertEqual(
+            template.count(
+                "Use one Visual Fidelity Evidence Matrix as the single visual readiness record"
+            ),
+            1,
+        )
+        self.assertEqual(template.count(CANONICAL_RESPONSIVE_VISUAL_RULE), 1)
+        for forbidden in (
+            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
+            "Responsive visual readiness records viewport-specific evidence or sets Gate Status: BLOCKED",
+            "Screenshot Coverage Matrix",
+            "Visual Proof Matrix",
+            "Visual Restoration Checklist",
+        ):
+            self.assertNotIn(forbidden, template)
+
+        for document in (command, template):
+            lowered = document.lower()
+            for forbidden in FORBIDDEN_VISUAL_COMPAT_TERMS:
+                self.assertNotIn(forbidden, lowered)
+
+    def test_figma_intake_contract_metadata_lint_rules(self) -> None:
+        self.assertTrue(FIGMA_INTAKE_CONTRACT_TEMPLATE_PATH.exists())
+        document = FIGMA_INTAKE_CONTRACT_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        required_sections = [
+            "## Raw Metadata Shards",
+            "## Metadata Index Completeness",
+            "## Node Inventory Parity",
+            "## Evidence Readiness Gate",
+            "## Normalized Visual Item Matrix",
+            "## Blocker Lint Errors",
+            "## Gap Rules",
+            "## Preset Boundary",
+        ]
+        for section in required_sections:
+            self.assertIn(section, document)
+
+        metadata_fields = [
+            "figma-metadata.part-*.xml",
+            "figma-metadata.index.yaml",
+            "figma-node-inventory.yaml",
+            "raw get_metadata",
+            "byte_size",
+            "sha256",
+            "selected_subtree_complete",
+            "raw_metadata_complete",
+            "expected_root_node_ids",
+            "captured_root_node_ids",
+            "missing_root_node_ids",
+            "inventory_node_count + excluded_node_count + missing_node_count == raw_node_count",
+            "duplicate_node_count == 0",
+            "missing_node_count == 0",
+            "truncated_raw_evidence == false",
+            "node_inventory_coverage: 100%",
+            "parity_passed: true",
+            "provider source readiness only",
+            "Visual Fidelity planning readiness",
+            "proof sufficiency",
+            "checklist Gate Status",
+            "checklist Blocking Items",
+            "FIGMA_RAW_METADATA_MISSING",
+            "FIGMA_RAW_METADATA_SUMMARY_SUBSTITUTION",
+            "FIGMA_RAW_METADATA_TRUNCATED",
+            "FIGMA_SELECTED_SUBTREE_INCOMPLETE",
+            "FIGMA_METADATA_INDEX_MISSING",
+            "FIGMA_METADATA_PARITY_FAILED",
+            "FIGMA_READY_WITHOUT_COMPLETENESS_PROOF",
+            "speckit.design.visual_item_matrix.v1",
+            "schemas/speckit.design.visual-item-matrix.v1.schema.json",
+            "must not replace raw provider evidence",
+            "provider evidence blockers, not checklist Blocking Items",
+            "must not create a second visual readiness gate",
+            "observed variant/state evidence",
+            "requirement-level component roles",
+            "Explicit constraints such as must-reuse-existing, no-self-draw, or no-new-copy",
+            "constraint source refs",
+            "Required Figma intake artifacts and readiness gates",
+            "must not call Figma MCP",
+            "must not generate artifact instances",
+        ]
+        for field in metadata_fields:
+            self.assertIn(field, document)
+
     def test_implement_command_is_agent_native_handoff_orchestrator(self) -> None:
         command = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
+        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
 
         self.assertNotIn("{CORE_TEMPLATE}", command)
         self.assertNotIn("strategy: wrap", command)
@@ -888,34 +1999,39 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn('"contract_type": "speckit.implement.manifest.v1"', command)
         self.assertNotIn('"contract_type": "speckit.implement.receipt.v1"', command)
 
-        required_terms = [
+        command_terms = [
             "Core mode",
             "Worker mode",
             "Core Agent",
             "Vertical Planner Agent",
             "Worker Agent",
             "vertical_capability",
-            "planner_outputs",
-            "draft_source",
             "speckit.implement.handoff.v2",
             "speckit.implement.receipt.v1",
-            "context-index.json",
             "handoff-manifest.json",
             "speckit.implement.manifest.v1.schema.json",
             "speckit.implement.handoff.v2.schema.json",
             "speckit.implement.receipt.v1.schema.json",
-            ".context.md",
-            "handoffs/implement/<run-id>",
+            "validators/speckit_implement_contract.py",
+            "tests/contracts/speckit-cross-agent-subagents.md",
             "Use handoff JSON <path>",
             "allowed_read_paths",
             "allowed_write_paths",
             "context_gaps",
             "task_status_update",
-            "receipt path does not equal `task_status_update.receipt_path`",
-            "results/<shard-id>.json",
             "Do not edit `tasks.md`",
-            "single handoff only",
-            "vertical planner only",
+        ]
+        for term in command_terms:
+            self.assertIn(term, command)
+
+        contract_terms = [
+            "planner_outputs",
+            "draft_source",
+            "context-index.json",
+            ".context.md",
+            "handoffs/implement/<run-id>",
+            "results/<shard>.json",
+            "exactly one handoff",
             "intake",
             "context_indexing",
             "vertical_planning",
@@ -923,35 +2039,35 @@ class PresetContractTests(unittest.TestCase):
             "worker_dispatch",
             "worker_execution",
             "receipt_review",
+            "code_review",
             "task_commit",
             "integration_verification",
             "closeout",
-            "domain-model",
-            "api-contract",
-            "persistence",
-            "service-flow",
-            "ui",
-            "test-validation",
-            "documentation",
-            "integration",
-            "cleanup",
         ]
-        for term in required_terms:
-            self.assertIn(term, command)
+        for term in contract_terms:
+            self.assertIn(term, cross_agent)
 
     def test_implement_command_declares_deterministic_handoff_rules(self) -> None:
         command = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
+        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
 
-        required_terms = [
+        command_terms = [
             "agent-runtime=<spec-kit-integration-key>",
-            "Isolation Policy",
             "isolated_subagent",
             "manual_fresh_worker_session",
             "isolated subagent/subsession",
-            "Core mode must not execute Worker handoffs inline in the same conversation context",
-            "If isolated dispatch is unavailable or unknown, Core mode writes the manifest and handoffs, then stops with Worker-mode instructions.",
-            "Worker runs receive only the Worker prompt and one handoff JSON path.",
-            "Core consumes planner outputs and worker receipts, not worker conversation history.",
+            "write the manifest and handoffs, then stop with Worker-mode instructions",
+            "Consume planner outputs and worker receipts, not worker conversation history",
+            "Reject non-existent handoff paths",
+            "Reject handoffs not listed in `handoff-manifest.json`",
+        ]
+        for term in command_terms:
+            self.assertIn(term, command)
+
+        contract_terms = [
+            "Runtime Isolation Mapping",
+            "Worker payload",
+            "no full `spec.md`, `plan.md`, `research.md`, `contracts/`, `quickstart.md`",
             "Shard Rules",
             "Only Vertical Planner Agents may produce shard plans and digest drafts.",
             "Only Core Agent may write final `handoff-manifest.json` and commit `tasks.md`.",
@@ -970,14 +2086,32 @@ class PresetContractTests(unittest.TestCase):
             "derive `allowed_write_paths` from paths referenced by assigned task text",
             "include receipt path in `allowed_write_paths`",
             "derive `allowed_read_paths` from allowed write parents, validation files, context digest, and context index",
-            "Worker mode must reject non-existent handoff paths",
-            "Worker mode must reject handoffs not listed in `handoff-manifest.json`",
+            "Reject non-existent handoff paths",
+            "Reject handoffs not listed in `handoff-manifest.json`",
         ]
-        for term in required_terms:
-            self.assertIn(term, command)
+        for term in contract_terms:
+            self.assertIn(term, cross_agent)
 
-        self.assertIn("include relevant `research.md` validation decisions", command)
-        self.assertIn("include relevant `quickstart.md` validation paths", command)
+        self.assertIn("research.md validation decisions", cross_agent)
+        self.assertIn("quickstart.md validation paths", cross_agent)
+        self.assertIn("Code Review Receipts", cross_agent)
+        self.assertIn("task_type: code_review", cross_agent)
+        self.assertIn("review_conclusion", cross_agent)
+        self.assertIn("checked_sources", cross_agent)
+        self.assertIn("data_side_effect_review", cross_agent)
+        self.assertIn("data side effects", cross_agent)
+        self.assertIn("field-level update/delete", cross_agent)
+        self.assertIn("runtime database writes", cross_agent)
+        self.assertIn("actual implementation diff", cross_agent)
+        self.assertIn("consistency_repairs", cross_agent)
+        self.assertIn("deferred_validation_todos", cross_agent)
+        self.assertIn("quickstart/contract validation command", cross_agent)
+        self.assertIn("repair implementation drift against existing design, sequence, or contract constraints", cross_agent)
+        self.assertIn("real e2e gaps become todos", cross_agent)
+        self.assertNotIn("## Shard Rules", command)
+        self.assertNotIn("## Context Digest Rules", command)
+        self.assertNotIn("## Path Rules", command)
+        self.assertNotIn("## Code Review Receipts", command)
         self.assertNotIn("test-plan.md", command)
 
     def test_contract_schemas_are_decoupled_json_files(self) -> None:
@@ -996,6 +2130,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("agent_topology", handoff["required"])
         self.assertIn("planner_outputs", handoff["required"])
         self.assertIn("draft_source", handoff["required"])
+        self.assertIn("task_type", handoff["required"])
         self.assertIn("allowed_read_paths", handoff["required"])
         self.assertIn("allowed_write_paths", handoff["required"])
         self.assertIn("task_status_update", handoff["required"])
@@ -1006,6 +2141,20 @@ class PresetContractTests(unittest.TestCase):
             "may_execute_implementation",
             agent_topology["properties"]["vertical_planner_agent"]["required"],
         )
+
+        receipt = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        self.assertIn("task_type", receipt["required"])
+        review_conclusion = receipt["properties"]["review_conclusion"]
+        self.assertIn("checked_sources", review_conclusion["required"])
+        data_side_effect_review = receipt["properties"]["data_side_effect_review"]
+        self.assertIn("reviewed_diff_paths", data_side_effect_review["required"])
+        self.assertIn("mutation_findings", data_side_effect_review["required"])
+        self.assertIn("pattern", handoff["properties"]["shard_id"])
+        self.assertIn("pattern", receipt["properties"]["shard_id"])
+
+        manifest = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
+        manifest_shard = manifest["properties"]["shards"]["items"]["properties"]["shard_id"]
+        self.assertIn("pattern", manifest_shard)
 
     def test_manifest_schema_declares_runtime_neutral_execution_mode(self) -> None:
         schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -1034,6 +2183,87 @@ class PresetContractTests(unittest.TestCase):
             self.assertIn("properties", schema)
             self.assertEqual(contract_type, schema["properties"]["contract_type"]["const"])
             Draft202012Validator(schema).validate(examples[contract_type])
+
+    def test_visual_item_matrix_schema_accepts_minimal_example(self) -> None:
+        schema = json.loads(VISUAL_ITEM_MATRIX_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual("object", schema["type"])
+        self.assertIn("required", schema)
+        self.assertIn("properties", schema)
+        self.assertEqual(
+            "speckit.design.visual_item_matrix.v1",
+            schema["properties"]["contract_type"]["const"],
+        )
+        self.assertIn("visual_items", schema["required"])
+        Draft202012Validator(schema).validate(minimal_visual_item_matrix())
+
+    def test_visual_item_matrix_schema_rejects_missing_source_refs(self) -> None:
+        schema = json.loads(VISUAL_ITEM_MATRIX_SCHEMA_PATH.read_text(encoding="utf-8"))
+        matrix = minimal_visual_item_matrix()
+        matrix["visual_items"][0]["source_refs"] = []
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(matrix)
+
+    def test_visual_item_matrix_schema_accepts_responsive_visual_scope(self) -> None:
+        schema = json.loads(VISUAL_ITEM_MATRIX_SCHEMA_PATH.read_text(encoding="utf-8"))
+        matrix = minimal_visual_item_matrix()
+        matrix["visual_items"][0]["fidelity_scope"] = "responsive-visual"
+
+        Draft202012Validator(schema).validate(matrix)
+
+    def test_visual_item_matrix_validator_enforces_readiness_gate(self) -> None:
+        matrix = minimal_visual_item_matrix()
+        validate_visual_item_matrix_contract(matrix)
+
+        matrix["readiness"]["node_inventory_coverage"] = 99
+        with self.assertRaisesRegex(ValueError, "node_inventory_coverage 100"):
+            validate_visual_item_matrix_contract(matrix)
+
+    def test_visual_item_matrix_validator_requires_sources_for_explicit_constraints(self) -> None:
+        matrix = minimal_visual_item_matrix()
+        matrix["visual_items"][0]["component_use_constraint"] = "must-reuse-existing"
+
+        with self.assertRaisesRegex(ValueError, "constraint_source_refs"):
+            validate_visual_item_matrix_contract(matrix)
+
+    def test_visual_item_matrix_validator_requires_l3_for_high_fidelity(self) -> None:
+        matrix = minimal_visual_item_matrix()
+        matrix["visual_items"][0]["fidelity_scope"] = "pixel-perfect"
+
+        with self.assertRaisesRegex(ValueError, "requires L3 proof"):
+            validate_visual_item_matrix_contract(matrix)
+
+    def test_design_requirement_intake_trace_validator_accepts_minimal_trace(self) -> None:
+        validate_design_requirement_intake_trace_contract(
+            minimal_design_requirement_intake_trace()
+        )
+
+    def test_design_requirement_intake_trace_validator_rejects_full_provider_matrix_copy(self) -> None:
+        intake = minimal_design_requirement_intake_trace()
+        intake["visual_restoration_trace"][0]["visual_item_matrix"] = minimal_visual_item_matrix()
+
+        with self.assertRaisesRegex(ValueError, "must not copy full provider Visual Item Matrix"):
+            validate_design_requirement_intake_trace_contract(intake)
+
+    def test_design_requirement_intake_trace_validator_rejects_provider_field_copy(self) -> None:
+        intake = minimal_design_requirement_intake_trace()
+        intake["visual_restoration_trace"][0].update(
+            {
+                "layout_facts": ["copied provider layout fact"],
+                "typography_facts": ["copied provider typography fact"],
+                "variant_state_evidence": [
+                    {
+                        "variant_ref": "state=disabled",
+                        "source_refs": ["figma://component/button-disabled"],
+                        "observed_state_or_role": "disabled",
+                    }
+                ],
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "must record only requirement-level facts"):
+            validate_design_requirement_intake_trace_contract(intake)
 
     def test_behavior_draft_schema_rejects_empty_given_when_then(self) -> None:
         schema = json.loads(
@@ -1064,6 +2294,147 @@ class PresetContractTests(unittest.TestCase):
 
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_accepts_structured_exception_cases(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+
+        for scenario_type in ("negative", "boundary", "permission", "validation", "state_conflict"):
+            with self.subTest(scenario_type=scenario_type):
+                Draft202012Validator(schema).validate(
+                    minimal_exception_behavior_scenario_instances(
+                        scenario_type=scenario_type,
+                    )
+                )
+
+    def test_behavior_scenario_instances_schema_rejects_exception_case_shells(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        invalid_mutations = [
+            ("case_kind", lambda scenario: scenario["request_case"].pop("case_kind")),
+            ("trigger", lambda scenario: scenario["request_case"].pop("trigger")),
+            ("expected_response", lambda scenario: scenario.update({"expected_response": {}})),
+            ("error_code", lambda scenario: scenario["expected_response"].pop("error_code")),
+            ("expected_feedback", lambda scenario: scenario.update({"expected_feedback": {}})),
+            ("feedback_type", lambda scenario: scenario["expected_feedback"].pop("type")),
+            ("feedback_message", lambda scenario: scenario["expected_feedback"].pop("message")),
+        ]
+
+        for label, mutate in invalid_mutations:
+            with self.subTest(label=label):
+                instances = minimal_exception_behavior_scenario_instances()
+                mutate(instances["scenarios"][0])
+
+                with self.assertRaises(ValidationError):
+                    Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_rejects_mismatched_exception_case_kind(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="permission")
+        instances["scenarios"][0]["request_case"]["case_kind"] = "validation"
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_accepts_case_coverage_blockers(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#user-story-1",
+                "reason": "Validation rule is marked Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_rejects_incomplete_case_coverage_blockers(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        required_fields = (
+            "id",
+            "case_id",
+            "case_type",
+            "source",
+            "reason",
+            "downstream_contract_path",
+        )
+
+        for field in required_fields:
+            with self.subTest(field=field):
+                instances = minimal_behavior_scenario_instances()
+                blocker = {
+                    "id": "BLK-001",
+                    "case_id": "CASE-002",
+                    "case_type": "validation",
+                    "source": "spec.md#user-story-1",
+                    "reason": "Validation rule is marked Unknown in checklist.",
+                    "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+                }
+                blocker.pop(field)
+                instances["case_coverage_blockers"] = [blocker]
+
+                with self.assertRaises(ValidationError):
+                    Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_accepts_success_boundary_case(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "success"
+        scenario["expected_response"] = {"business_code": "ACCEPTED_AT_LIMIT"}
+        scenario["expected_feedback"] = {"message": "Limit accepted"}
+
+        Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_scenario_instances_schema_rejects_boundary_failure_without_error(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "failure"
+        scenario["expected_response"] = {"status": 422}
+        scenario["expected_feedback"] = {"message": "Limit exceeded"}
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(instances)
+
+    def test_behavior_assertions_schema_accepts_exception_assertion_intent(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS["speckit.behavior.assertions.v1"].read_text(
+                encoding="utf-8"
+            )
+        )
+
+        Draft202012Validator(schema).validate(minimal_exception_behavior_assertions())
 
     def test_expected_uif_schema_rejects_underspecified_typed_steps(self) -> None:
         schema = json.loads(
@@ -1157,6 +2528,236 @@ class PresetContractTests(unittest.TestCase):
                         [uif],
                     )
 
+    def test_behavior_contract_validator_rejects_exception_case_shells(self) -> None:
+        invalid_mutations = [
+            ("case_kind", lambda scenario: scenario["request_case"].pop("case_kind")),
+            ("trigger", lambda scenario: scenario["request_case"].pop("trigger")),
+            ("expected_response", lambda scenario: scenario.update({"expected_response": {}})),
+            ("error_code", lambda scenario: scenario["expected_response"].pop("error_code")),
+            ("expected_feedback", lambda scenario: scenario.update({"expected_feedback": {}})),
+            ("feedback_type", lambda scenario: scenario["expected_feedback"].pop("type")),
+            ("feedback_message", lambda scenario: scenario["expected_feedback"].pop("message")),
+        ]
+
+        for label, mutate in invalid_mutations:
+            with self.subTest(label=label):
+                instances = minimal_exception_behavior_scenario_instances()
+                mutate(instances["scenarios"][0])
+
+                with self.assertRaisesRegex(ValueError, label):
+                    validate_behavior_contract_bundle(
+                        instances,
+                        minimal_behavior_data_fixtures(),
+                        minimal_exception_behavior_assertions(),
+                        [minimal_uif_expected()],
+                    )
+
+    def test_behavior_contract_validator_rejects_exception_without_state_or_rollback_assertion(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "state_invariant_rollback_or_compensation_assertion",
+        ):
+            validate_behavior_contract_bundle(
+                minimal_exception_behavior_scenario_instances(),
+                minimal_behavior_data_fixtures(),
+                minimal_behavior_assertions(),
+                [minimal_uif_expected()],
+            )
+
+    def test_behavior_contract_validator_rejects_mismatched_exception_case_kind(self) -> None:
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="permission")
+        instances["scenarios"][0]["request_case"]["case_kind"] = "validation"
+
+        with self.assertRaisesRegex(ValueError, "case_kind"):
+            validate_behavior_contract_bundle(
+                instances,
+                minimal_behavior_data_fixtures(),
+                minimal_exception_behavior_assertions(),
+                [minimal_uif_expected()],
+            )
+
+    def test_behavior_contract_validator_accepts_structured_exception_cases(self) -> None:
+        for scenario_type in ("negative", "boundary", "permission", "validation", "state_conflict"):
+            with self.subTest(scenario_type=scenario_type):
+                validate_behavior_contract_bundle(
+                    minimal_exception_behavior_scenario_instances(
+                        scenario_type=scenario_type,
+                    ),
+                    minimal_behavior_data_fixtures(),
+                    minimal_exception_behavior_assertions(),
+                    [minimal_uif_expected()],
+                )
+
+    def test_behavior_contract_validator_accepts_rollback_and_compensation_assertions(self) -> None:
+        for intent in ("rollback", "compensation"):
+            with self.subTest(intent=intent):
+                validate_behavior_contract_bundle(
+                    minimal_exception_behavior_scenario_instances(),
+                    minimal_behavior_data_fixtures(),
+                    minimal_exception_behavior_assertions_with_intent(intent),
+                    [minimal_uif_expected()],
+                )
+
+    def test_behavior_contract_validator_accepts_success_boundary_case(self) -> None:
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "success"
+        scenario["expected_response"] = {"business_code": "ACCEPTED_AT_LIMIT"}
+        scenario["expected_feedback"] = {"message": "Limit accepted"}
+
+        validate_behavior_contract_bundle(
+            instances,
+            minimal_behavior_data_fixtures(),
+            minimal_behavior_assertions(),
+            [minimal_uif_expected()],
+        )
+
+    def test_behavior_contract_validator_rejects_boundary_failure_without_error(self) -> None:
+        instances = minimal_exception_behavior_scenario_instances(scenario_type="boundary")
+        scenario = instances["scenarios"][0]
+        scenario["request_case"]["outcome"] = "failure"
+        scenario["expected_response"] = {"status": 422}
+        scenario["expected_feedback"] = {"message": "Limit exceeded"}
+
+        with self.assertRaisesRegex(ValueError, "error_code"):
+            validate_behavior_contract_bundle(
+                instances,
+                minimal_behavior_data_fixtures(),
+                minimal_exception_behavior_assertions(),
+                [minimal_uif_expected()],
+            )
+
+    def test_behavior_case_coverage_validator_rejects_missing_required_case(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Required case"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage(),
+                minimal_behavior_scenarios_draft(),
+                minimal_behavior_scenario_instances(),
+                "T001 implement SCN-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_rejects_empty_matrix(self) -> None:
+        with self.assertRaisesRegex(ValueError, "case_coverage"):
+            validate_behavior_case_coverage(
+                {},
+                minimal_behavior_scenarios_draft(),
+                minimal_behavior_scenario_instances(),
+                "T001 implement SCN-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_requires_tasks_and_quickstart_evidence(self) -> None:
+        with self.assertRaisesRegex(ValueError, "tasks.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage(),
+                minimal_behavior_scenarios_draft(
+                    scenario_type="permission",
+                    scenario_id="SCN-ERR-001",
+                ),
+                minimal_exception_behavior_scenario_instances(),
+                "T001 implement SCN-001",
+                "Validate SCN-ERR-001",
+            )
+
+        with self.assertRaisesRegex(ValueError, "quickstart.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage(),
+                minimal_behavior_scenarios_draft(
+                    scenario_type="permission",
+                    scenario_id="SCN-ERR-001",
+                ),
+                minimal_exception_behavior_scenario_instances(),
+                "T001 implement SCN-ERR-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_accepts_closed_required_case(self) -> None:
+        validate_behavior_case_coverage(
+            minimal_case_coverage(),
+            minimal_behavior_scenarios_draft(
+                scenario_type="permission",
+                scenario_id="SCN-ERR-001",
+            ),
+            minimal_exception_behavior_scenario_instances(),
+            "T001 implement SCN-ERR-001 and AST-001",
+            "Validate SCN-ERR-001 through quickstart path",
+        )
+
+    def test_behavior_case_coverage_validator_accepts_formal_blocker_for_required_case(self) -> None:
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#user-story-1",
+                "reason": "Validation rule is still Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        validate_behavior_case_coverage(
+            minimal_case_coverage_with_blocker(),
+            minimal_behavior_scenarios_draft(),
+            instances,
+            "T001 blocked by BLK-001",
+            "BLK-001 blocks quickstart validation",
+        )
+
+    def test_behavior_case_coverage_validator_requires_blocker_downstream_evidence(self) -> None:
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#user-story-1",
+                "reason": "Validation rule is still Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        with self.assertRaisesRegex(ValueError, "tasks.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage_with_blocker(),
+                minimal_behavior_scenarios_draft(),
+                instances,
+                "T001 implement SCN-001",
+                "BLK-001 blocks quickstart validation",
+            )
+
+        with self.assertRaisesRegex(ValueError, "quickstart.md"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage_with_blocker(),
+                minimal_behavior_scenarios_draft(),
+                instances,
+                "T001 blocked by BLK-001",
+                "Validate SCN-001",
+            )
+
+    def test_behavior_case_coverage_validator_rejects_blocker_source_mismatch(self) -> None:
+        instances = minimal_behavior_scenario_instances()
+        instances["case_coverage_blockers"] = [
+            {
+                "id": "BLK-001",
+                "case_id": "CASE-002",
+                "case_type": "validation",
+                "source": "spec.md#different-story",
+                "reason": "Validation rule is still Unknown in checklist.",
+                "downstream_contract_path": "contracts/behavior/scenario-instances.json",
+            }
+        ]
+
+        with self.assertRaisesRegex(ValueError, "source"):
+            validate_behavior_case_coverage(
+                minimal_case_coverage_with_blocker(),
+                minimal_behavior_scenarios_draft(),
+                instances,
+                "T001 blocked by BLK-001",
+                "BLK-001 blocks quickstart validation",
+            )
+
     def test_behavior_contract_validator_accepts_valid_cross_fields(self) -> None:
         validate_behavior_contract_bundle(
             minimal_behavior_scenario_instances(),
@@ -1213,6 +2814,29 @@ class PresetContractTests(unittest.TestCase):
     def test_validate_manifest_contract_rejects_duplicate_shard_task_ids(self) -> None:
         manifest = minimal_manifest(shards=[minimal_shard(task_ids=["T001", "T001"])])
         with self.assertRaisesRegex(ValueError, "task_ids"):
+            validate_manifest_contract(manifest)
+
+    def test_validate_manifest_contract_rejects_shard_id_vertical_capability_mismatch(
+        self,
+    ) -> None:
+        manifest = minimal_manifest(
+            shards=[
+                minimal_shard(shard_id="S01-ui-01", vertical_capability="service-flow")
+            ],
+            dispatch_order=[["S01-ui-01"]],
+            vertical_capability="service-flow",
+        )
+
+        with self.assertRaisesRegex(ValueError, "shard_id vertical_capability mismatch"):
+            validate_manifest_contract(manifest)
+
+    def test_validate_manifest_contract_rejects_invalid_shard_id_pattern(self) -> None:
+        manifest = minimal_manifest(
+            shards=[minimal_shard(shard_id="S1-service-flow-01")],
+            dispatch_order=[["S1-service-flow-01"]],
+        )
+
+        with self.assertRaisesRegex(ValueError, "invalid shard_id"):
             validate_manifest_contract(manifest)
 
     def test_validate_manifest_contract_rejects_unknown_dependency_shard(self) -> None:
@@ -1296,6 +2920,61 @@ class PresetContractTests(unittest.TestCase):
             handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff()},
             receipts_by_path={RECEIPT_PATH: minimal_receipt()},
         )
+
+    def test_validate_implement_contract_rejects_code_review_that_misses_implementation_diff(
+        self,
+    ) -> None:
+        review_shard_id = "S02-service-flow-02"
+        review_receipt_path = f"{HANDOFF_DIR}/results/{review_shard_id}.json"
+        review_handoff_path = f"{HANDOFF_DIR}/{review_shard_id}.json"
+        manifest = minimal_manifest(
+            shards=[
+                minimal_shard(),
+                minimal_shard(
+                    shard_id=review_shard_id,
+                    task_ids=["T099"],
+                ),
+            ],
+            dependencies=[
+                {"shard_id": review_shard_id, "depends_on": [SHARD_ID]},
+            ],
+            dispatch_order=[[SHARD_ID], [review_shard_id]],
+        )
+        review_handoff = minimal_handoff(
+            shard_id=review_shard_id,
+            task_ids=["T099"],
+            allowed_write_paths=[review_receipt_path],
+            task_type="code_review",
+        )
+        review_handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "implementation changed_paths"):
+            validate_implement_contract(
+                manifest,
+                handoffs_by_path={
+                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
+                    review_handoff_path: review_handoff,
+                },
+                receipts_by_path={
+                    RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH]),
+                    review_receipt_path: minimal_receipt(
+                        shard_id=review_shard_id,
+                        task_ids=["T099"],
+                        task_type="code_review",
+                        changed_paths=[review_receipt_path],
+                        validation_evidence=["Code review checked implementation diff."],
+                        review_conclusion={
+                            "status": "approved",
+                            "summary": "Review complete.",
+                            "checked_sources": [QUICKSTART_PATH],
+                            "findings": [],
+                        },
+                        data_side_effect_review=no_data_side_effects_review(
+                            paths=[QUICKSTART_PATH]
+                        ),
+                    ),
+                },
+            )
 
     def test_validate_implement_contract_rejects_overlapping_allowed_write_paths(self) -> None:
         second_shard_id = "S02-service-flow-02"
@@ -1457,9 +3136,161 @@ class PresetContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_handoff_contract(handoff)
 
+    def test_validate_handoff_contract_rejects_shard_id_vertical_capability_mismatch(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(shard_id="S01-ui-01", vertical_capability="service-flow")
+        with self.assertRaisesRegex(ValueError, "shard_id vertical_capability mismatch"):
+            validate_handoff_contract(handoff)
+
+    def test_validate_handoff_contract_rejects_invalid_shard_id_pattern(self) -> None:
+        handoff = minimal_handoff(shard_id="S01_service_flow_01")
+        with self.assertRaisesRegex(ValueError, "invalid shard_id"):
+            validate_handoff_contract(handoff)
+
     def test_receipt_schema_accepts_minimal_valid_receipt(self) -> None:
         schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
         Draft202012Validator(schema).validate(minimal_receipt())
+
+    def test_receipt_schema_accepts_code_review_receipt_fields(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        Draft202012Validator(schema).validate(
+            minimal_receipt(
+                task_type="code_review",
+                changed_paths=[SERVICE_PATH, RECEIPT_PATH],
+                review_conclusion={
+                    "status": "changes_requested",
+                    "summary": "Implementation drift repaired; e2e environment pending.",
+                    "checked_sources": [
+                        API_CONTRACT_PATH,
+                        SEQUENCES_PATH,
+                        QUICKSTART_PATH,
+                    ],
+                    "findings": [
+                        {
+                            "id": "CR-001",
+                            "severity": "high",
+                            "category": "sequence_drift",
+                            "summary": "Retry order differed from contracts/sequences.md.",
+                            "paths": [SERVICE_PATH],
+                            "resolution": "repaired",
+                        }
+                    ],
+                },
+                data_side_effect_review={
+                    "reviewed_diff_paths": [SERVICE_PATH],
+                    "runtime_data_writes_found": True,
+                    "mutation_findings": [
+                        {
+                            "id": "DSE-001",
+                            "severity": "high",
+                            "category": "field_level_update",
+                            "summary": "Order status update may affect shared fulfillment flow.",
+                            "paths": [SERVICE_PATH],
+                            "operation": "update",
+                            "tables_or_entities": ["orders"],
+                            "fields": ["status"],
+                            "resolution": "blocked",
+                        }
+                    ],
+                },
+                consistency_repairs=[
+                    {
+                        "finding_id": "CR-001",
+                        "reason": "Restore planned retry ordering.",
+                        "changed_paths": [SERVICE_PATH],
+                        "evidence": ["contracts/sequences.md retry flow"],
+                    }
+                ],
+                deferred_validation_todos=[
+                    {
+                        "id": "E2E-001",
+                        "reason": "Real payment sandbox unavailable.",
+                        "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                        "validation_path": "quickstart.md#real-e2e",
+                        "commands": ["npm run e2e:payment"],
+                        "blocking": False,
+                    }
+                ],
+            )
+        )
+
+    def test_receipt_schema_rejects_review_conclusion_without_checked_sources(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(
+            task_type="code_review",
+            review_conclusion={
+                "status": "approved",
+                "summary": "Review complete.",
+                "findings": [],
+            },
+        )
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
+
+    def test_receipt_schema_requires_data_side_effect_review_for_code_review_receipt(
+        self,
+    ) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(
+            task_type="code_review",
+            review_conclusion={
+                "status": "approved",
+                "summary": "Review complete.",
+                "checked_sources": [SERVICE_PATH],
+                "findings": [],
+            },
+        )
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
+
+    def test_receipt_schema_rejects_data_side_effect_review_without_reviewed_diff_paths(
+        self,
+    ) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(
+            task_type="code_review",
+            review_conclusion={
+                "status": "approved",
+                "summary": "Review complete.",
+                "checked_sources": [SERVICE_PATH],
+                "findings": [],
+            },
+            data_side_effect_review={
+                "runtime_data_writes_found": False,
+                "mutation_findings": [],
+            },
+        )
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
+
+    def test_receipt_schema_rejects_empty_deferred_validation_environment(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(
+            task_type="code_review",
+            review_conclusion={
+                "status": "blocked",
+                "summary": "Real e2e environment unavailable.",
+                "checked_sources": [QUICKSTART_PATH],
+                "findings": [],
+            },
+            deferred_validation_todos=[
+                {
+                    "id": "E2E-001",
+                    "reason": "Real e2e environment missing.",
+                    "missing_environment": [],
+                    "validation_path": "quickstart.md#payment-e2e",
+                    "commands": ["npm run e2e:payment"],
+                    "blocking": False,
+                }
+            ],
+        )
+
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
 
     def test_validate_receipt_contract_rejects_path_mismatch(self) -> None:
         with self.assertRaises(ValueError):
@@ -1479,6 +3310,462 @@ class PresetContractTests(unittest.TestCase):
 
     def test_validate_receipt_contract_accepts_valid_cross_fields(self) -> None:
         validate_receipt_contract(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
+
+    def test_validate_receipt_contract_rejects_completed_tasks_with_deferred_validation(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "completed_task_ids"):
+            validate_receipt_contract(
+                minimal_handoff(),
+                minimal_receipt(
+                    deferred_validation_todos=[
+                        {
+                            "id": "VAL-001",
+                            "reason": "Sandbox credentials unavailable.",
+                            "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                            "validation_path": "quickstart.md#payment",
+                            "commands": ["npm run e2e:payment"],
+                            "blocking": False,
+                        }
+                    ],
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_completed_code_review_without_approval(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "approved"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "changes_requested",
+                        "summary": "Review found pending repairs.",
+                        "checked_sources": [SERVICE_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(),
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_review_conclusion_for_code_review_task(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["task_text"] = ["T099 Review final implementation readiness"]
+
+        with self.assertRaisesRegex(ValueError, "review_conclusion"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(task_ids=["T099"], task_type="code_review"),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_code_review_receipt_without_task_type(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+
+        with self.assertRaisesRegex(ValueError, "task_type"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(task_ids=["T099"], task_type="implementation"),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_checked_sources_for_code_review_task(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+
+        with self.assertRaisesRegex(ValueError, "checked_sources"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_data_side_effect_review_for_code_review_task(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "data_side_effect_review"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [SERVICE_PATH],
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_complete_data_side_effect_review(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        for field in (
+            "reviewed_diff_paths",
+            "runtime_data_writes_found",
+            "mutation_findings",
+        ):
+            data_side_effect_review = no_data_side_effects_review()
+            data_side_effect_review.pop(field)
+
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, field):
+                    validate_receipt_contract(
+                        handoff,
+                        minimal_receipt(
+                            task_ids=["T099"],
+                            task_type="code_review",
+                            review_conclusion={
+                                "status": "approved",
+                                "summary": "Review complete.",
+                                "checked_sources": [SERVICE_PATH],
+                                "findings": [],
+                            },
+                            data_side_effect_review=data_side_effect_review,
+                        ),
+                        RECEIPT_PATH,
+                    )
+
+    def test_validate_receipt_contract_rejects_unreviewed_diff_path_for_data_side_effect_review(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "reviewed_diff_paths"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [SERVICE_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review={
+                        "reviewed_diff_paths": [f"{FEATURE_PATH}/src/unread.py"],
+                        "runtime_data_writes_found": False,
+                        "mutation_findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_approved_with_unresolved_high_data_side_effect(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "data side-effect"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [SERVICE_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review={
+                        "reviewed_diff_paths": [SERVICE_PATH],
+                        "runtime_data_writes_found": True,
+                        "mutation_findings": [
+                            {
+                                "id": "DSE-001",
+                                "severity": "high",
+                                "category": "field_level_update",
+                                "summary": "Shared status field update may disable other flows.",
+                                "paths": [SERVICE_PATH],
+                                "operation": "update",
+                                "tables_or_entities": ["orders"],
+                                "fields": ["status"],
+                                "resolution": "todo",
+                            }
+                        ],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_checked_source_outside_allowed_reads(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+
+        with self.assertRaisesRegex(ValueError, "checked_sources"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [API_CONTRACT_PATH],
+                        "findings": [],
+                    },
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_repair_path_outside_allowed_writes(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, SEQUENCES_PATH]
+
+        with self.assertRaisesRegex(ValueError, "consistency repair changed path"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    completed_task_ids=[],
+                    review_conclusion={
+                        "status": "changes_requested",
+                        "summary": "Contract drift repaired.",
+                        "checked_sources": [SEQUENCES_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[SEQUENCES_PATH]
+                    ),
+                    consistency_repairs=[
+                        {
+                            "finding_id": "CR-001",
+                            "reason": "Align API contract.",
+                            "changed_paths": [f"{FEATURE_PATH}/contracts/api/refunds.yaml"],
+                            "evidence": ["plan.md API contract"],
+                        }
+                    ],
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_todo_for_deferred_real_e2e(self) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH]
+        handoff["validation_commands"] = ["npm run e2e:payment"]
+        handoff["task_text"] = ["T099 Review real e2e readiness"]
+
+        with self.assertRaisesRegex(ValueError, "deferred_validation_todos"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    completed_task_ids=[],
+                    validation_evidence=[
+                        "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
+                    ],
+                    review_conclusion={
+                        "status": "blocked",
+                        "summary": "Real e2e environment unavailable.",
+                        "checked_sources": [QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[QUICKSTART_PATH]
+                    ),
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_approved_with_unresolved_high_finding(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, API_CONTRACT_PATH]
+
+        with self.assertRaisesRegex(ValueError, "unresolved"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Approved despite known API drift.",
+                        "checked_sources": [API_CONTRACT_PATH],
+                        "findings": [
+                            {
+                                "id": "CR-001",
+                                "severity": "high",
+                                "category": "api_contract_drift",
+                                "summary": "Response schema still differs from API contract.",
+                                "paths": [SERVICE_PATH],
+                                "resolution": "todo",
+                            }
+                        ],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[API_CONTRACT_PATH]
+                    ),
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_rejects_approved_when_real_e2e_deferred(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH]
+        handoff["validation_commands"] = ["npm run e2e:payment"]
+
+        with self.assertRaisesRegex(ValueError, "approved"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    completed_task_ids=[],
+                    validation_evidence=[
+                        "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
+                    ],
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Approved although real e2e is missing.",
+                        "checked_sources": [QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[QUICKSTART_PATH]
+                    ),
+                    deferred_validation_todos=[
+                        {
+                            "id": "E2E-001",
+                            "reason": "Real e2e environment missing.",
+                            "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                            "validation_path": "quickstart.md#payment-e2e",
+                            "commands": ["npm run e2e:payment"],
+                            "blocking": False,
+                        }
+                    ],
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_requires_code_review_command_evidence(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [TASKS_PATH, API_CONTRACT_PATH, QUICKSTART_PATH]
+        handoff["validation_commands"] = ["npm run test:contract", "npm run e2e:payment"]
+
+        with self.assertRaisesRegex(ValueError, "validation_evidence"):
+            validate_receipt_contract(
+                handoff,
+                minimal_receipt(
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    completed_task_ids=[],
+                    validation_evidence=["Code review completed."],
+                    review_conclusion={
+                        "status": "changes_requested",
+                        "summary": "Review complete; validation still pending.",
+                        "checked_sources": [API_CONTRACT_PATH, QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[API_CONTRACT_PATH]
+                    ),
+                ),
+                RECEIPT_PATH,
+            )
+
+    def test_validate_receipt_contract_accepts_code_review_with_repair_and_e2e_todo(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
+        handoff["allowed_read_paths"] = [
+            TASKS_PATH,
+            SEQUENCES_PATH,
+            QUICKSTART_PATH,
+            SERVICE_PATH,
+        ]
+        handoff["validation_commands"] = ["npm run e2e:payment"]
+        handoff["task_text"] = ["T099 Review design drift and real e2e readiness"]
+
+        validate_receipt_contract(
+            handoff,
+            minimal_receipt(
+                task_ids=["T099"],
+                task_type="code_review",
+                completed_task_ids=[],
+                changed_paths=[SERVICE_PATH],
+                validation_evidence=[
+                    "checked contracts/sequences.md; quickstart.md command npm run e2e:payment deferred because PAYMENT_SANDBOX_TOKEN is unavailable; real e2e deferred"
+                ],
+                review_conclusion={
+                    "status": "changes_requested",
+                    "summary": "Sequence drift repaired; real e2e pending.",
+                    "checked_sources": [SEQUENCES_PATH, QUICKSTART_PATH],
+                    "findings": [
+                        {
+                            "id": "CR-001",
+                            "severity": "high",
+                            "category": "sequence_drift",
+                            "summary": "Retry sequence drifted from planned flow.",
+                            "paths": [SERVICE_PATH],
+                            "resolution": "repaired",
+                        }
+                    ],
+                },
+                data_side_effect_review=no_data_side_effects_review(),
+                consistency_repairs=[
+                    {
+                        "finding_id": "CR-001",
+                        "reason": "Align implementation with planned sequence.",
+                        "changed_paths": [SERVICE_PATH],
+                        "evidence": ["contracts/sequences.md"],
+                    }
+                ],
+                deferred_validation_todos=[
+                    {
+                        "id": "E2E-001",
+                        "reason": "Real e2e environment missing.",
+                        "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
+                        "validation_path": "quickstart.md#payment-e2e",
+                        "commands": ["npm run e2e:payment"],
+                        "blocking": False,
+                    }
+                ],
+            ),
+            RECEIPT_PATH,
+        )
 
     def test_validate_receipt_contract_rejects_generic_behavior_evidence(self) -> None:
         handoff = minimal_handoff()
@@ -1537,6 +3824,27 @@ class PresetContractTests(unittest.TestCase):
         with self.assertRaises(Exception):
             Draft202012Validator(schema).validate(handoff)
 
+    def test_manifest_schema_rejects_invalid_shard_id_pattern(self) -> None:
+        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
+        manifest = minimal_manifest(
+            shards=[minimal_shard(shard_id="S1-service-flow-01")],
+            dispatch_order=[["S1-service-flow-01"]],
+        )
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(manifest)
+
+    def test_handoff_schema_rejects_invalid_shard_id_pattern(self) -> None:
+        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
+        handoff = minimal_handoff(shard_id="S01_service_flow_01")
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(handoff)
+
+    def test_receipt_schema_rejects_invalid_shard_id_pattern(self) -> None:
+        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        receipt = minimal_receipt(shard_id="S01-service-flow-1")
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(schema).validate(receipt)
+
     def test_handoff_schema_rejects_unknown_vertical_capability(self) -> None:
         schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
         handoff = minimal_handoff(shard_id="S01-unknown-01", vertical_capability="unknown")
@@ -1564,7 +3872,10 @@ class PresetContractTests(unittest.TestCase):
     def test_implement_prompt_omits_narrative_filler(self) -> None:
         command = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(command.splitlines()), 130)
+        lines = command.splitlines()
+        self.assertLessEqual(len(lines), 80)
+        self.assertLessEqual(len(command), 4000)
+        self.assertLessEqual(max(len(line) for line in lines), 120)
         forbidden_terms = [
             "This command is",
             "The current agent either acts",
@@ -1605,35 +3916,137 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("vertical capability", readme)
         self.assertIn("speckit.implement.handoff.v2", readme)
         self.assertIn("speckit.implement.receipt.v1", readme)
-        self.assertIn("speckit-cross-agent-subagents.md", readme)
+        self.assertIn("tests/contracts/speckit-cross-agent-subagents.md", readme)
         self.assertIn("Problem Addressed", readme)
         self.assertIn("reasoning quality", readme)
+        self.assertNotIn("compatible with the core workflow", readme)
+        self.assertNotIn("core compatibility fixes", readme)
         self.assertIn("must formalize", readme)
         self.assertIn("N/A or blocker", readme)
         self.assertIn("The preset has four goals:", readme)
         self.assertIn("BDD readiness gate", readme)
+        self.assertIn("NFR readiness", readme)
+        self.assertIn("BDD/NFR/applicable Visual Fidelity", readme)
+        self.assertIn("Design Requirement Intake", readme)
+        self.assertIn("Requirement Merge", readme)
+        self.assertIn("Product Requirement + Design Requirement", readme)
+        self.assertIn("rejects full provider Visual Item Matrix copies inside Visual Restoration Trace rows", readme)
+        self.assertIn("stable Visual Item ID", readme)
+        self.assertIn("does not translate Figma variants into code props", readme)
+        self.assertIn("requirement-level component roles", readme)
+        self.assertIn("Visual Restoration Trace rows", readme)
+        self.assertIn("Visual Item Matrix rows", readme)
+        self.assertIn("Figma is a Design Requirement provider", readme)
+        self.assertIn("Figma Evidence Packet", readme)
+        self.assertIn("direct Figma URL input", readme)
+        self.assertIn("runtime agent has Figma MCP access", readme)
+        self.assertIn("Visual Fidelity readiness gate", readme)
+        self.assertIn("Screenshot is evidence, not intake", readme)
+        self.assertIn("optional but strongly recommended provider evidence", readme)
+        self.assertIn("L0 No Screenshot", readme)
+        self.assertIn("L1 Key Screenshots", readme)
+        self.assertIn("L2 State + Viewport Matrix", readme)
+        self.assertIn("L3 Visual Baseline", readme)
+        self.assertIn("pixel-perfect", readme)
+        self.assertIn("Screenshots cannot upgrade product semantics", readme)
+        self.assertIn(
+            CANONICAL_RESPONSIVE_VISUAL_RULE,
+            readme,
+        )
+        self.assertIn(
+            "product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements",
+            readme,
+        )
+        self.assertIn("Visual Fidelity Evidence Matrix", readme)
+        self.assertIn("visual requirement or visual proof obligation", readme)
+        self.assertIn("single visual readiness record", readme)
+        self.assertIn("Provider evidence artifacts may record screenshot refs", readme)
+        self.assertIn("only the Visual Fidelity Evidence Matrix decides visual planning readiness", readme)
+        self.assertIn("proof sufficiency", readme)
+        self.assertIn("accepted exception rules", readme)
+        self.assertIn("preset defines the required design intake and provider readiness artifact structure", readme)
+        self.assertIn("runtime agent or external Figma intake", readme)
+        self.assertIn("does not generate the artifact instances", readme)
+        self.assertIn("[BLOCKED: PROVIDER_EVIDENCE]", readme)
+        self.assertIn("Provider evidence blockers do not become `[NEEDS CLARIFICATION]`", readme)
+        self.assertNotIn(
+            "writes or marks it as `[NEEDS CLARIFICATION]`",
+            readme,
+        )
+        self.assertIn("raw metadata completeness", readme)
+        self.assertIn("node inventory parity", readme)
+        self.assertIn("speckit.design.visual_item_matrix.v1", readme)
+        self.assertIn("schemas/speckit.design.visual-item-matrix.v1.schema.json", readme)
+        self.assertIn("raw Figma evidence remains the source of truth", readme)
+        self.assertIn("provider-ready", readme)
+        self.assertIn("It does not decide visual planning readiness", readme)
+        self.assertIn("does not provide Figma MCP connection, authentication, or execution", readme)
+        self.assertIn("clarifies design-derived gaps already written in `spec.md`", readme)
+        self.assertIn("does not call Figma", readme)
+        self.assertIn("explicit non-functional requirement declarations", readme)
+        self.assertIn("Required, Not Applicable, or Unknown", readme)
+        self.assertIn("missing or unverifiable NFR assumptions", readme)
         self.assertIn("Phase 0 behavior projection", readme)
+        self.assertIn("Case Coverage Matrix", readme)
+        self.assertIn("case coverage", readme)
+        self.assertIn("Required, Not Applicable, or Unknown", readme)
+        lowered = readme.lower()
+        for forbidden in FORBIDDEN_VISUAL_COMPAT_TERMS:
+            self.assertNotIn(forbidden, lowered)
+        self.assertNotIn(
+            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
+            readme,
+        )
+        self.assertNotIn(
+            "Responsive visual readiness records viewport-specific evidence or sets Gate Status: BLOCKED",
+            readme,
+        )
+        self.assertIn("failure scenarios", readme)
+        self.assertIn(
+            "error code, failure feedback, and state invariant, rollback, or compensation assertion",
+            readme,
+        )
+        self.assertIn("visual verification, contract validation, data-side-effect validation, integration/e2e validation, and scope-aware code review tasks", readme)
+        self.assertIn("without inventing validation strategy, changing requirements, updating contracts, or widening scope", readme)
         self.assertIn("validation_evidence", readme)
         self.assertIn("Context-load controls", readme)
         self.assertIn("context-load controls", changelog)
+        self.assertIn("Case Coverage Matrix", changelog)
+        self.assertIn("failure behavior scenarios", changelog)
         self.assertIn("Change Scope Granularity", changelog)
         self.assertIn("/speckit.constitution", changelog)
         self.assertIn("Moved behavior draft generation from `/speckit.specify` to `/speckit.plan` Phase 0", changelog)
         self.assertIn("BDD readiness gate", changelog)
+        self.assertIn("NFR readiness", changelog)
+        self.assertIn("explicitly declare applicable non-functional requirements", changelog)
         self.assertIn("Removed `behavior/open-questions.json`", changelog)
         self.assertIn("Hardened behavior contract quality gates", changelog)
         self.assertIn("formalization blockers", changelog)
         self.assertIn("behavior-linked validation evidence", changelog)
+        self.assertIn("only the checklist Visual Fidelity Evidence Matrix decides visual planning readiness", changelog)
         self.assertNotIn("run-orchestrated-implement.py", readme)
         self.assertNotIn("speckit-implement-handoff.py", readme)
         self.assertNotIn("--dry-run true --run-id manual", readme)
         self.assertIn("Spec Kit CLI `>=0.8.10.dev0`", readme)
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
+        self.assertIn("Preset CI Boundary", readme)
+        self.assertIn("SPEC_KIT_FORK_PR_TOKEN", readme)
+        self.assertIn("bigsmartben/spec-kit", readme)
+        self.assertIn("workflow-preset-release-v<version>", readme)
+        self.assertIn("integration PR", readme)
+        self.assertIn("next patch version", readme)
+        self.assertIn("does not open pull requests to `github/spec-kit`", readme)
+        self.assertNotIn("repository_dispatch", readme)
         self.assertIn("PyYAML", requirements)
         self.assertIn("jsonschema", requirements)
         self.assertIn("## 1.2.0", changelog)
         self.assertIn("## 1.1.0", changelog)
         self.assertIn("## 1.0.3", changelog)
+        self.assertIn("Final Code Review", changelog)
+        self.assertIn("structured code review receipts", changelog)
+        self.assertIn("rejects full provider Visual Item Matrix copies inside Design Requirement Intake Visual Restoration Trace rows", changelog)
+        self.assertIn("/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation", changelog)
+        self.assertIn("/speckit.implement` only executes those tasks and records receipt evidence", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)
         self.assertIn("Removed Python dispatch tooling", changelog)
 
@@ -1687,6 +4100,13 @@ class PresetContractTests(unittest.TestCase):
             "API contract",
             "quickstart path",
             "receipt 路径不等于 handoff 中声明的 `task_status_update.receipt_path`",
+            "Code Review Receipts",
+            "task_type: code_review",
+            "review_conclusion",
+            "checked_sources",
+            "consistency_repairs",
+            "deferred_validation_todos",
+            "quickstart/contract validation command",
         ]
         for term in required_terms:
             self.assertIn(term, document)
@@ -1722,11 +4142,46 @@ class PresetContractTests(unittest.TestCase):
             "structured JSON artifacts require schemas",
             "validators/",
             "Do not put downstream prohibitions in upstream commands",
+            "Design Requirement Intake",
+            "Requirement Merge",
+            "Figma is a provider-specific design source",
             "Behavior-first extension rule",
             "BDD and UIF artifacts need independent templates",
             "`/speckit.constitution`: constitution governance and project principles only",
-            "`/speckit.checklist`: checklist artifacts and BDD readiness gates only",
+            "`/speckit.checklist`: checklist artifacts and BDD/NFR/Visual Fidelity readiness gates only",
+            "Figma Evidence Packet",
+            "Screenshot is provider evidence",
+            "Screenshots must not become the primary Design Requirement Intake carrier",
+            "Provider evidence artifacts may record screenshot refs, visual proof refs",
+            "They must not",
+            "decide visual planning readiness",
+            "proof sufficiency",
+            "Visual Fidelity Evidence Matrix",
+            "one row per visual requirement or visual proof obligation",
+            "Source `spec.md` section",
+            "Fidelity Scope",
+            "Screenshot Level",
+            "Evidence Refs",
+            "Visual Proof Required",
+            "Blocking Item ID",
+            "Exception Rule",
+            CANONICAL_RESPONSIVE_VISUAL_RULE,
+            "single visual readiness record",
+            "only artifact that decides visual planning readiness",
+            "visual proof level sufficiency",
+            "screenshot sufficiency",
+            "accepted exception rules",
+            "checklist Gate Status",
+            "checklist Blocking Items",
+            "Provider source readiness remains separate",
+            "packaged evidence templates are allowed preset artifacts",
+            "Figma MCP execution, hooks, adapter scripts, and authentication",
+            "external design extraction is not a clarification responsibility",
+            "NFR readiness belongs in `spec.md` product requirements",
             "`/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts",
+            "`/speckit.tasks` owns implementation, validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`",
+            "`/speckit.implement` may execute those tasks and record receipt evidence",
+            "must not invent validation strategy, add lifecycle roles, change requirements, update contracts, or widen scope during execution",
             "Handoff extensions must update schema, validator, command, and cross-agent documentation together",
             "Do not bump preset version or release archive URLs until release preparation",
             "Use extensions, not presets, for new tooling",
@@ -1745,12 +4200,122 @@ class PresetContractTests(unittest.TestCase):
         ]
         for term in forbidden_terms:
             self.assertNotIn(term, document)
+        lowered = document.lower()
+        for forbidden in FORBIDDEN_VISUAL_COMPAT_TERMS:
+            self.assertNotIn(forbidden, lowered)
+        self.assertNotIn(
+            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
+            document,
+        )
+        self.assertNotIn(
+            "Responsive visual readiness records viewport-specific evidence or sets Gate Status: BLOCKED",
+            document,
+        )
 
     def test_agents_references_extension_governance(self) -> None:
         agents = AGENTS_PATH.read_text(encoding="utf-8")
 
         self.assertIn("docs/extension-governance.md", agents)
         self.assertIn("Extension Governance", agents)
+
+    def _workflow_on(self, workflow: dict) -> dict:
+        return workflow.get("on") or workflow.get(True) or {}
+
+    def test_github_actions_contract_workflow(self) -> None:
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+        if not workflow_path.exists():
+            self.skipTest("source repository workflow file is not packaged in the preset")
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("Preset Contract", workflow["name"])
+        self.assertEqual({"contents": "read"}, workflow["permissions"])
+        triggers = self._workflow_on(workflow)
+        self.assertIn("pull_request", triggers)
+        self.assertEqual(["main"], triggers["push"]["branches"])
+        self.assertIn("workflow_dispatch", triggers)
+
+        contract_job = workflow["jobs"]["contract"]
+        self.assertEqual("ubuntu-latest", contract_job["runs-on"])
+        self.assertEqual(
+            ["3.10", "3.13"],
+            contract_job["strategy"]["matrix"]["python-version"],
+        )
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+        self.assertIn("python3 -m pip install -r requirements-dev.txt", workflow_text)
+        self.assertIn("python3 -m unittest tests/test_preset_contract.py", workflow_text)
+
+    def test_github_actions_artifact_release_and_integration_pr_workflow(self) -> None:
+        workflow_path = REPO_ROOT / ".github" / "workflows" / "preset-artifact.yml"
+        if not workflow_path.exists():
+            self.skipTest("source repository workflow file is not packaged in the preset")
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+        self.assertEqual("Preset Artifact", workflow["name"])
+        self.assertEqual({"contents": "write"}, workflow["permissions"])
+        triggers = self._workflow_on(workflow)
+        self.assertEqual(["v*"], triggers["push"]["tags"])
+        self.assertIn("workflow_dispatch", triggers)
+        inputs = triggers["workflow_dispatch"]["inputs"]
+        self.assertIn("version", inputs)
+        self.assertIn("spec_kit_ref", inputs)
+        self.assertIn("create_integration_pr", inputs)
+
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+        required_terms = [
+            "spec-kit-workflow-preset-v${VERSION}.zip",
+            "NEXT_PATCH_VERSION",
+            "python3 -m unittest tests/test_preset_contract.py",
+            "python3 -m venv \"${GITHUB_WORKSPACE}/.venv-specify-smoke\"",
+            "echo \"${GITHUB_WORKSPACE}/.venv-specify-smoke/bin\" >> \"${GITHUB_PATH}\"",
+            'PATH="${GITHUB_WORKSPACE}/.venv-specify-smoke/bin:${PATH}"',
+            'project_dir="$(mktemp -d "${RUNNER_TEMP}/workflow-preset-smoke.XXXXXX")"',
+            'resolve_out="${RUNNER_TEMP}/plan-template-resolve.txt"',
+            "PIP_CONFIG_FILE: /dev/null",
+            'PYTEST_ADDOPTS: ""',
+            'export TMPDIR="${RUNNER_TEMP}"',
+            'export TEMP="${RUNNER_TEMP}"',
+            'export TMP="${RUNNER_TEMP}"',
+            'specify init --here --integration claude --script sh --ignore-agent-tools',
+            "specify preset remove workflow-preset",
+            "specify preset add --dev",
+            "specify preset resolve plan-template",
+            ".claude/skills/speckit-implement/SKILL.md",
+            "SPEC_KIT_FORK_PR_TOKEN",
+            "bigsmartben/spec-kit",
+            "workflow-preset-release-v${VERSION}",
+            "gh pr create",
+            "gh pr edit",
+            "WORKFLOW_PRESET_DOWNLOAD_URL",
+            'assert entry\\["version"\\] == "[0-9]+\\.[0-9]+\\.[0-9]+"',
+            "tests/test_presets.py",
+            "tests/contracts/speckit-cross-agent-subagents.md",
+            "ZipInfo",
+            "1980, 1, 1",
+            "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true')",
+            "env.CREATE_INTEGRATION_PR == 'true'",
+            "refs/tags/v${VERSION}",
+            "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "persist-credentials: false",
+            "git rev-parse HEAD",
+            "refs/tags/v${VERSION}^{}",
+            "SPEC_KIT_FORK_PR_TOKEN is required when integration PR creation is requested.",
+            "exit 1",
+        ]
+        for term in required_terms:
+            self.assertIn(term, workflow_text)
+        forbidden_terms = [
+            "specify preset resolve workflow-preset plan-template",
+            "specify preset resolve workflow-preset speckit.implement",
+            "client_payload[version]",
+            "client_payload[download_url]",
+            "repository_dispatch",
+            "repos/bigsmartben/spec-kit/dispatches",
+            "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
+            "skipping integration PR",
+        ]
+        for term in forbidden_terms:
+            self.assertNotIn(term, workflow_text)
+        self.assertNotIn("github/spec-kit", workflow_text)
 
 
 if __name__ == "__main__":

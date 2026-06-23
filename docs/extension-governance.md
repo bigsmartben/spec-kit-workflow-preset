@@ -23,6 +23,16 @@ a new capability outside the existing Spec Kit workflow.
 Do not reintroduce Python orchestration, workflow shell dispatch, integration
 adapter scripts, or worker dispatch from scripts.
 
+Evidence templates: packaged evidence templates are allowed preset artifacts.
+Intake contract templates are also allowed when they define input shape,
+completeness gates, and blocker lint rules without executing an external system.
+Design Requirement Intake and Requirement Merge templates may define
+provider-neutral design facts and merge reports. Figma is a provider-specific design source;
+Screenshot is provider evidence and visual proof.
+Screenshots must not become the primary Design Requirement Intake carrier or a source of product semantics.
+Provider evidence artifacts may record screenshot refs, visual proof refs, coverage gaps, and provider evidence blockers as source facts. They must not decide visual planning readiness, proof sufficiency, accepted exception rules, checklist Gate Status, or checklist Blocking Items.
+Figma MCP execution, hooks, adapter scripts, and authentication are external integration concerns and remain outside this preset.
+
 ## Template And Command Ownership
 
 - templates own stable artifact shapes.
@@ -38,11 +48,18 @@ Stage ownership:
 - `/speckit.constitution`: constitution governance and project principles only.
 - `/speckit.specify`: requirement artifacts only.
 - `/speckit.clarify`: requirement clarification only.
-- `/speckit.checklist`: checklist artifacts and BDD readiness gates only.
+- `/speckit.checklist`: checklist artifacts and BDD/NFR/Visual Fidelity readiness gates only.
 - `/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts.
 - `/speckit.tasks`: `tasks.md` only.
 - `/speckit.analyze`: vertical consistency checks across requirements, behavior drafts, contracts, and tasks only.
 - `/speckit.implement`: implementation handoff execution only.
+
+`/speckit.tasks` owns implementation, validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`. `/speckit.implement` may execute those tasks and record receipt evidence, but it must not invent validation strategy, add lifecycle roles, change requirements, update contracts, or widen scope during execution.
+
+When Design Requirement Intake or a Figma Evidence Packet has already been written into `spec.md`, `/speckit.clarify` may clarify those requirement gaps from `spec.md`, but extraction remains outside clarification.
+external design extraction is not a clarification responsibility.
+
+Visual Fidelity readiness applies to design-derived and product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements. The Visual Fidelity Evidence Matrix is the single visual readiness record and uses one row per visual requirement or visual proof obligation with Source `spec.md` section, Fidelity Scope, Screenshot Level, Evidence Refs, Visual Proof Required, Blocking Item ID, and Exception Rule. It is the only artifact that decides visual planning readiness, visual proof level sufficiency, screenshot sufficiency, accepted exception rules, checklist Gate Status, and checklist Blocking Items. Provider source readiness remains separate: provider intake may prove raw metadata completeness, metadata index completeness proof, node inventory parity, and blocker lint errors, but that proof is not the Visual Fidelity readiness gate. Responsive visual requirements block PASS only when they are complex, multi-state, or declare L2 or L3 visual proof.
 
 ## Structured Artifact Rules
 
@@ -85,10 +102,12 @@ interface contracts, `research.md`, and `quickstart.md`. Do not add a
 standalone `test-plan.md` artifact unless the preset contract is deliberately
 changed for an audit or manual-review requirement.
 
-Keep product requirements in `spec.md`, domain model details in
-`data-model.md`, interface schemas in `contracts/`, and validation run guidance
-in `quickstart.md`.
+Keep product requirements in `spec.md`, including explicit NFR assumptions;
+NFR readiness belongs in `spec.md` product requirements rather than downstream
+planning guesses. Keep domain model details in `data-model.md`, interface
+schemas in `contracts/`, and validation run guidance in `quickstart.md`.
 
+For visual planning, research.md records visual validation decisions only and must not duplicate the Visual Fidelity Evidence Matrix; contracts formalize visual interaction and state constraints by referencing accepted visual items, visual proof refs, and accepted exception refs; contracts/sequences.md records visual state flow only when it affects cross-boundary sequencing, async callbacks, retry, rollback, compensation, or error propagation, and must not define visual style, tokens, layout breakpoints, screenshot matrices, or validation commands.
 ## Handoff Extension Rules
 
 Handoff extensions must update schema, validator, command, and cross-agent documentation together.
@@ -99,7 +118,7 @@ Agents may read or write must be reflected in:
 - `validators/speckit_implement_contract.py` when cross-field validation changes.
 - `commands/speckit.implement.md` when Core, Vertical Planner, or Worker
   behavior changes.
-- `speckit-cross-agent-subagents.md` when worker prompts, context digest rules,
+- `tests/contracts/speckit-cross-agent-subagents.md` when worker prompts, context digest rules,
   shard rules, or path rules change.
 - `tests/test_preset_contract.py` for all of the above.
 
