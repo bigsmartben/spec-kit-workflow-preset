@@ -24,7 +24,7 @@ provides:
     - type: "template"
       name: "constitution-template"
       file: "templates/constitution-template.md"
-      description: "Add change scope granularity governance to the constitution template"
+      description: "Add change scope granularity and architecture SSOT governance to the constitution template"
       replaces: "constitution-template"
       strategy: "wrap"
 
@@ -80,7 +80,7 @@ provides:
     - type: "command"
       name: "speckit.constitution"
       file: "commands/speckit.constitution.md"
-      description: "Wrap core constitution updates with change scope granularity governance"
+      description: "Wrap core constitution updates with change scope granularity and architecture SSOT governance"
       replaces: "speckit.constitution"
       strategy: "wrap"
 
