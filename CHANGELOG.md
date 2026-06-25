@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added constitution governance coverage for the fixed R/M/U/O mapping and Architecture SSOT boundary, with preset manifest, documentation, contract tests, and install smoke checks aligned to the constitution template.
+
 ## 1.3.10
 
 - Tightened implement handoff, manifest, and receipt shard IDs to the `S00-capability-00` format.
