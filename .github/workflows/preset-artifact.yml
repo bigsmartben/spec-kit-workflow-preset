@@ -341,18 +341,33 @@ jobs:
 
           version = os.environ["VERSION"]
           catalog_path = Path("presets/catalog.json")
+          community_catalog_path = Path("presets/catalog.community.json")
           manifest_path = Path("presets/workflow-preset/preset.yml")
           catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+          community_catalog = json.loads(community_catalog_path.read_text(encoding="utf-8"))
           manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-          entry = catalog["presets"]["workflow-preset"]
-          entry["version"] = version
-          entry["repository"] = manifest["preset"]["repository"]
-          entry["requires"]["speckit_version"] = manifest["requires"]["speckit_version"]
           provided = manifest["provides"]["templates"]
-          entry["provides"]["commands"] = sum(1 for item in provided if item["type"] == "command")
-          entry["provides"]["templates"] = sum(1 for item in provided if item["type"] == "template")
-          entry["tags"] = manifest["tags"]
+          command_count = sum(1 for item in provided if item["type"] == "command")
+          template_count = sum(1 for item in provided if item["type"] == "template")
+          for entry in (
+              catalog["presets"]["workflow-preset"],
+              community_catalog["presets"]["workflow-preset"],
+          ):
+              entry["version"] = version
+              entry["repository"] = manifest["preset"]["repository"]
+              entry["requires"]["speckit_version"] = manifest["requires"]["speckit_version"]
+              entry["provides"]["commands"] = command_count
+              entry["provides"]["templates"] = template_count
+              entry["tags"] = manifest["tags"]
+          community_catalog["presets"]["workflow-preset"]["download_url"] = (
+              f"https://github.com/bigsmartben/spec-kit-workflow-preset/"
+              f"releases/download/v{version}/spec-kit-workflow-preset-v{version}.zip"
+          )
           catalog_path.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+          community_catalog_path.write_text(
+              json.dumps(community_catalog, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
 
           tests_path = Path("tests/test_presets.py")
           tests_text = tests_path.read_text(encoding="utf-8")
@@ -371,7 +386,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="workflow-preset-release-v${VERSION}"
           git switch -C "${branch}" "origin/${INPUT_SPEC_KIT_REF}"
-          git add presets/catalog.json presets/workflow-preset tests/test_presets.py
+          git add presets/catalog.json presets/catalog.community.json presets/workflow-preset tests/test_presets.py
           if git diff --cached --quiet; then
             echo "No workflow-preset integration changes to commit."
             exit 0
@@ -383,7 +398,7 @@ jobs:
           {
             echo "## Summary"
             echo "- Update bundled workflow-preset to v${VERSION}."
-            echo "- Update presets/catalog.json metadata."
+            echo "- Update presets/catalog.json and presets/catalog.community.json metadata."
             echo "- Release artifact: ${WORKFLOW_PRESET_DOWNLOAD_URL}"
             echo
             echo "## Test Plan"
