@@ -85,6 +85,18 @@ def _paths_overlap(left: Any, right: Any) -> bool:
     )
 
 
+def _path_within_or_equal(path: Any, allowed_path: Any) -> bool:
+    path_absolute, path_parts = _normalized_path_parts(path)
+    allowed_absolute, allowed_parts = _normalized_path_parts(allowed_path)
+    if path_absolute != allowed_absolute:
+        return False
+    return path_parts == allowed_parts or _is_prefix_path(allowed_parts, path_parts)
+
+
+def _path_allowed_by_any(path: Any, allowed_paths: list[Any]) -> bool:
+    return any(_path_within_or_equal(path, allowed_path) for allowed_path in allowed_paths)
+
+
 def _first_path_overlap(
     paths: list[Any],
     candidates: list[Any],
@@ -360,7 +372,7 @@ def _code_review_checked_source_allowed(handoff: dict[str, Any], source: Any) ->
     context_digest_path = handoff.get("context_digest_path")
     if context_digest_path:
         allowed_sources.append(context_digest_path)
-    return any(_paths_overlap(source, allowed_source) for allowed_source in allowed_sources)
+    return _path_allowed_by_any(source, allowed_sources)
 
 
 def _receipt_mentions_any_command(receipt: dict[str, Any], commands: list[Any]) -> bool:
@@ -476,7 +488,7 @@ def validate_behavior_contract_bundle(
         raise ValueError("behavior scenario instances contain duplicate ids")
 
 
-def validate_manifest_contract(manifest: dict[str, Any]) -> None:
+def validate_manifest_structure(manifest: dict[str, Any]) -> None:
     execution_mode = manifest.get("execution_mode")
     if execution_mode not in VALID_EXECUTION_MODES:
         raise ValueError(
@@ -555,34 +567,61 @@ def validate_manifest_contract(manifest: dict[str, Any]) -> None:
                 )
 
 
-def validate_implement_contract(
+def validate_manifest_contract(manifest: dict[str, Any]) -> None:
+    validate_manifest_structure(manifest)
+
+
+def _manifest_dependency_pairs(manifest: dict[str, Any]) -> set[tuple[str, str]]:
+    pairs: set[tuple[str, str]] = set()
+    for dependency in manifest.get("dependencies", []):
+        shard_id = str(dependency["shard_id"])
+        for depends_on in dependency.get("depends_on", []):
+            pairs.add((shard_id, str(depends_on)))
+            pairs.add((str(depends_on), shard_id))
+    return pairs
+
+
+def _parallel_layers_by_shard(manifest: dict[str, Any]) -> dict[str, int]:
+    return {
+        str(shard_id): layer_index
+        for layer_index, layer in enumerate(manifest.get("dispatch_order", []))
+        for shard_id in layer
+    }
+
+
+def _shared_write_path_allowed(
+    manifest: dict[str, Any],
+    left_shard_id: str,
+    right_shard_id: str,
+) -> bool:
+    layers = _parallel_layers_by_shard(manifest)
+    if layers.get(left_shard_id) == layers.get(right_shard_id):
+        return False
+    return (left_shard_id, right_shard_id) in _manifest_dependency_pairs(manifest)
+
+
+def validate_dispatch_ready(
     manifest: dict[str, Any],
     handoffs_by_path: dict[str, dict[str, Any]],
-    receipts_by_path: dict[str, dict[str, Any]] | None = None,
 ) -> None:
-    validate_manifest_contract(manifest)
-    receipts_by_path = receipts_by_path or {}
+    validate_manifest_structure(manifest)
     allowed_handoff_paths = {shard["handoff_path"] for shard in manifest.get("shards", [])}
-    allowed_receipt_paths = {shard["receipt_path"] for shard in manifest.get("shards", [])}
 
     for handoff_path in handoffs_by_path:
         if handoff_path not in allowed_handoff_paths:
             raise ValueError(f"unlisted handoff: {handoff_path}")
-    for receipt_path in receipts_by_path:
-        if receipt_path not in allowed_receipt_paths:
-            raise ValueError(f"unlisted receipt: {receipt_path}")
 
     write_path_owner: list[tuple[str, str]] = []
     capability_owner: list[tuple[str, str]] = []
-    implementation_changed_paths: set[str] = set()
-    code_review_receipts: list[dict[str, Any]] = []
     for shard in manifest.get("shards", []):
         handoff_path = shard["handoff_path"]
         handoff = handoffs_by_path.get(handoff_path)
         if handoff is None:
             raise ValueError(f"missing handoff: {handoff_path}")
 
-        validate_handoff_contract(handoff)
+        validate_handoff_structure(handoff)
+        if handoff.get("context_gaps"):
+            raise ValueError("context_gaps must be empty before worker dispatch")
         if handoff["shard_id"] != shard["shard_id"]:
             raise ValueError(f"handoff shard_id mismatch: {handoff_path}")
         if handoff["task_ids"] != shard["task_ids"]:
@@ -600,10 +639,15 @@ def validate_implement_contract(
             )
             if overlap is not None:
                 previous_path, previous = overlap
-                raise ValueError(
-                    f"allowed_write_paths overlap: {path} overlaps {previous_path} "
-                    f"in {previous} and {handoff['shard_id']}"
-                )
+                if not _shared_write_path_allowed(
+                    manifest,
+                    str(handoff["shard_id"]),
+                    previous,
+                ):
+                    raise ValueError(
+                        f"allowed_write_paths overlap: {path} overlaps {previous_path} "
+                        f"in {previous} and {handoff['shard_id']}"
+                    )
             write_path_owner.append((str(path), handoff["shard_id"]))
 
         for path in handoff.get("capability_boundary", {}).get("owns", []):
@@ -620,23 +664,55 @@ def validate_implement_contract(
                 )
             capability_owner.append((str(path), handoff["shard_id"]))
 
+
+def validate_commit_ready(
+    manifest: dict[str, Any],
+    handoffs_by_path: dict[str, dict[str, Any]],
+    receipts_by_path: dict[str, dict[str, Any]],
+) -> None:
+    validate_dispatch_ready(manifest, handoffs_by_path)
+    allowed_receipt_paths = {shard["receipt_path"] for shard in manifest.get("shards", [])}
+    for receipt_path in receipts_by_path:
+        if receipt_path not in allowed_receipt_paths:
+            raise ValueError(f"unlisted receipt: {receipt_path}")
+
+    implementation_changed_paths: set[str] = set()
+    code_review_receipts: list[dict[str, Any]] = []
+    for shard in manifest.get("shards", []):
+        handoff = handoffs_by_path[shard["handoff_path"]]
         receipt_path = shard["receipt_path"]
         receipt = receipts_by_path.get(receipt_path)
-        if receipt is not None:
-            validate_receipt_contract(handoff, receipt, receipt_path)
-            if receipt.get("task_type") == "implementation":
-                implementation_changed_paths.update(
-                    str(path) for path in receipt.get("changed_paths", [])
-                )
-            elif _handoff_is_code_review_task(handoff):
-                code_review_receipts.append(receipt)
+        if receipt is None:
+            raise ValueError(f"missing receipt: {receipt_path}")
+        validate_receipt_structure(handoff, receipt, receipt_path)
+        if receipt.get("task_type") == "implementation":
+            implementation_changed_paths.update(
+                str(path) for path in receipt.get("changed_paths", [])
+            )
+        elif _handoff_is_code_review_task(handoff):
+            code_review_receipts.append(receipt)
 
-    for receipt in code_review_receipts:
-        data_side_effect_review = receipt.get("data_side_effect_review", {})
-        reviewed_diff_paths = {
-            str(path) for path in data_side_effect_review.get("reviewed_diff_paths", [])
-        }
-        missing_paths = sorted(implementation_changed_paths - reviewed_diff_paths)
+    if implementation_changed_paths and not code_review_receipts:
+        first_path = sorted(implementation_changed_paths)[0]
+        raise ValueError(
+            "implementation changed_paths require at least one code review receipt: "
+            f"{first_path}"
+        )
+
+    if code_review_receipts:
+        reviewed_diff_paths = [
+            str(path)
+            for review_receipt in code_review_receipts
+            for path in review_receipt.get("data_side_effect_review", {}).get(
+                "reviewed_diff_paths",
+                [],
+            )
+        ]
+        missing_paths = sorted(
+            path
+            for path in implementation_changed_paths
+            if not _path_allowed_by_any(path, reviewed_diff_paths)
+        )
         if missing_paths:
             raise ValueError(
                 "code review data_side_effect_review must cover implementation "
@@ -644,10 +720,17 @@ def validate_implement_contract(
             )
 
 
-def validate_handoff_contract(handoff: dict[str, Any]) -> None:
-    if handoff.get("context_gaps"):
-        raise ValueError("context_gaps must be empty before worker dispatch")
+def validate_implement_contract(
+    manifest: dict[str, Any],
+    handoffs_by_path: dict[str, dict[str, Any]],
+    receipts_by_path: dict[str, dict[str, Any]] | None = None,
+) -> None:
+    validate_dispatch_ready(manifest, handoffs_by_path)
+    if receipts_by_path is not None:
+        validate_commit_ready(manifest, handoffs_by_path, receipts_by_path)
 
+
+def validate_handoff_structure(handoff: dict[str, Any]) -> None:
     task_ids = handoff.get("task_ids")
     if not isinstance(task_ids, list) or not task_ids:
         raise ValueError("handoff task_ids must not be empty")
@@ -703,7 +786,13 @@ def validate_handoff_contract(handoff: dict[str, Any]) -> None:
         raise ValueError("draft_source context_digest_draft_path mismatch")
 
 
-def validate_receipt_contract(
+def validate_handoff_contract(handoff: dict[str, Any]) -> None:
+    validate_handoff_structure(handoff)
+    if handoff.get("context_gaps"):
+        raise ValueError("context_gaps must be empty before worker dispatch")
+
+
+def validate_receipt_structure(
     handoff: dict[str, Any],
     receipt: dict[str, Any],
     receipt_path: str,
@@ -744,7 +833,7 @@ def validate_receipt_contract(
         )
 
     for path in receipt.get("changed_paths", []):
-        if path not in handoff.get("allowed_write_paths", []):
+        if not _path_allowed_by_any(path, list(handoff.get("allowed_write_paths", []))):
             raise ValueError(f"receipt changed path outside allowed_write_paths: {path}")
 
     if _handoff_is_code_review_task(handoff):
@@ -803,7 +892,10 @@ def validate_receipt_contract(
 
         for repair in receipt.get("consistency_repairs", []):
             for path in repair.get("changed_paths", []):
-                if path not in handoff.get("allowed_write_paths", []):
+                if not _path_allowed_by_any(
+                    path,
+                    list(handoff.get("allowed_write_paths", [])),
+                ):
                     raise ValueError(
                         "consistency repair changed path outside allowed_write_paths: "
                         f"{path}"
@@ -831,3 +923,11 @@ def validate_receipt_contract(
             )
         if e2e_deferred and review_status == "approved":
             raise ValueError("code review receipt cannot be approved when real e2e is deferred")
+
+
+def validate_receipt_contract(
+    handoff: dict[str, Any],
+    receipt: dict[str, Any],
+    receipt_path: str,
+) -> None:
+    validate_receipt_structure(handoff, receipt, receipt_path)

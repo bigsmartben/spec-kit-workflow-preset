@@ -9,6 +9,8 @@ Preserve the planned `M + U` scope in task text when deriving implementation, va
 
 ## Task-Derivation Subagents
 
+Follow cross-agent protocol profile: `speckit.tasks.stage_local_derivation`.
+
 Use a context-reduced multi-subagent derivation model when the command runtime supports subagents. This is a derivation-time partitioning rule only: do not create implementation transfer artifacts, manifests, context digests, execution modes, persistent orchestration files, schemas, scripts, or task write-path metadata. If subagents are unavailable, the Tasks Core Agent must apply the same scoped-read and output-contract rules sequentially.
 
 The Tasks Core Agent coordinates task derivation, partitions source inputs by user story or review scope, and assembles the final `tasks.md`. It must consume only subagent drafts, structured summaries, blocker reports, and the current command inputs. It must not consume full conversation history as task-derivation context.

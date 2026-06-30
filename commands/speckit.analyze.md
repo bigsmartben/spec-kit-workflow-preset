@@ -9,6 +9,8 @@ Check that tasks preserve the planned `M + U` scope. Report missing, widened, or
 
 ## Behavior Vertical Consistency
 
+Follow cross-agent protocol profile: `speckit.analyze.read_only_parallel_review`.
+
 Analyze whether the feature artifacts close the `spec -> BDD/UIF intent -> contracts -> tasks` loop. This command checks planning consistency only; it does not inspect implementation code or infer interaction flows from built code.
 
 ## Analysis Performance Guardrails

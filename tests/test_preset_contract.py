@@ -13,10 +13,15 @@ from validators.speckit_implement_contract import (
     validate_behavior_case_coverage,
     validate_behavior_contract_bundle,
     validate_behavior_draft_contract,
+    validate_commit_ready,
+    validate_dispatch_ready,
     validate_implement_contract,
     validate_handoff_contract,
+    validate_handoff_structure,
     validate_manifest_contract,
+    validate_manifest_structure,
     validate_receipt_contract,
+    validate_receipt_structure,
 )
 
 
@@ -25,6 +30,7 @@ PRESET_PATH = REPO_ROOT / "preset.yml"
 README_PATH = REPO_ROOT / "README.md"
 CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
 CROSS_AGENT_SUBAGENTS_PATH = REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-subagents.md"
+CROSS_AGENT_PROTOCOL_PATH = REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-protocol.md"
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 EXTENSION_GOVERNANCE_PATH = REPO_ROOT / "docs" / "extension-governance.md"
 SPECIFY_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.specify.md"
@@ -284,7 +290,7 @@ def minimal_receipt(
         "task_type": task_type,
         "task_ids": task_ids,
         "completed_task_ids": task_ids if completed_task_ids is None else completed_task_ids,
-        "changed_paths": changed_paths or [SERVICE_PATH],
+        "changed_paths": changed_paths if changed_paths is not None else [SERVICE_PATH],
         "validation_evidence": validation_evidence
         if validation_evidence is not None
         else ["unit tests passed"],
@@ -570,6 +576,21 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual(command_name, command["replaces"])
             self.assertEqual("wrap", command["strategy"])
 
+        specify_command = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "Follow cross-agent protocol profile: `speckit.specify.single_core`",
+            specify_command,
+        )
+        self.assertIn("Preset-added requirement output writes only `spec.md`", specify_command)
+        for implement_only_term in (
+            "speckit.implement.persistent_handoff_orchestration",
+            "handoff-manifest.json",
+            "allowed_write_paths",
+            "receipt_path",
+            "Manual Worker Queue",
+        ):
+            self.assertNotIn(implement_only_term, specify_command)
+
         self.assertEqual(
             "Wrap core constitution updates with change scope granularity and architecture SSOT governance",
             entries["speckit.constitution"]["description"],
@@ -646,7 +667,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("executable validation paths belong in `quickstart.md`", command)
         self.assertIn("final report must list generated artifacts", command)
         self.assertIn("Plan Agent Topology", command)
-        self.assertIn("Use stage-local subagents to reduce planning context load", command)
+        self.assertIn(
+            "Follow cross-agent protocol profile: `speckit.plan.stage_local_planning`",
+            command,
+        )
         self.assertIn("Plan Core Agent", command)
         for agent_role in (
             "Behavior Projection Agent",
@@ -656,15 +680,8 @@ class PresetContractTests(unittest.TestCase):
             "Visual Planning Agent",
         ):
             self.assertIn(agent_role, command)
-        for payload_field in (
-            "`assigned_scope`",
-            "`allowed_read_paths`",
-            "`allowed_sections`",
-            "`output_contract`",
-        ):
-            self.assertIn(payload_field, command)
+        self.assertIn("Each payload declares assigned scope, allowed reads, allowed sections, and output contract", command)
         self.assertIn("rather than subagent conversation history", command)
-        self.assertIn("PLANNING_CONTEXT_GAP", command)
         self.assertNotIn("speckit.tasks", command)
         self.assertNotIn("speckit.implement", command)
 
@@ -1424,7 +1441,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("./contracts/behavior/", template)
 
         cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
-        self.assertIn("tests/contracts/speckit-cross-agent-subagents.md", implement)
+        self.assertNotIn("tests/contracts/", implement)
         self.assertIn("contracts/bdd/", cross_agent)
         self.assertIn("contracts/uif/", cross_agent)
         self.assertIn("contracts/behavior/", cross_agent)
@@ -1452,7 +1469,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("missing visual proof refs", cross_agent)
         self.assertIn("missing screenshot refs", cross_agent)
         self.assertIn("final_visual_review tasks", cross_agent)
-        self.assertIn("must not discover visual requirements, repair Visual Fidelity Readiness evidence", cross_agent)
+        self.assertIn("Do not discover visual requirements, repair Visual Fidelity Readiness evidence", cross_agent)
         self.assertIn("planned `U` design object", cross_agent)
         self.assertIn("specific source, test, fixture, configuration, or receipt paths", cross_agent)
 
@@ -1794,7 +1811,8 @@ class PresetContractTests(unittest.TestCase):
             "speckit.implement.handoff.v2.schema.json",
             "speckit.implement.receipt.v1.schema.json",
             "validators/speckit_implement_contract.py",
-            "tests/contracts/speckit-cross-agent-subagents.md",
+            "Use only this command, implement schemas, and implement validators as runtime contract sources",
+            "Runtime, shard, digest, path, asset binding, dispatch, Worker Prompt, and receipt rules are source-owned here",
             "Use handoff JSON <path>",
             "allowed_read_paths",
             "allowed_write_paths",
@@ -1807,9 +1825,17 @@ class PresetContractTests(unittest.TestCase):
             "Do not create handoffs or worker instructions for visual rows",
             "`Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
             "Route `Unknown` visual rows back to `/speckit.clarify`",
-            "route `[BLOCKED: PROVIDER_EVIDENCE]` visual rows to the external intake extension",
+            "Route `[BLOCKED: PROVIDER_EVIDENCE]` visual rows to the external intake extension",
+            "do not repair provider evidence in `/speckit.implement`",
             "`/speckit.implement` must not discover visual requirements, repair Visual Fidelity Readiness evidence",
             "Visual worker receipts must reference the relevant Visual Item ID",
+            "Follow cross-agent protocol profile: `speckit.implement.persistent_handoff_orchestration`",
+            "Manual Worker Queue",
+            "validate_manifest_structure()",
+            "validate_handoff_structure()",
+            "validate_dispatch_ready()",
+            "validate_receipt_structure()",
+            "validate_commit_ready()",
         ]
         for term in command_terms:
             self.assertIn(term, command)
@@ -1846,7 +1872,7 @@ class PresetContractTests(unittest.TestCase):
             "isolated_subagent",
             "manual_fresh_worker_session",
             "isolated subagent/subsession",
-            "write the manifest and handoffs, then stop with Worker-mode instructions",
+            "write the manifest and handoffs, then stop with `Manual Worker Queue` entries",
             "Consume planner outputs and worker receipts, not worker conversation history",
             "Reject non-existent handoff paths",
             "Reject handoffs not listed in `handoff-manifest.json`",
@@ -1873,18 +1899,23 @@ class PresetContractTests(unittest.TestCase):
             "include only sections referenced by assigned task paths or vertical_capability",
             "record unresolved required context as `context_gaps`",
             "Path Rules",
+            "Path and Receipt Rules",
             "derive `allowed_write_paths` from paths referenced by assigned task text",
             "include receipt path in `allowed_write_paths`",
             "derive `allowed_read_paths` from allowed write parents, validation files, context digest, and context index",
             "Reject non-existent handoff paths",
             "Reject handoffs not listed in `handoff-manifest.json`",
+            "Implementation Worker",
+            "Code Review Worker",
+            "Visual Review Worker",
+            "Manual Worker Queue",
         ]
         for term in contract_terms:
             self.assertIn(term, cross_agent)
 
         self.assertIn("research.md validation decisions", cross_agent)
         self.assertIn("quickstart.md validation paths", cross_agent)
-        self.assertIn("Code Review Receipts", cross_agent)
+        self.assertIn("Code Review Worker", cross_agent)
         self.assertIn("task_type: code_review", cross_agent)
         self.assertIn("review_conclusion", cross_agent)
         self.assertIn("checked_sources", cross_agent)
@@ -1896,8 +1927,11 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("consistency_repairs", cross_agent)
         self.assertIn("deferred_validation_todos", cross_agent)
         self.assertIn("quickstart/contract validation command", cross_agent)
-        self.assertIn("repair implementation drift against existing design, sequence, or contract constraints", cross_agent)
-        self.assertIn("real e2e gaps become todos", cross_agent)
+        self.assertIn(
+            "Repair only authorized implementation drift against existing design, sequence, or contract constraints inside allowed_write_paths",
+            cross_agent,
+        )
+        self.assertIn("implementation changed_paths require at least one Code Review Receipt", cross_agent)
         self.assertNotIn("## Shard Rules", command)
         self.assertNotIn("## Context Digest Rules", command)
         self.assertNotIn("## Path Rules", command)
@@ -2588,6 +2622,7 @@ class PresetContractTests(unittest.TestCase):
 
     def test_validate_manifest_contract_accepts_valid_cross_fields(self) -> None:
         validate_manifest_contract(minimal_manifest())
+        validate_manifest_structure(minimal_manifest())
 
     def test_validate_implement_contract_rejects_missing_handoff(self) -> None:
         with self.assertRaises(ValueError):
@@ -2627,10 +2662,76 @@ class PresetContractTests(unittest.TestCase):
         validate_implement_contract(
             minimal_manifest(),
             handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff()},
-            receipts_by_path={RECEIPT_PATH: minimal_receipt()},
+            receipts_by_path={RECEIPT_PATH: minimal_receipt(changed_paths=[])},
         )
 
-    def test_validate_implement_contract_rejects_code_review_that_misses_implementation_diff(
+    def test_validate_commit_ready_rejects_implementation_changes_without_code_review(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "code review receipt"):
+            validate_commit_ready(
+                minimal_manifest(),
+                handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff()},
+                receipts_by_path={RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH])},
+            )
+
+    def test_validate_commit_ready_rejects_missing_shard_receipt(self) -> None:
+        second_shard_id = "S02-service-flow-02"
+        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
+        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
+        manifest = minimal_manifest(
+            shards=[
+                minimal_shard(),
+                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
+            ],
+            dispatch_order=[[SHARD_ID, second_shard_id]],
+        )
+
+        with self.assertRaisesRegex(ValueError, "missing receipt"):
+            validate_commit_ready(
+                manifest,
+                handoffs_by_path={
+                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
+                    second_handoff_path: minimal_handoff(
+                        shard_id=second_shard_id,
+                        task_ids=["T002"],
+                        allowed_write_paths=[f"{FEATURE_PATH}/src/other.py", second_receipt_path],
+                    ),
+                },
+                receipts_by_path={RECEIPT_PATH: minimal_receipt()},
+            )
+
+    def test_validate_commit_ready_rejects_missing_code_review_receipt(self) -> None:
+        review_shard_id = "S02-service-flow-02"
+        review_receipt_path = f"{HANDOFF_DIR}/results/{review_shard_id}.json"
+        review_handoff_path = f"{HANDOFF_DIR}/{review_shard_id}.json"
+        manifest = minimal_manifest(
+            shards=[
+                minimal_shard(),
+                minimal_shard(shard_id=review_shard_id, task_ids=["T099"]),
+            ],
+            dependencies=[{"shard_id": review_shard_id, "depends_on": [SHARD_ID]}],
+            dispatch_order=[[SHARD_ID], [review_shard_id]],
+        )
+        review_handoff = minimal_handoff(
+            shard_id=review_shard_id,
+            task_ids=["T099"],
+            allowed_write_paths=[review_receipt_path],
+            task_type="code_review",
+        )
+        review_handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
+
+        with self.assertRaisesRegex(ValueError, "missing receipt"):
+            validate_commit_ready(
+                manifest,
+                handoffs_by_path={
+                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
+                    review_handoff_path: review_handoff,
+                },
+                receipts_by_path={RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH])},
+            )
+
+    def test_validate_commit_ready_rejects_code_review_that_misses_implementation_diff(
         self,
     ) -> None:
         review_shard_id = "S02-service-flow-02"
@@ -2658,7 +2759,7 @@ class PresetContractTests(unittest.TestCase):
         review_handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
 
         with self.assertRaisesRegex(ValueError, "implementation changed_paths"):
-            validate_implement_contract(
+            validate_commit_ready(
                 manifest,
                 handoffs_by_path={
                     f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
@@ -2684,6 +2785,97 @@ class PresetContractTests(unittest.TestCase):
                     ),
                 },
             )
+
+    def test_validate_commit_ready_accepts_union_code_review_coverage(self) -> None:
+        review_one_id = "S02-service-flow-02"
+        review_two_id = "S03-service-flow-03"
+        second_impl_id = "S04-service-flow-04"
+        second_service_path = f"{FEATURE_PATH}/src/other_service.py"
+        review_one_receipt_path = f"{HANDOFF_DIR}/results/{review_one_id}.json"
+        review_two_receipt_path = f"{HANDOFF_DIR}/results/{review_two_id}.json"
+        second_impl_receipt_path = f"{HANDOFF_DIR}/results/{second_impl_id}.json"
+        manifest = minimal_manifest(
+            shards=[
+                minimal_shard(),
+                minimal_shard(shard_id=second_impl_id, task_ids=["T002"]),
+                minimal_shard(shard_id=review_one_id, task_ids=["T098"]),
+                minimal_shard(shard_id=review_two_id, task_ids=["T099"]),
+            ],
+            dependencies=[
+                {"shard_id": review_one_id, "depends_on": [SHARD_ID, second_impl_id]},
+                {"shard_id": review_two_id, "depends_on": [SHARD_ID, second_impl_id]},
+            ],
+            dispatch_order=[[SHARD_ID, second_impl_id], [review_one_id, review_two_id]],
+        )
+        second_impl_handoff = minimal_handoff(
+            shard_id=second_impl_id,
+            task_ids=["T002"],
+            allowed_write_paths=[second_service_path, second_impl_receipt_path],
+        )
+        review_one = minimal_handoff(
+            shard_id=review_one_id,
+            task_ids=["T098"],
+            allowed_write_paths=[review_one_receipt_path],
+            task_type="code_review",
+        )
+        review_one["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
+        review_two = minimal_handoff(
+            shard_id=review_two_id,
+            task_ids=["T099"],
+            allowed_write_paths=[review_two_receipt_path],
+            task_type="code_review",
+        )
+        review_two["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, second_service_path]
+
+        validate_commit_ready(
+            manifest,
+            handoffs_by_path={
+                f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
+                f"{HANDOFF_DIR}/{second_impl_id}.json": second_impl_handoff,
+                f"{HANDOFF_DIR}/{review_one_id}.json": review_one,
+                f"{HANDOFF_DIR}/{review_two_id}.json": review_two,
+            },
+            receipts_by_path={
+                RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH]),
+                second_impl_receipt_path: minimal_receipt(
+                    shard_id=second_impl_id,
+                    task_ids=["T002"],
+                    changed_paths=[second_service_path],
+                ),
+                review_one_receipt_path: minimal_receipt(
+                    shard_id=review_one_id,
+                    task_ids=["T098"],
+                    task_type="code_review",
+                    changed_paths=[review_one_receipt_path],
+                    validation_evidence=["quickstart.md code review covered service diff."],
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[SERVICE_PATH]
+                    ),
+                ),
+                review_two_receipt_path: minimal_receipt(
+                    shard_id=review_two_id,
+                    task_ids=["T099"],
+                    task_type="code_review",
+                    changed_paths=[review_two_receipt_path],
+                    validation_evidence=["quickstart.md code review covered other service diff."],
+                    review_conclusion={
+                        "status": "approved",
+                        "summary": "Review complete.",
+                        "checked_sources": [QUICKSTART_PATH],
+                        "findings": [],
+                    },
+                    data_side_effect_review=no_data_side_effects_review(
+                        paths=[second_service_path]
+                    ),
+                ),
+            },
+        )
 
     def test_validate_implement_contract_rejects_overlapping_allowed_write_paths(self) -> None:
         second_shard_id = "S02-service-flow-02"
@@ -2736,6 +2928,31 @@ class PresetContractTests(unittest.TestCase):
                 },
                 receipts_by_path={},
             )
+
+    def test_validate_dispatch_ready_accepts_serial_shared_allowed_write_paths(self) -> None:
+        second_shard_id = "S02-service-flow-02"
+        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
+        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
+        manifest = minimal_manifest(
+            shards=[
+                minimal_shard(),
+                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
+            ],
+            dependencies=[{"shard_id": second_shard_id, "depends_on": [SHARD_ID]}],
+            dispatch_order=[[SHARD_ID], [second_shard_id]],
+        )
+
+        validate_dispatch_ready(
+            manifest,
+            handoffs_by_path={
+                f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
+                second_handoff_path: minimal_handoff(
+                    shard_id=second_shard_id,
+                    task_ids=["T002"],
+                    allowed_write_paths=[SERVICE_PATH, second_receipt_path],
+                ),
+            },
+        )
 
     def test_validate_implement_contract_rejects_overlapping_capability_owns(self) -> None:
         second_shard_id = "S02-service-flow-02"
@@ -2807,6 +3024,20 @@ class PresetContractTests(unittest.TestCase):
         handoff["context_gaps"] = ["Missing API contract context"]
         Draft202012Validator(schema).validate(handoff)
 
+    def test_validate_handoff_structure_allows_context_gaps(self) -> None:
+        handoff = minimal_handoff()
+        handoff["context_gaps"] = ["Missing API contract context"]
+        validate_handoff_structure(handoff)
+
+    def test_validate_dispatch_ready_rejects_context_gaps(self) -> None:
+        handoff = minimal_handoff()
+        handoff["context_gaps"] = ["Missing API contract context"]
+        with self.assertRaisesRegex(ValueError, "context_gaps"):
+            validate_dispatch_ready(
+                minimal_manifest(),
+                handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": handoff},
+            )
+
     def test_validate_handoff_contract_rejects_tasks_md_in_allowed_write_paths(self) -> None:
         handoff = minimal_handoff(allowed_write_paths=[SERVICE_PATH, TASKS_PATH, RECEIPT_PATH])
         with self.assertRaises(ValueError):
@@ -2839,6 +3070,7 @@ class PresetContractTests(unittest.TestCase):
 
     def test_validate_handoff_contract_accepts_valid_cross_fields(self) -> None:
         validate_handoff_contract(minimal_handoff())
+        validate_handoff_structure(minimal_handoff())
 
     def test_validate_handoff_contract_rejects_planner_output_vertical_mismatch(self) -> None:
         handoff = minimal_handoff(planner_vertical_capability="ui")
@@ -3019,6 +3251,19 @@ class PresetContractTests(unittest.TestCase):
 
     def test_validate_receipt_contract_accepts_valid_cross_fields(self) -> None:
         validate_receipt_contract(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
+        validate_receipt_structure(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
+
+    def test_validate_receipt_structure_accepts_changed_path_inside_allowed_directory(
+        self,
+    ) -> None:
+        handoff = minimal_handoff(
+            allowed_write_paths=[f"{FEATURE_PATH}/src", RECEIPT_PATH],
+        )
+        validate_receipt_structure(
+            handoff,
+            minimal_receipt(changed_paths=[SERVICE_PATH]),
+            RECEIPT_PATH,
+        )
 
     def test_validate_receipt_contract_rejects_completed_tasks_with_deferred_validation(
         self,
@@ -3642,7 +3887,7 @@ class PresetContractTests(unittest.TestCase):
 
         lines = command.splitlines()
         self.assertLessEqual(len(lines), 80)
-        self.assertLessEqual(len(command), 4000)
+        self.assertLessEqual(len(command), 4200)
         self.assertLessEqual(max(len(line) for line in lines), 120)
         forbidden_terms = [
             "This command is",
@@ -3684,7 +3929,9 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("vertical capability", readme)
         self.assertIn("speckit.implement.handoff.v2", readme)
         self.assertIn("speckit.implement.receipt.v1", readme)
-        self.assertIn("tests/contracts/speckit-cross-agent-subagents.md", readme)
+        self.assertIn("commands/speckit.implement.md", readme)
+        self.assertIn("validators/speckit_implement_contract.py", readme)
+        self.assertNotIn("tests/contracts/", readme)
         self.assertIn("Problem Addressed", readme)
         self.assertIn("reasoning quality", readme)
         self.assertNotIn("compatible with the core workflow", readme)
@@ -3770,6 +4017,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("validation_evidence", readme)
         self.assertIn("Context-load controls", readme)
         self.assertIn("context-load controls", changelog)
+        self.assertIn("Packaged contract validators", readme)
+        self.assertNotIn("Development-only contract helpers", readme)
         self.assertIn("Case Coverage Matrix", changelog)
         self.assertIn("failure behavior scenarios", changelog)
         self.assertIn("Change Scope Granularity", changelog)
@@ -3810,12 +4059,49 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("agent-native handoff orchestration", changelog)
         self.assertIn("Removed Python dispatch tooling", changelog)
 
+    def test_cross_agent_protocol_contract_document(self) -> None:
+        self.assertTrue(CROSS_AGENT_PROTOCOL_PATH.exists())
+        document = CROSS_AGENT_PROTOCOL_PATH.read_text(encoding="utf-8")
+
+        self.assertLessEqual(len(document.splitlines()), 95)
+        required_terms = [
+            "Spec Kit Cross-Agent Protocol",
+            "BaseSubagentProtocol",
+            "`stage`",
+            "`owner_agent`",
+            "`input_scope`",
+            "`allowed_reads`",
+            "`allowed_writes`",
+            "`output_contract`",
+            "`validation_gate`",
+            "`stop_conditions`",
+            "`fallback`",
+            "speckit.specify.single_core",
+            "speckit.plan.stage_local_planning",
+            "speckit.tasks.stage_local_derivation",
+            "speckit.analyze.read_only_parallel_review",
+            "speckit.implement.persistent_handoff_orchestration",
+            "Profiles inherit the scheduling protocol, not execution permissions.",
+            "Persistent handoff orchestration",
+            "Manual Worker Queue",
+            "validate_manifest_structure()",
+            "validate_handoff_structure()",
+            "validate_dispatch_ready()",
+            "validate_receipt_structure()",
+            "validate_commit_ready()",
+        ]
+        for term in required_terms:
+            self.assertIn(term, document)
+
+        self.assertNotIn("```json", document)
+
     def test_cross_agent_subagent_contract_document(self) -> None:
         self.assertTrue(CROSS_AGENT_SUBAGENTS_PATH.exists())
         document = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(document.splitlines()), 125)
+        self.assertLessEqual(len(document.splitlines()), 160)
         required_terms = [
+            "Follow cross-agent protocol profile: `speckit.implement.persistent_handoff_orchestration`",
             "Codex",
             "Claude Code",
             "Gemini CLI",
@@ -3834,20 +4120,28 @@ class PresetContractTests(unittest.TestCase):
             "no full `spec.md`, `plan.md`, `research.md`, `contracts/`, `quickstart.md`",
             "Reduce implementation-stage context load and reasoning drift",
             "Vertical Planner Agent",
-            "Worker Prompt",
+            "Worker Prompts",
+            "Implementation Worker",
+            "Code Review Worker",
+            "Visual Review Worker",
             "handoff-manifest.json",
             "speckit.implement.manifest.v1.schema.json",
             "speckit.implement.handoff.v2.schema.json",
             "speckit.implement.receipt.v1.schema.json",
+            "validate_manifest_structure()",
+            "validate_handoff_structure()",
+            "validate_dispatch_ready()",
+            "validate_receipt_structure()",
+            "validate_commit_ready()",
             "Shard Rules",
             "Context Digest Rules",
-            "Path Rules",
+            "Path and Receipt Rules",
             "Only Vertical Planner Agents may produce shard plans and digest drafts.",
             "Only Core Agent may write final `handoff-manifest.json` and commit `tasks.md`.",
             "Only Worker Agents may execute implementation handoffs.",
             "Verify contract_type == speckit.implement.handoff.v2",
             "Load context_digest_path before editing",
-            "Stop if context_gaps is not empty",
+            "Stop if context_gaps is not empty at dispatch",
             "Execute only task_ids",
             "Read only allowed_read_paths",
             "Write only allowed_write_paths",
@@ -3859,8 +4153,7 @@ class PresetContractTests(unittest.TestCase):
             "behavior assertion",
             "API contract",
             "quickstart path",
-            "receipt 路径不等于 handoff 中声明的 `task_status_update.receipt_path`",
-            "Code Review Receipts",
+            "receipt path not equal to handoff `task_status_update.receipt_path`",
             "task_type: code_review",
             "review_conclusion",
             "checked_sources",
@@ -3894,7 +4187,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertTrue(EXTENSION_GOVERNANCE_PATH.exists())
         document = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(document.splitlines()), 140)
+        self.assertLessEqual(len(document.splitlines()), 160)
         required_terms = [
             "Preset Extension Governance",
             "templates own stable artifact shapes",
@@ -4055,7 +4348,9 @@ class PresetContractTests(unittest.TestCase):
             "download_url",
             'assert entry\\["version"\\] == "[0-9]+\\.[0-9]+\\.[0-9]+"',
             "tests/test_presets.py",
-            "tests/contracts/speckit-cross-agent-subagents.md",
+            "__pycache__",
+            ".pyc",
+            "*.pyc",
             "ZipInfo",
             "1980, 1, 1",
             "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true')",
@@ -4077,6 +4372,8 @@ class PresetContractTests(unittest.TestCase):
             "client_payload[download_url]",
             "repository_dispatch",
             "repos/bigsmartben/spec-kit/dispatches",
+            "tests/contracts/speckit-cross-agent-protocol.md",
+            "tests/contracts/speckit-cross-agent-subagents.md",
             "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
             "skipping integration PR",
         ]

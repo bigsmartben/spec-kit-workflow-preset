@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a shared cross-agent protocol contract with command profiles for specify, plan, tasks, analyze, and implement, while keeping persistent handoff orchestration scoped to `/speckit.implement`.
+- Kept cross-agent test contracts out of runtime references and excluded Python bytecode caches from artifact sync/zip checks.
+- Split implement validation into manifest structure, handoff structure, dispatch readiness, receipt structure, and commit readiness gates, including directory write authorization and unioned code review coverage.
+- Split implement Worker prompts into Implementation Worker, Code Review Worker, and Visual Review Worker roles, and added manual worker queue fallback when isolated subagents are unavailable.
 - Migrated product, design, provider, and HTML intake ownership out of the workflow preset and into the external `spec-kit-intake` extension; the preset now consumes external intake refs and visual SSOT refs while retaining `spec.md` projection and Visual Fidelity readiness.
 - Added constitution governance coverage for the fixed R/M/U/O mapping and Architecture SSOT boundary, with preset manifest, documentation, contract tests, and install smoke checks aligned to the constitution template.
 - Fixed the preset artifact integration workflow to update both bundled and community catalog metadata before opening the `bigsmartben/spec-kit` fork PR.
