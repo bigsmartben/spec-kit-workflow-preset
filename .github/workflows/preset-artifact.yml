@@ -158,7 +158,6 @@ jobs:
               "CHANGELOG.md",
               "LICENSE",
               "AGENTS.md",
-              "tests/contracts/speckit-cross-agent-subagents.md",
               "commands",
               "templates",
               "schemas",
@@ -166,6 +165,15 @@ jobs:
               "docs",
           ]
           forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
+          forbidden_suffixes = (".pyc", ".pyo")
+
+          def is_forbidden(name: str) -> bool:
+              return (
+                  name.startswith(forbidden_prefixes)
+                  or "/__pycache__/" in f"/{name}"
+                  or name.endswith(forbidden_suffixes)
+              )
+
           files = []
 
           for root in include_roots:
@@ -180,7 +188,7 @@ jobs:
           with ZipFile(zip_name, "w", compression=ZIP_DEFLATED) as archive:
               for file_path in sorted(files, key=lambda item: item.as_posix()):
                   name = file_path.as_posix()
-                  if name.startswith(forbidden_prefixes):
+                  if is_forbidden(name):
                       continue
                   info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
                   info.compress_type = ZIP_DEFLATED
@@ -207,12 +215,20 @@ jobs:
               "commands/speckit.plan.md",
               "commands/speckit.tasks.md",
               "templates/plan-template.md",
-              "tests/contracts/speckit-cross-agent-subagents.md",
               "schemas/speckit.implement.handoff.v2.schema.json",
               "validators/speckit_implement_contract.py",
               "docs/extension-governance.md",
           }
           forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
+          forbidden_suffixes = (".pyc", ".pyo")
+
+          def is_forbidden(name: str) -> bool:
+              return (
+                  name.startswith(forbidden_prefixes)
+                  or "/__pycache__/" in f"/{name}"
+                  or name.endswith(forbidden_suffixes)
+              )
+
           with zipfile.ZipFile(os.environ["ZIP_NAME"]) as archive:
               names = set(archive.namelist())
 
@@ -220,7 +236,7 @@ jobs:
           if missing:
               print(f"Missing required artifact entries: {missing}", file=sys.stderr)
               sys.exit(1)
-          forbidden = sorted(name for name in names if name.startswith(forbidden_prefixes))
+          forbidden = sorted(name for name in names if is_forbidden(name))
           if forbidden:
               print(f"Forbidden artifact entries: {forbidden}", file=sys.stderr)
               sys.exit(1)
@@ -326,6 +342,8 @@ jobs:
             --exclude ".github/" \
             --exclude "docs/superpowers/" \
             --exclude "__pycache__/" \
+            --exclude "*.pyc" \
+            --exclude "*.pyo" \
             --exclude ".pytest_cache/" \
             --exclude "spec-kit-workflow-preset-v*.zip" \
             "${GITHUB_WORKSPACE}/" "${fork_dir}/spec-kit/presets/workflow-preset/"

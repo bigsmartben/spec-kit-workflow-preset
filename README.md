@@ -101,7 +101,9 @@ Implementation capabilities:
 - Uses Worker Agent mode to execute exactly one `speckit.implement.handoff.v2` handoff.
 - Writes `handoff-manifest.json`, one handoff JSON, one context digest, a context index, and one worker receipt per shard.
 - Defines deterministic shard, context digest, and allowed path derivation rules.
+- Uses the cross-agent protocol profile `speckit.implement.persistent_handoff_orchestration`; `/speckit.plan`, `/speckit.tasks`, and `/speckit.analyze` use their own stage-local profiles without inheriting implement execution permissions.
 - Keeps manifest, handoff, and receipt JSON contracts in standalone schema files.
+- Splits implement gates into manifest structure, handoff structure, dispatch readiness, receipt structure, and commit readiness validation.
 - Requires behavior-linked `validation_evidence` in worker receipts when behavior contracts are in handoff context.
 - Requires Final Code Review receipts to include post-implementation data side-effect review, visual consistency review, and asset binding review of actual implementation diffs before task status commit when those scopes apply.
 - Requires visual implementation review to reconcile implemented UI states, viewport behavior, visual proof evidence, and Client Asset Contract bindings with the planned contracts.
@@ -118,6 +120,7 @@ Context-load controls:
 - `allowed_read_paths` and `allowed_write_paths` make each handoff auditable and prevent broad implementation runs from silently crossing capability boundaries.
 - Worker receipts separate execution evidence from task status commits, so the Core Agent can review validation evidence before updating `tasks.md`.
 - Final Code Review analyzes implementation data side effects after Worker Agents finish and before task status commit.
+- When isolated subagents are unavailable, Core Agent writes the manifest and handoffs, then reports a `Manual Worker Queue` of `/speckit.implement Use handoff JSON <path>` entries in dispatch order.
 
 ## Workflow
 
@@ -305,7 +308,7 @@ Governance templates packaged by the preset:
 
 - `templates/constitution-template.md`
 
-Development-only contract helpers:
+Packaged contract validators:
 
 - `validators/speckit_implement_contract.py`
 
@@ -329,7 +332,7 @@ Test strategy derivation happens during `/speckit.tasks`. The command derives un
 
 The handoff context digest includes relevant design constraints, visual fidelity requirements, screenshot refs, visual proof refs, visual SSOT refs, external evidence refs, validation decisions, quickstart paths, and behavior contracts when present, so Worker Agents can preserve object boundaries, service flows, visual intent, and validation intent without reading full planning documents by default.
 
-See `tests/contracts/speckit-cross-agent-subagents.md` for the cross-platform subagent mapping, worker prompt, parallel dispatch rules, and minimal handoff/receipt contract.
+See `commands/speckit.implement.md` for runtime handoff orchestration rules, and `schemas/` plus `validators/speckit_implement_contract.py` for the machine-checked manifest, handoff, receipt, dispatch, and commit contracts.
 
 ## Agent Topology
 

@@ -3,6 +3,8 @@ description: Wrap core specification with spec-only requirement ownership.
 strategy: wrap
 ---
 
+Follow cross-agent protocol profile: `speckit.specify.single_core`.
+
 ## Spec-Only Requirement Policy
 This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.
 

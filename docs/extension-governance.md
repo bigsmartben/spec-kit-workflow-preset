@@ -67,6 +67,24 @@ coverage in `validators/` when cross-field rules matter.
 Every schema or validator added for a preset artifact must be covered by
 `tests/test_preset_contract.py`.
 
+## Cross-Agent Protocol Rules
+
+Shared multi-agent runtime behavior belongs in command source, schemas, and validators.
+Test coverage for shared multi-agent behavior belongs in `tests/contracts/speckit-cross-agent-protocol.md`.
+Commands may reference only their own profile. A profile inherits scheduling
+protocol fields, not execution permissions from another command.
+Commands must not reference `tests/` or `docs/` paths as runtime contract sources.
+
+Persistent handoff orchestration belongs only to `/speckit.implement`.
+Manifest files, handoff files, receipts, `allowed_write_paths`, dispatch
+readiness, commit readiness, and manual worker queues must not be introduced
+into `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, or
+`/speckit.analyze`.
+
+The implement handoff runtime profile lives in `commands/speckit.implement.md`;
+test coverage lives in `tests/contracts/speckit-cross-agent-subagents.md`.
+Both must stay aligned with the implement schemas and validator gates.
+
 ## Behavior-first extension rule
 
 BDD and UIF artifacts need independent templates. A behavior-first extension
@@ -116,8 +134,9 @@ Agents may read or write must be reflected in:
 - `validators/speckit_implement_contract.py` when cross-field validation changes.
 - `commands/speckit.implement.md` when Core, Vertical Planner, or Worker
   behavior changes.
-- `tests/contracts/speckit-cross-agent-subagents.md` when worker prompts, context digest rules,
-  shard rules, or path rules change.
+- `tests/contracts/speckit-cross-agent-protocol.md` when shared profile behavior changes.
+- `tests/contracts/speckit-cross-agent-subagents.md` when implement worker prompts,
+  context digest rules, shard rules, or path rules change.
 - `tests/test_preset_contract.py` for all of the above.
 
 ## Release Discipline
