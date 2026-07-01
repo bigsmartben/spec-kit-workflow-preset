@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.12 - 2026-07-01
+
 - Added a shared cross-agent protocol contract with command profiles for specify, plan, tasks, analyze, and implement, while keeping persistent handoff orchestration scoped to `/speckit.implement`.
 - Kept cross-agent test contracts out of runtime references and excluded Python bytecode caches from artifact sync/zip checks.
 - Split implement validation into manifest structure, handoff structure, dispatch readiness, receipt structure, and commit readiness gates, including directory write authorization and unioned code review coverage.
