@@ -303,15 +303,12 @@ def _handoff_requires_traceable_validation_evidence(handoff: dict[str, Any]) -> 
         "Visual Item ID",
         "Requirement Status",
         "visual_setup",
-        "visual_validation",
         "visual_implementation",
-        "visual_evidence",
         "ui_acceptance",
-        "visual_verification",
         "asset_binding",
-        "final_visual_review",
-        "screenshot ref",
-        "visual proof ref",
+        "visual SSOT ref",
+        "HTML SSOT ref",
+        "structured IR ref",
         "Client Asset Contract",
     )
     values: list[str] = []
@@ -331,10 +328,12 @@ def _receipt_references_traceable_validation_evidence(receipt: dict[str, Any]) -
         "UIF-",
         "Visual Item ID",
         "Requirement Status",
-        "screenshot ref",
-        "screenshot refs",
-        "visual proof ref",
-        "visual proof refs",
+        "visual SSOT ref",
+        "visual SSOT refs",
+        "HTML SSOT ref",
+        "HTML SSOT refs",
+        "structured IR ref",
+        "structured IR refs",
         "Client Asset Contract",
         "quickstart validation",
         "contracts/bdd/",
@@ -828,7 +827,7 @@ def validate_receipt_structure(
         raise ValueError(
             "receipt validation_evidence must reference relevant BDD scenario, "
             "behavior assertion, API contract, UIF path, Visual Item ID, "
-            "screenshot ref, visual proof ref, Client Asset Contract entry, "
+            "visual SSOT ref, HTML SSOT ref, structured IR ref, Client Asset Contract entry, "
             "or quickstart path"
         )
 

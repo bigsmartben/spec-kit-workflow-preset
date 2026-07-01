@@ -14,7 +14,7 @@
 
 ## Visual fidelity navigation
 
-- Visual validation decisions: `./research.md`
+- Visual/IR source refs and readiness inputs: `./research.md`
 - Visual interaction contracts: `./contracts/uif/` and `./contracts/behavior/`
 - Visual flow sequences: `./contracts/sequences.md`
-- Visual proof execution: `./quickstart.md`
+- Non-visual acceptance execution: `./quickstart.md`

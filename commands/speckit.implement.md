@@ -41,9 +41,11 @@ description: Run implement orchestration.
 - Reject handoffs not listed in `handoff-manifest.json`.
 - Verify `contract_type` is `speckit.implement.handoff.v2`; load `context_digest_path`; stop on `context_gaps`.
 - Execute only `task_ids`; read only `allowed_read_paths`; write only `allowed_write_paths`.
-- Select Implementation Worker, Code Review Worker, or Visual Review Worker by `task_type` and task text.
+- Select Implementation Worker or Code Review Worker by `task_type`.
+- Visual/UI implementation is implementation work; UI consistency review is code review.
 - Write `task_status_update.receipt_path` as `speckit.implement.receipt.v1`.
-- For visual handoffs, validate assigned task text; use empty `completed_task_ids` when visual evidence is unavailable.
+- For visual/UI handoffs, validate task text and preserve visual/IR traceability refs.
+- Use empty `completed_task_ids` when required provider evidence is unavailable.
 - Do not edit `tasks.md`.
 ## Contract References
 - Runtime, shard, digest, path, asset binding, dispatch, Worker Prompt, and receipt rules are source-owned here.

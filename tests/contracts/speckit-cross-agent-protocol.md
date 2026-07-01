@@ -21,7 +21,7 @@ Every command profile defines these fields:
 ### `speckit.specify.single_core`
 - `stage`: requirement projection.
 - `owner_agent`: Specify Core Agent.
-- `input_scope`: user prompt, product notes, confirmed external intake refs, visual SSOT refs, screenshots, and visual proof refs.
+- `input_scope`: user prompt, product notes, confirmed external intake refs, visual SSOT refs, HTML SSOT refs, structured IR refs, screenshots, and visual proof refs.
 - `allowed_reads`: command inputs and existing requirement context selected by core Spec Kit behavior.
 - `allowed_writes`: `spec.md` only.
 - `output_contract`: stakeholder-readable requirements with explicit source-backed facts, assumptions, visual/UI status, and provider blockers.
@@ -43,12 +43,12 @@ Every command profile defines these fields:
 ### `speckit.tasks.stage_local_derivation`
 - `stage`: task derivation.
 - `owner_agent`: Tasks Core Agent.
-- `input_scope`: user stories, behavior contracts, interface contracts, research decisions, quickstart validation paths, visual readiness rows, and review scopes.
+- `input_scope`: user stories, behavior contracts, interface contracts, research decisions, quickstart validation paths, visual readiness rows, visual/IR traceability refs, and review scopes.
 - `allowed_reads`: scoped derivation payloads; no full artifact tree unless the payload explicitly lists it.
 - `allowed_writes`: `tasks.md` only.
 - `output_contract`: task candidates, evidence refs, source refs, blockers, and `context_gaps`.
 - `validation_gate`: task-derivation blocker aggregation and existing checklist format.
-- `stop_conditions`: missing Required case coverage, missing visual readiness evidence, or unresolved task-derivation `context_gaps`.
+- `stop_conditions`: missing Required case coverage, missing required provider evidence, or unresolved task-derivation `context_gaps`.
 - `fallback`: Tasks Core Agent processes one assigned scope at a time; no handoff, receipt, write-path metadata, or worker dispatch.
 
 ### `speckit.analyze.read_only_parallel_review`
@@ -68,7 +68,7 @@ Every command profile defines these fields:
 - `input_scope`: incomplete `tasks.md` items, context index, planner outputs, handoffs, context digests, receipts, and validation evidence.
 - `allowed_reads`: role-scoped handoff inputs and digest paths.
 - `allowed_writes`: Core writes manifest and task status; planners write drafts; workers write only authorized implementation paths and receipts.
-- `output_contract`: manifest, shard handoffs, context digests, worker receipts, code review receipts, visual review receipts, and closeout.
+- `output_contract`: manifest, shard handoffs, context digests, worker receipts, code review receipts, and closeout.
 - `validation_gate`: `validate_manifest_structure()`, `validate_handoff_structure()`, `validate_dispatch_ready()`, `validate_receipt_structure()`, and `validate_commit_ready()`.
 - `stop_conditions`: schema mismatch, unlisted handoff, non-empty dispatch `context_gaps`, or current role writing outside authorized paths.
 - `fallback`: when isolated subagents are unavailable, Core emits a `Manual Worker Queue` ordered by manifest `dispatch_order`.

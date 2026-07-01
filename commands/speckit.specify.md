@@ -14,14 +14,14 @@ Product requirements stay in `spec.md`: user stories, acceptance criteria, funct
 Keep requirement text implementation-agnostic and scoped to product behavior. Non-functional requirements must be explicit product-level assumptions or constraints, including no-special-requirement or not-applicable statements when that is the confirmed requirement.
 
 ## Wrapper Input Additions
-Treat product notes, PRDs, user prompts, confirmed external intake facts, visual SSOT refs, evidence refs, screenshots, and visual proof refs as input to the same feature description. If the core feature description is empty, follow the core command error path.
+Treat product notes, PRDs, user prompts, confirmed external intake facts, visual SSOT refs, HTML SSOT refs, structured IR refs, evidence refs, screenshots, and visual proof refs as input to the same feature description. If the core feature description is empty, follow the core command error path.
 
 Treat confirmed Visual Asset Registry refs as external source artifact inputs only. They describe visual media inventory such as icons, images, illustrations, fonts, motion, video, textures, source refs, variants, license status, fallback policy, and blocker status.
 
 ## Wrapper Preflight Additions
-Before writing evidence-derived requirements, consume only confirmed external intake facts or explicit user-provided requirement text. This preset does not perform intake, call provider tools, parse HTML bundles, decide provider source readiness, or generate provider artifact instances.
+Before writing evidence-derived requirements, consume only confirmed external intake facts or explicit user-provided requirement text. This preset does not perform intake, call provider tools, parse HTML SSOT bundles, re-parse structured IR artifacts, decide provider source readiness, or generate provider artifact instances.
 
-If external intake or visual SSOT evidence is missing or blocked, write explicit non-evidence requirements only and record source readiness blockers as `[BLOCKED: PROVIDER_EVIDENCE]`; provider blockers must not become product `[NEEDS CLARIFICATION]` items.
+Classify gaps by ownership: missing product decisions become `[NEEDS CLARIFICATION]`; missing provider or intake evidence for a feature that depends on that evidence becomes `[BLOCKED: PROVIDER_EVIDENCE]`; features that do not depend on HTML SSOT, structured IR, or provider evidence are `Not Applicable`.
 
 ## Wrapper Outline Additions
 Specification Projection Policy: write one implementation-agnostic `spec.md` from confirmed product facts, explicit product constraints, and source-backed external intake facts.
@@ -30,15 +30,15 @@ When visual or UI requirements apply, write a `Visual & UI Specification` sectio
 
 Every identified visual or UI requirement must be recorded with status `Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`; do not silently omit low-evidence visual or UI requirements.
 
-For visual requirements, preserve visual SSOT refs, evidence refs, state and viewport refs, visual proof refs, and Client Asset Contract facts: source refs, asset source strategy, required variants, fallback policy, and blocker status.
+For visual requirements, preserve visual SSOT refs, HTML SSOT refs, structured IR refs, evidence refs, state and viewport refs, visual proof refs, and Client Asset Contract facts: source refs, asset source strategy, required variants, fallback policy, and blocker status.
 
-Promote only source-backed visual, layout, state, interaction, responsive, accessibility, and acceptance facts with source refs. Product semantics implied only by provider evidence stay `[NEEDS CLARIFICATION]`.
+Promote only confirmed product facts and source-backed visual, layout, state, interaction, responsive, accessibility, and acceptance facts with source refs. Do not promote provider evidence gaps into product requirements or `[NEEDS CLARIFICATION]` markers.
 
 Treat Component State Matrix content as Visual & UI Specification requirements, not visual assets. Record observable states, visual feedback, and interaction outcomes; do not turn them into framework component names or implementation contracts.
 
 Do not invent code props, code state names, component reuse decisions, self-drawing bans, copy restrictions, DOM structure, CSS selectors, component props, generated code organization, asset binding, or packaging strategy from external visual evidence.
 
-When visual SSOT refs are blocked or unavailable, keep explicit visual or UI requirement coverage in `spec.md`, mark evidence-derived coverage as `[BLOCKED: PROVIDER_EVIDENCE]`, and do not invent missing visual facts.
+When visual SSOT, HTML SSOT, structured IR, or provider evidence refs are blocked or unavailable, keep explicit visual or UI requirement coverage in `spec.md`, mark evidence-derived coverage as `[BLOCKED: PROVIDER_EVIDENCE]`, and do not invent missing visual facts.
 
 ## Official Style Alignment
 Focus on WHAT users need and WHY. Avoid HOW to implement. Limit [NEEDS CLARIFICATION] markers to the highest-impact unresolved product decisions; record low-impact gaps in Assumptions and provider readiness gaps as `[BLOCKED: PROVIDER_EVIDENCE]`.
@@ -52,7 +52,7 @@ Validate that requirement text is stakeholder-readable, testable, implementation
 Before finishing, report the `spec.md` sections created or updated, confirmed requirements, visual SSOT refs preserved, provider blockers, and unresolved requirement ambiguities.
 
 ## Done When
-- [ ] Confirmed requirement facts, visual SSOT refs, and applicable Client Asset Contract facts are reflected in `spec.md`.
+- [ ] Confirmed requirement facts, visual SSOT refs, HTML SSOT refs, structured IR refs, and applicable Client Asset Contract facts are reflected in `spec.md`.
 - [ ] Functional, non-functional, and visual/UI requirement coverage is present or explicitly marked Not Applicable, Unknown, or `[BLOCKED: PROVIDER_EVIDENCE]`.
 - [ ] Product `[NEEDS CLARIFICATION]` markers are limited to high-impact unresolved decisions.
 - [ ] Provider readiness blockers remain `[BLOCKED: PROVIDER_EVIDENCE]`.
