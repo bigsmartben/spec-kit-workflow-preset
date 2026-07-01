@@ -57,37 +57,31 @@ For each user story or capability, record one row per story or capability case t
 - [ ] Unknown NFR entries that affect downstream design are listed as blocking items.
 
 ## Visual Fidelity Readiness
-- [ ] Apply this section when `spec.md` contains `Visual & UI Specification`, visual requirements, visual SSOT refs, external intake refs, provider evidence blockers, or provider-specific evidence requests. Also apply it when `spec.md` contains product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements.
+- [ ] Apply this section when `spec.md` contains `Visual & UI Specification`, visual requirements, visual SSOT refs, HTML SSOT refs, structured IR refs, external intake refs, provider evidence blockers, or provider-specific evidence requests. Also apply it when `spec.md` contains product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements.
 - [ ] `Visual & UI Specification` exists when a visual or UI surface applies; otherwise `spec.md` records a Not Applicable rationale.
 - [ ] Every identified visual/UI requirement uses status `Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`.
 - [ ] Unknown visual/UI coverage status appears in Blocking Items when it affects downstream behavior projection or design.
 - [ ] Required visual/UI requirements have observable requirement text in `spec.md`.
 - [ ] Design-derived requirements identify the design source, provider source refs, and required fidelity.
-- [ ] Visual requirements record external intake readiness status when cited, evidence refs, visual SSOT refs, and blockers when provider evidence is required.
-- [ ] Visual Fidelity Evidence Matrix rows cite source `spec.md` sections, evidence refs, required screenshot level, blocking item IDs, and accepted exception rules.
-- [ ] Visual Fidelity Evidence Matrix is the only artifact that decides visual planning readiness, proof level sufficiency, screenshot sufficiency, accepted exception rules, Gate Status, and Blocking Items.
-- [ ] Visual Fidelity Evidence Matrix reads visual facts from `spec.md` and evidence refs; it does not call provider tools, re-extract external intake evidence, parse HTML SSOT bundles, rebuild provider matrices, or create another visual readiness path.
+- [ ] Visual requirements record external intake readiness status when cited, visual SSOT refs, HTML SSOT refs, structured IR refs, other evidence refs, and provider blocker status when provider evidence is required.
+- [ ] Visual Fidelity Evidence Matrix rows cite source `spec.md` sections, traceability refs, readiness inputs, blocking item IDs, and accepted exception refs.
+- [ ] Visual Fidelity Evidence Matrix is the only artifact that records visual planning readiness, provider blocker status, traceability refs, accepted exception refs, Gate Status, and Blocking Items.
+- [ ] Visual Fidelity Evidence Matrix reads visual facts from `spec.md` and cited evidence refs; it does not call provider tools, re-extract external intake evidence, parse HTML SSOT bundles, re-parse structured IR artifacts, rebuild provider matrices, define visual validation work, or create another visual readiness path.
 - [ ] Use one Visual Fidelity Evidence Matrix as the single visual readiness record; do not duplicate visual evidence decisions outside the matrix and Blocking Items.
 - [ ] Do not add historical visual rules or alternate visual decision paths.
 
 ## Visual Fidelity Evidence Matrix
 
-| Visual Item ID | Source `spec.md` section | Requirement Status | Fidelity Scope | Screenshot Level | Evidence Refs | Visual Proof Required | Blocking Item ID | Exception Rule |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| VIS-001 | `spec.md#...` | Required|Not Applicable|Unknown|[BLOCKED: PROVIDER_EVIDENCE] | functional-equivalent|design-system-faithful|pixel-perfect|brand-critical|responsive-visual | L0|L1|L2|L3 | provider/screenshot refs or none | yes|no | BI-... or none | EX-... or none |
+| Visual Item ID | Source `spec.md` section | Requirement Status | Depends on Provider Evidence | HTML SSOT Refs | Structured IR Refs | Other Evidence Refs | Readiness Input | Blocking Item ID | Accepted Exception Refs |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| VIS-001 | `spec.md#...` | Required|Not Applicable|Unknown|[BLOCKED: PROVIDER_EVIDENCE] | yes|no | html-ssot/... or none | ir/... or none | provider/screenshot refs or none | ready|blocked|not-applicable | BI-... or none | EX-... or none |
 
-- [ ] Requirement Status is declared for each visual requirement or visual proof obligation.
-- [ ] Screenshot evidence level is declared when screenshots are required: L0|L1|L2|L3.
-- [ ] visual proof refs point to visual SSOT evidence, external intake evidence, or screenshot sources.
-- [ ] declared visual proof required is recorded when `spec.md` makes screenshot-backed visual proof mandatory.
-- [ ] Ordinary UI visual requirements may use L1 Key Screenshots; `spec.md` visual proof requirements require L1 or higher.
-- [ ] L2 State + Viewport Matrix covers key page, state, and viewport combinations for complex UI, responsive, or multi-state requirements.
-- [ ] L3 Visual Baseline is present for high-fidelity visual matching, pixel-perfect requirements, brand-critical pages, design systems, or visual regression.
-- [ ] Missing screenshot evidence sets Gate Status: BLOCKED and lists the item in Blocking Items when visual proof is required.
-- [ ] High-fidelity requirements without L3 screenshot evidence set Gate Status: BLOCKED and lists the item in Blocking Items.
-- [ ] Pixel-perfect requirements without L3 screenshot evidence set Gate Status: BLOCKED and lists the item in Blocking Items.
-- [ ] Responsive visual requirements block PASS only when they are complex, multi-state, or declare L2 or L3 visual proof; missing viewport-specific evidence then sets Gate Status: BLOCKED and lists the item in Blocking Items.
-- [ ] Complex UI or multi-state requirements without L2 or L3 screenshot evidence set Gate Status: BLOCKED and lists the item in Blocking Items.
+- [ ] Requirement Status is declared for each visual requirement.
+- [ ] Provider-dependent rows cite HTML SSOT refs, structured IR refs, visual SSOT refs, or other external intake artifact refs when available.
+- [ ] Missing required provider or intake evidence sets Gate Status: BLOCKED, uses `[BLOCKED: PROVIDER_EVIDENCE]`, and lists the item in Blocking Items.
+- [ ] Rows that do not depend on HTML SSOT, structured IR, or provider evidence are marked `Not Applicable` with rationale.
+- [ ] Product decision gaps use `Unknown` or `[NEEDS CLARIFICATION]` only when product requirements are missing, not when provider evidence is unavailable.
+- [ ] Responsive visual requirements block PASS only when required source-backed state or viewport evidence is missing for a feature that depends on provider evidence.
 - [ ] Layout, spacing, typography, colors, effects, assets, and clipping requirements are explicit.
 - [ ] Required client visual assets have source refs, asset source strategy, required variants, fallback policy, and blocker status.
 - [ ] Required component mappings and variant coverage are explicit or marked as blocking clarification items.
@@ -95,7 +89,7 @@ For each user story or capability, record one row per story or capability case t
 - [ ] Required breakpoints, reflow rules, scrolling, minimum widths, safe areas, and responsive behavior is explicit.
 - [ ] Copy, icons, images, fonts, numeric formats, and placeholder content are explicit.
 - [ ] Keyboard, focus, semantics, contrast, ARIA, form error behavior, and accessibility requirements are explicit.
-- [ ] Accepted visual differences are defined as traceable exception rules.
+- [ ] Accepted exceptions are defined as traceable exception refs and rationale.
 
 ## Gate Status
 Gate Status: PASS|BLOCKED

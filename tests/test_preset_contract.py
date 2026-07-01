@@ -44,8 +44,8 @@ IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
 CONSTITUTION_TEMPLATE_PATH = REPO_ROOT / "templates" / "constitution-template.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
 CANONICAL_RESPONSIVE_VISUAL_RULE = (
-    "Responsive visual requirements block PASS only when they are complex, "
-    "multi-state, or declare L2 or L3 visual proof"
+    "Responsive visual requirements block PASS only when required source-backed "
+    "state or viewport evidence is missing for a feature that depends on provider evidence"
 )
 FORBIDDEN_VISUAL_COMPAT_TERMS = (
     "legacy visual",
@@ -705,12 +705,15 @@ class PresetContractTests(unittest.TestCase):
 
         for term in (
             "Visual Planning Responsibilities",
-            "Visual validation decisions",
+            "visual and IR planning inputs",
             "Visual Item ID",
-            "viewport/state coverage strategy",
-            "visual regression or baseline proof strategy",
-            "Do not copy the Visual Fidelity Evidence Matrix into `research.md`",
-            "do not rebuild provider evidence matrices",
+            "HTML SSOT refs",
+            "structured IR refs",
+            "readiness status",
+            "unresolved blocker refs",
+            "do not copy the Visual Fidelity Evidence Matrix into `research.md`",
+            "rebuild provider evidence matrices",
+            "Do not define visual validation strategy",
             "visual_item_refs",
             "viewport_matrix_refs",
             "state_matrix_refs",
@@ -724,16 +727,19 @@ class PresetContractTests(unittest.TestCase):
 
         for term in (
             "Visual fidelity navigation",
-            "Visual validation decisions: `./research.md`",
+            "Visual/IR source refs and readiness inputs: `./research.md`",
             "Visual interaction contracts: `./contracts/uif/` and `./contracts/behavior/`",
             "Visual flow sequences: `./contracts/sequences.md`",
+            "Non-visual acceptance execution: `./quickstart.md`",
         ):
             self.assertIn(term, template)
 
         for document in (readme, governance):
-            self.assertIn("research.md records visual validation decisions", document)
+            self.assertIn("research.md", document)
+            self.assertIn("visual/IR source refs", document)
             self.assertIn("contracts formalize visual interaction and state constraints", document)
             self.assertIn("contracts/sequences.md records visual state flow only when it affects cross-boundary sequencing", document)
+            self.assertNotIn("research.md records visual validation decisions", document)
 
         self.assertIn(
             "fixed R/M/U/O model: R is Repository / Workspace, M is Module / Capability, U is Unit / Design Object, and O is Operation / Detail",
@@ -893,7 +899,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("strategy: wrap", tasks)
         self.assertIn("implementation, integration, orchestration", tasks)
         self.assertIn("existing checklist format and user-story organization", tasks)
-        self.assertIn("`/speckit.tasks` owns implementation, validation, and review task definition in `tasks.md`", tasks)
+        self.assertIn("`/speckit.tasks` owns implementation, non-visual validation, and review task definition in `tasks.md`", tasks)
         self.assertIn("must not invent validation strategy", tasks)
         self.assertIn("change requirements, update contracts, or widen scope", tasks)
         self.assertIn("Task-Derivation Subagents", tasks)
@@ -929,7 +935,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("validation task taxonomy", tasks)
         for validation_scope in (
             "`contract_validation`",
-            "`visual_verification` or `ui_acceptance`",
+            "`ui_acceptance`",
             "`data_side_effect_validation`",
             "`integration_e2e_validation`",
         ):
@@ -948,16 +954,17 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("boundary review", tasks)
         self.assertIn("task scope stays within planned `M + U`", tasks)
         self.assertIn("no implementation task changed `spec.md`, `contracts/`, readiness checklists, or Visual Fidelity Readiness", tasks)
-        self.assertIn("visual consistency review", tasks)
+        self.assertIn("UI consistency review", tasks)
         self.assertIn("implemented UI states and viewport behavior", tasks)
-        self.assertIn("screenshot refs, visual proof refs", tasks)
-        self.assertIn("visual task taxonomy", tasks)
+        self.assertIn("visual/IR traceability refs", tasks)
+        self.assertIn("UI/visual task taxonomy", tasks)
         self.assertIn("story-local task granularity", tasks)
-        self.assertIn("`visual_setup` -> `visual_validation` -> `visual_implementation` -> `visual_evidence`", tasks)
+        self.assertIn("`visual_setup` -> `visual_implementation` -> `ui_acceptance` or `asset_binding`", tasks)
         self.assertIn("Do not create a separate visual lifecycle phase", tasks)
-        self.assertIn("Visual tasks must name concrete source, test, fixture, configuration, or asset paths", tasks)
-        self.assertIn("report a readiness blocker instead of generating an ambiguous visual task", tasks)
+        self.assertIn("Visual/UI tasks must name concrete source, test, fixture, configuration, asset paths, and visual/IR traceability refs", tasks)
+        self.assertIn("report a readiness blocker instead of generating an ambiguous task", tasks)
         self.assertIn("Client Asset Contract bindings, variants, and fallback policy", tasks)
+        self.assertIn("screenshot comparison, visual diff, baseline capture, or final visual review", tasks)
         self.assertIn("real-system e2e environment readiness", tasks)
         self.assertIn("Review evidence binding", tasks)
         self.assertIn("concrete review scope, source artifacts, implementation surfaces, and evidence refs", tasks)
@@ -976,6 +983,11 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("deferred_validation_todos", tasks)
         self.assertNotIn("empty arrays or objects indicate no entries", tasks)
         self.assertNotIn("task_type: visual_verification", tasks)
+        self.assertNotIn("`visual_validation`", tasks)
+        self.assertNotIn("`visual_verification`", tasks)
+        self.assertNotIn("`final_visual_review`", tasks)
+        self.assertNotIn("visual regression tests", tasks)
+        self.assertNotIn("screenshot comparison, state or viewport coverage validation", tasks)
         self.assertNotIn("task_type: interface_validation", tasks)
         self.assertNotIn("task_type: data_side_effect_validation", tasks)
 
@@ -1015,10 +1027,13 @@ class PresetContractTests(unittest.TestCase):
         for term in (
             "confirmed external intake facts",
             "visual SSOT refs",
+            "HTML SSOT refs",
+            "structured IR refs",
             "evidence refs",
             "does not perform intake",
             "call provider tools",
-            "parse HTML bundles",
+            "parse HTML SSOT bundles",
+            "re-parse structured IR artifacts",
             "decide provider source readiness",
             "generate provider artifact instances",
             "Specification Projection Policy",
@@ -1035,16 +1050,20 @@ class PresetContractTests(unittest.TestCase):
             "`Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
             "do not silently omit low-evidence visual or UI requirements",
             "source refs",
+            "HTML SSOT refs",
+            "structured IR refs",
             "state and viewport refs",
             "Client Asset Contract facts",
             "asset source strategy",
             "required variants",
             "fallback policy",
             "blocker status",
-            "Promote only source-backed visual, layout, state, interaction, responsive, accessibility, and acceptance facts",
+            "Promote only confirmed product facts and source-backed visual, layout, state, interaction, responsive, accessibility, and acceptance facts",
             "Component State Matrix content as Visual & UI Specification requirements, not visual assets",
             "observable states, visual feedback, and interaction outcomes",
-            "Product semantics implied only by provider evidence stay `[NEEDS CLARIFICATION]`",
+            "missing product decisions become `[NEEDS CLARIFICATION]`",
+            "missing provider or intake evidence for a feature that depends on that evidence becomes `[BLOCKED: PROVIDER_EVIDENCE]`",
+            "features that do not depend on HTML SSOT, structured IR, or provider evidence are `Not Applicable`",
             "DOM structure",
             "CSS selectors",
             "component props",
@@ -1052,7 +1071,7 @@ class PresetContractTests(unittest.TestCase):
             "[BLOCKED: PROVIDER_EVIDENCE]",
             "keep explicit visual or UI requirement coverage in `spec.md`",
             "Functional, non-functional, and visual/UI requirement coverage",
-            "must not become product `[NEEDS CLARIFICATION]` items",
+            "Do not promote provider evidence gaps into product requirements or `[NEEDS CLARIFICATION]` markers",
             "[NEEDS CLARIFICATION]",
             "visual SSOT refs preserved",
         ):
@@ -1112,6 +1131,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Do not re-extract design facts", clarify)
         self.assertIn("re-parse provider design links", clarify)
         self.assertIn("parse HTML SSOT bundles", clarify)
+        self.assertIn("re-parse structured IR artifacts", clarify)
         self.assertIn("External intake owns source capture and provider readiness", clarify)
         self.assertIn("confirmed evidence-backed requirements and trace refs", clarify)
         self.assertIn("Do not ask the user to fix provider extraction artifacts", clarify)
@@ -1154,6 +1174,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("component reuse constraints", clarify)
         self.assertIn("data semantics", clarify)
         self.assertIn("acceptance evidence", clarify)
+        self.assertIn("accepted exception approval flow", clarify)
         self.assertIn("write confirmed answers back into `spec.md`", clarify)
         self.assertIn("Update affected visual/UI coverage status", clarify)
         self.assertIn("Any answered visual/UI coverage status was updated in `spec.md`", clarify)
@@ -1240,24 +1261,31 @@ class PresetContractTests(unittest.TestCase):
             "visual SSOT refs",
             "external intake refs",
             "provider evidence blockers",
+            "HTML SSOT refs",
+            "structured IR refs",
             "product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements",
             "Visual Fidelity Evidence Matrix",
             "Use the behavior-testability checklist template as the visual gate authority",
             "external intake readiness status when cited",
-            "visual SSOT refs, evidence refs",
+            "visual SSOT refs",
+            "provider blocker status",
             "source traceability",
-            "Screenshot evidence level",
+            "readiness input",
             "BDD, NFR, and Visual Fidelity readiness gate",
-            "declared visual proof required",
+            "accepted exception refs",
             "Gate Status: BLOCKED",
             "state, responsive, accessibility, component mapping, and accepted exception",
-            "Responsive visual requirements block PASS only when they are complex, multi-state, or declare L2 or L3 visual proof",
+            CANONICAL_RESPONSIVE_VISUAL_RULE,
             "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
             "Do not add historical visual rules or alternate visual decision paths",
         ):
             self.assertIn(term, checklist)
         for term in (
             "| Visual Item ID | Source `spec.md` section | Requirement Status | Fidelity Scope | Screenshot Level | Evidence Refs | Visual Proof Required | Blocking Item ID | Exception Rule |",
+            "Screenshot evidence level",
+            "declared visual proof required",
+            "proof level sufficiency",
+            "screenshot sufficiency",
             "raw metadata completeness",
             "metadata index completeness proof",
             "node inventory parity",
@@ -1318,9 +1346,12 @@ class PresetContractTests(unittest.TestCase):
             "Blocking Items: none` or a `Blocking Items` section containing only `- none`",
             "before core research or design work",
             "visual fidelity scope",
+            "source refs",
+            "HTML SSOT refs",
+            "structured IR refs",
             "screenshot refs",
             "visual proof refs",
-            "external visual SSOT refs",
+            "visual SSOT refs",
             "Visual Fidelity Evidence Matrix `Requirement Status`",
             "Carry forward only visual rows with status `Required` or an accepted exception rule",
             "Rows with status `Unknown` or `[BLOCKED: PROVIDER_EVIDENCE]` must already have blocked checklist PASS",
@@ -1347,6 +1378,8 @@ class PresetContractTests(unittest.TestCase):
             "contracts/behavior/",
             "`spec.md` visual acceptance requirements",
             "`checklists/behavior-testability.md` Visual Fidelity Readiness",
+            "HTML SSOT refs",
+            "structured IR refs",
             "screenshot refs",
             "visual proof refs",
             "visual SSOT refs",
@@ -1361,65 +1394,63 @@ class PresetContractTests(unittest.TestCase):
             "verification evidence task",
             "Expected UIF contract step with type `user_event`",
             "Expected UIF contract step with type `api_call`",
-            "visual task taxonomy",
-            "`visual_verification` or `ui_acceptance`",
+            "UI/visual task taxonomy",
+            "`ui_acceptance`",
             "UI acceptance task",
-            "state coverage",
-            "viewport coverage",
-            "visual proof ref",
+            "viewport/state requirement refs",
+            "required state and viewport coverage",
+            "visual/IR traceability ref",
             "For each quickstart validation path",
             "derive the validation level",
             "fixture strategy, external-system execution mode",
             "inline evidence requirement",
             "Planning Input Taxonomy",
-            "`/speckit.tasks` owns implementation, validation, and review task definition in `tasks.md`",
+            "`/speckit.tasks` owns implementation, non-visual validation, and review task definition in `tasks.md`",
             "must not invent validation strategy",
+            "visual validation work",
             "validation level taxonomy",
             "fixture strategy and external-system execution mode taxonomy",
             "Evidence binding",
             "validation task taxonomy",
             "`contract_validation`",
-            "`visual_verification` or `ui_acceptance`",
+            "`ui_acceptance`",
             "`data_side_effect_validation`",
             "`integration_e2e_validation`",
             "Client Asset Contract",
-            "derive asset preparation, binding, implementation, and validation tasks",
+            "derive asset preparation, binding, implementation, and non-visual acceptance tasks",
             "Missing required client visual assets are readiness blockers",
             "Use Visual Fidelity Readiness as the only visual planning readiness source",
             "`Requirement Status` as the visual task input filter",
-            "Generate visual tasks only for rows with status `Required` or `Required` plus an accepted exception",
+            "Generate UI implementation, asset binding, and non-visual acceptance tasks only for rows with status `Required` or `Required` plus an accepted exception",
             "tasks for accepted exceptions must cite the exception rule",
             "Do not generate implementation, validation, verification, evidence, asset binding, UI acceptance, or review tasks for `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]` rows",
             "Route `Unknown` rows back to `/speckit.clarify`",
             "route `[BLOCKED: PROVIDER_EVIDENCE]` rows to the external intake extension",
-            "`/speckit.tasks` must not discover visual requirements or repair evidence",
+            "`/speckit.tasks` must not discover visual requirements, repair evidence, re-parse provider artifacts, or define visual validation strategy",
             "only decomposes visual specifications that already passed the readiness gate",
             "Do not create a second readiness rule",
-            "HTML SSOT bundles",
+            "HTML SSOT refs",
+            "structured IR refs",
             "external intake artifacts",
             "Do not generate execution metadata or write-path fields.",
             "Missing Required case coverage is a coverage blocker, not silently skipped work",
             "`negative`, `boundary`, `permission`, `validation`, or `state_conflict`",
             "For each BehaviorScenarioInstance with type",
             "derive fixture, contract or BDD test, implementation, and verification evidence tasks",
-            "visual consistency review",
+            "UI consistency review",
             "implemented UI states and viewport behavior",
-            "visual task taxonomy",
+            "UI/visual task taxonomy",
             "story-local task granularity",
-            "`visual_setup` -> `visual_validation` -> `visual_implementation` -> `visual_evidence`",
-            "`visual_setup` -> `visual_validation` -> `visual_implementation` -> `visual_evidence` -> `final_visual_review`",
+            "`visual_setup` -> `visual_implementation` -> `ui_acceptance` or `asset_binding`",
             "`asset_binding`",
-            "`final_visual_review`",
-            "`visual_setup`, `visual_validation`, `visual_implementation`, `visual_evidence`, `ui_acceptance`, `visual_verification`, `asset_binding`, and `final_visual_review` are the only visual task types",
-            "visual regression tests",
-            "screenshot comparison",
-            "accessibility check entrypoints",
+            "`visual_setup`, `visual_implementation`, `ui_acceptance`, and `asset_binding` are the only visual/UI task types",
+            "without screenshot comparison, visual diff, baseline capture, or final visual review",
             "empty/error/loading/disabled/hover/focus states",
             "license or authorization refs",
             "Do not create a separate visual lifecycle phase",
-            "Visual tasks must name concrete source, test, fixture, configuration, or asset paths",
-            "report a readiness blocker instead of generating an ambiguous visual task",
-            "Do not generate visual tasks for rows with `Requirement Status` `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
+            "Visual/UI tasks must name concrete source, test, fixture, configuration, asset paths, and visual/IR traceability refs",
+            "report a readiness blocker instead of generating an ambiguous task",
+            "Do not generate visual validation, screenshot comparison, visual diff, baseline capture, final visual review, or visual tasks for rows with `Requirement Status` `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
             "Client Asset Contract bindings, variants, and fallback policy",
             "Review evidence binding",
             "bounded repair permission",
@@ -1431,6 +1462,10 @@ class PresetContractTests(unittest.TestCase):
             self.assertIn(term, tasks)
 
         self.assertNotIn("task_type: visual_verification", tasks)
+        self.assertNotIn("`visual_validation`", tasks)
+        self.assertNotIn("`visual_verification`", tasks)
+        self.assertNotIn("`final_visual_review`", tasks)
+        self.assertNotIn("visual regression tests", tasks)
         self.assertNotIn("task_type: interface_validation", tasks)
         self.assertNotIn("task_type: data_side_effect_validation", tasks)
         self.assertNotIn("test-plan.md", tasks)
@@ -1452,24 +1487,27 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("API contract", cross_agent)
         self.assertIn("quickstart path", cross_agent)
         self.assertIn("visual fidelity requirements", cross_agent)
-        self.assertIn("screenshot refs", cross_agent)
-        self.assertIn("visual proof refs", cross_agent)
         self.assertIn("visual SSOT refs", cross_agent)
+        self.assertIn("HTML SSOT refs", cross_agent)
+        self.assertIn("structured IR refs", cross_agent)
         self.assertIn("Client Asset Contract", cross_agent)
         self.assertIn("asset binding", cross_agent)
         self.assertIn("local asset paths or code asset mappings", cross_agent)
         self.assertIn("missing required client visual assets", cross_agent)
         self.assertIn("Visual Item ID", cross_agent)
         self.assertIn("Requirement Status", cross_agent)
-        self.assertIn("visual shard candidates must come only from `tasks.md` visual task types", cross_agent)
+        self.assertIn("visual shard candidates must come only from `tasks.md` visual/UI task types", cross_agent)
         self.assertIn("only `Required` or `Required` plus an accepted exception is executable", cross_agent)
         self.assertIn("do not create visual shards for `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`", cross_agent)
         self.assertIn("route `Unknown` back to `/speckit.clarify`", cross_agent)
         self.assertIn("`[BLOCKED: PROVIDER_EVIDENCE]` to the external intake extension", cross_agent)
-        self.assertIn("missing visual proof refs", cross_agent)
-        self.assertIn("missing screenshot refs", cross_agent)
-        self.assertIn("final_visual_review tasks", cross_agent)
-        self.assertIn("Do not discover visual requirements, repair Visual Fidelity Readiness evidence", cross_agent)
+        self.assertIn("missing required HTML SSOT refs", cross_agent)
+        self.assertIn("missing structured IR refs", cross_agent)
+        self.assertNotIn("final_visual_review tasks", cross_agent)
+        self.assertNotIn("Visual Review Worker", cross_agent)
+        self.assertNotIn("`visual_validation`", cross_agent)
+        self.assertNotIn("`visual_verification`", cross_agent)
+        self.assertNotIn("`final_visual_review`", cross_agent)
         self.assertIn("planned `U` design object", cross_agent)
         self.assertIn("specific source, test, fixture, configuration, or receipt paths", cross_agent)
 
@@ -1617,7 +1655,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Required visual/UI requirements have observable requirement text", behavior_checklist_template)
         self.assertIn("Design-derived requirements", behavior_checklist_template)
         self.assertIn(
-            "external intake readiness status when cited, evidence refs, visual SSOT refs, and blockers",
+            "external intake readiness status when cited, visual SSOT refs, HTML SSOT refs, structured IR refs, other evidence refs, and provider blocker status",
             behavior_checklist_template,
         )
         self.assertNotIn("raw metadata completeness", behavior_checklist_template)
@@ -1681,14 +1719,15 @@ class PresetContractTests(unittest.TestCase):
         for term in (
             "Use the behavior-testability checklist template as the visual gate authority",
             "external intake readiness status when cited",
-            "Visual Fidelity Evidence Matrix alone decides visual planning readiness",
-            "proof level sufficiency",
-            "screenshot sufficiency",
-            "accepted exception rules",
-            "Read visual facts from `spec.md` and evidence refs",
+            "Visual Fidelity Evidence Matrix records visual planning readiness",
+            "traceability refs",
+            "provider blocker status",
+            "accepted exception refs",
+            "Read visual facts from `spec.md` and cited evidence refs",
             "do not call provider tools",
             "re-extract external intake evidence",
             "parse HTML SSOT bundles",
+            "re-parse structured IR artifacts",
             "rebuild provider matrices",
             "another visual readiness path",
             CANONICAL_RESPONSIVE_VISUAL_RULE,
@@ -1708,31 +1747,30 @@ class PresetContractTests(unittest.TestCase):
             self.assertNotIn(term, command)
 
         for term in (
-            "Screenshot evidence level",
-            "visual proof refs",
-            "L0|L1|L2|L3",
-            "declared visual proof required",
-            "only artifact that decides visual planning readiness",
-            "proof level sufficiency",
-            "screenshot sufficiency",
-            "accepted exception rules",
+            "HTML SSOT refs",
+            "structured IR refs",
+            "Other Evidence Refs",
+            "Readiness Input",
+            "Accepted Exception Refs",
+            "Provider-dependent rows cite HTML SSOT refs",
+            "Missing required provider or intake evidence sets Gate Status: BLOCKED",
+            "Rows that do not depend on HTML SSOT, structured IR, or provider evidence are marked `Not Applicable` with rationale",
+            "Product decision gaps use `Unknown` or `[NEEDS CLARIFICATION]` only when product requirements are missing",
+            "Visual Fidelity Evidence Matrix is the only artifact that records visual planning readiness",
             "does not call provider tools",
             "re-extract external intake evidence",
             "parse HTML SSOT bundles",
+            "re-parse structured IR artifacts",
             "rebuild provider matrices",
             "another visual readiness path",
-            "Missing screenshot evidence sets Gate Status: BLOCKED",
-            "High-fidelity requirements without L3 screenshot evidence set Gate Status: BLOCKED",
-            "Pixel-perfect requirements without L3 screenshot evidence set Gate Status: BLOCKED",
             CANONICAL_RESPONSIVE_VISUAL_RULE,
             "Visual Fidelity Evidence Matrix",
             "Source `spec.md` section",
             "Requirement Status",
-            "Requirement Status is declared for each visual requirement or visual proof obligation",
-            "Evidence Refs",
-            "Exception Rule",
+            "Requirement Status is declared for each visual requirement",
+            "Other Evidence Refs",
+            "Accepted Exception Refs",
             "lists the item in Blocking Items",
-            "Pixel-perfect",
             "Blocking Items",
             "external intake readiness status when cited",
             "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
@@ -1755,7 +1793,7 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertEqual(
             template.count(
-                "| Visual Item ID | Source `spec.md` section | Requirement Status | Fidelity Scope | Screenshot Level | Evidence Refs | Visual Proof Required | Blocking Item ID | Exception Rule |"
+                "| Visual Item ID | Source `spec.md` section | Requirement Status | Depends on Provider Evidence | HTML SSOT Refs | Structured IR Refs | Other Evidence Refs | Readiness Input | Blocking Item ID | Accepted Exception Refs |"
             ),
             1,
         )
@@ -1767,6 +1805,16 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertEqual(template.count(CANONICAL_RESPONSIVE_VISUAL_RULE), 1)
         for forbidden in (
+            "Screenshot evidence level",
+            "visual proof refs",
+            "L0|L1|L2|L3",
+            "declared visual proof required",
+            "proof level sufficiency",
+            "screenshot sufficiency",
+            "Missing screenshot evidence sets Gate Status: BLOCKED",
+            "High-fidelity requirements without L3 screenshot evidence set Gate Status: BLOCKED",
+            "Pixel-perfect requirements without L3 screenshot evidence set Gate Status: BLOCKED",
+            "L3 Visual Baseline",
             "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
             "Responsive visual readiness records viewport-specific evidence or sets Gate Status: BLOCKED",
             "Screenshot Coverage Matrix",
@@ -1907,11 +1955,11 @@ class PresetContractTests(unittest.TestCase):
             "Reject handoffs not listed in `handoff-manifest.json`",
             "Implementation Worker",
             "Code Review Worker",
-            "Visual Review Worker",
             "Manual Worker Queue",
         ]
         for term in contract_terms:
             self.assertIn(term, cross_agent)
+        self.assertNotIn("Visual Review Worker", cross_agent)
 
         self.assertIn("research.md validation decisions", cross_agent)
         self.assertIn("quickstart.md validation paths", cross_agent)
@@ -3777,7 +3825,7 @@ class PresetContractTests(unittest.TestCase):
             f"{FEATURE_PATH}/quickstart.md",
         ]
         handoff["task_text"] = [
-            "T010 visual_verification for Visual Item ID VUI-001 with Requirement Status Required"
+            "T010 ui_acceptance for Visual Item ID VUI-001 with Requirement Status Required and structured IR ref ir/refund.json"
         ]
         receipt_path = f"{HANDOFF_DIR}/results/S01-ui-01.json"
         handoff["task_status_update"]["receipt_path"] = receipt_path
@@ -3806,7 +3854,7 @@ class PresetContractTests(unittest.TestCase):
             f"{FEATURE_PATH}/quickstart.md",
         ]
         handoff["task_text"] = [
-            "T010 visual_verification for Visual Item ID VUI-001 with Requirement Status Required"
+            "T010 ui_acceptance for Visual Item ID VUI-001 with Requirement Status Required and structured IR ref ir/refund.json"
         ]
         receipt_path = f"{HANDOFF_DIR}/results/S01-ui-01.json"
         handoff["task_status_update"]["receipt_path"] = receipt_path
@@ -3817,7 +3865,7 @@ class PresetContractTests(unittest.TestCase):
                 shard_id="S01-ui-01",
                 changed_paths=[f"{FEATURE_PATH}/src/ui/refund.tsx"],
                 validation_evidence=[
-                    "Visual Item ID VUI-001 Requirement Status Required verified with screenshot ref quickstart.md#visual-refund"
+                    "Visual Item ID VUI-001 Requirement Status Required verified with structured IR ref ir/refund.json and quickstart.md#visual-refund"
                 ],
             ),
             receipt_path,
@@ -3944,41 +3992,50 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("BDD/NFR/applicable Visual Fidelity", readme)
         self.assertIn("External Intake And Visual SSOT", readme)
         self.assertIn("spec-kit-intake", readme)
-        self.assertIn("external intake evidence + visual SSOT refs -> /speckit.specify -> baseline spec.md", readme)
+        self.assertIn("external intake evidence + visual SSOT refs + HTML SSOT refs + structured IR refs -> /speckit.specify -> baseline spec.md", readme)
         self.assertIn("does not perform intake", readme)
         self.assertIn("parse HTML SSOT bundles", readme)
+        self.assertIn("re-parse structured IR artifacts", readme)
         self.assertIn("decide provider source readiness", readme)
         self.assertIn("visual SSOT refs", readme)
+        self.assertIn("HTML SSOT refs", readme)
+        self.assertIn("structured IR refs", readme)
+        self.assertIn("visual/IR traceability refs", readme)
+        self.assertIn("non-visual acceptance", readme)
         self.assertIn("external evidence refs", readme)
         self.assertIn("source-backed facts", readme)
-        self.assertIn("Product semantics implied only by provider evidence remain `[NEEDS CLARIFICATION]`", readme)
+        self.assertIn("Missing product decisions become `[NEEDS CLARIFICATION]`", readme)
+        self.assertIn("missing provider or intake evidence for a feature that depends on that evidence becomes `[BLOCKED: PROVIDER_EVIDENCE]`", readme)
+        self.assertIn("features that do not depend on HTML SSOT, structured IR, or provider evidence are `Not Applicable`", readme)
         self.assertIn("speckit.intake.visual-design", readme)
-        self.assertIn("speckit.intake.html-ssot", readme)
+        self.assertIn("speckit.intake.figma2htmlssot", readme)
+        self.assertNotIn("speckit.intake.html-ssot", readme)
         self.assertIn("Visual Fidelity readiness gate", readme)
-        self.assertIn("Screenshot is evidence, not intake", readme)
-        self.assertIn("optional but strongly recommended visual evidence", readme)
-        self.assertIn("L0 No Screenshot", readme)
-        self.assertIn("L1 Key Screenshots", readme)
-        self.assertIn("L2 State + Viewport Matrix", readme)
-        self.assertIn("L3 Visual Baseline", readme)
+        self.assertIn("Screenshots, visual proof refs, HTML SSOT refs, structured IR refs, and provider artifacts are evidence refs, not intake execution", readme)
+        self.assertNotIn("L0 No Screenshot", readme)
+        self.assertNotIn("L1 Key Screenshots", readme)
+        self.assertNotIn("L2 State + Viewport Matrix", readme)
+        self.assertNotIn("L3 Visual Baseline", readme)
         self.assertIn("pixel-perfect", readme)
-        self.assertIn("Screenshots cannot upgrade product semantics", readme)
-        self.assertIn(
-            CANONICAL_RESPONSIVE_VISUAL_RULE,
-            readme,
-        )
+        self.assertIn("They cannot upgrade product semantics", readme)
         self.assertIn(
             "product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements",
             readme,
         )
         self.assertIn("Visual Fidelity Evidence Matrix", readme)
-        self.assertIn("visual requirement or visual proof obligation", readme)
+        self.assertIn("one row per visual requirement", readme)
         self.assertIn("single visual readiness record", readme)
-        self.assertIn("only the Visual Fidelity Evidence Matrix decides visual planning readiness", readme)
-        self.assertIn("proof sufficiency", readme)
-        self.assertIn("accepted exception rules", readme)
+        self.assertIn("provider blocker status", readme)
+        self.assertIn("accepted exception refs", readme)
+        self.assertIn("It does not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review", readme)
+        self.assertNotIn("proof sufficiency", readme)
+        self.assertNotIn("screenshot sufficiency", readme)
+        self.assertNotIn("visual implementation review", readme)
+        self.assertNotIn("visual proof evidence", readme)
+        self.assertNotIn("visual proof, asset binding, and evidence requirements", readme)
         self.assertIn("The intake extension owns source capture", readme)
         self.assertIn("HTML SSOT bundle contracts", readme)
+        self.assertIn("structured IR contracts", readme)
         self.assertIn("source-side validators live in the `spec-kit-intake` extension", readme)
         self.assertIn("[BLOCKED: PROVIDER_EVIDENCE]", readme)
         self.assertNotIn(
@@ -3986,7 +4043,7 @@ class PresetContractTests(unittest.TestCase):
             readme,
         )
         self.assertIn("source-side readiness", readme)
-        self.assertIn("The Visual Fidelity Evidence Matrix remains the only planning readiness gate", readme)
+        self.assertIn("artifact refs, readiness inputs, blocker status, and traceability refs", readme)
         self.assertIn("clarifies evidence-derived gaps already written in `spec.md`", readme)
         self.assertIn("does not call provider tools", readme)
         self.assertIn("explicit non-functional requirement declarations", readme)
@@ -4012,7 +4069,7 @@ class PresetContractTests(unittest.TestCase):
             "error code, failure feedback, and state invariant, rollback, or compensation assertion",
             readme,
         )
-        self.assertIn("visual verification, contract validation, data-side-effect validation, integration/e2e validation, and scope-aware code review tasks", readme)
+        self.assertIn("UI implementation, non-visual acceptance, contract validation, data-side-effect validation, integration/e2e validation, and scope-aware code review tasks", readme)
         self.assertIn("without inventing validation strategy, changing requirements, updating contracts, or widening scope", readme)
         self.assertIn("validation_evidence", readme)
         self.assertIn("Context-load controls", readme)
@@ -4052,9 +4109,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("## 1.0.3", changelog)
         self.assertIn("Final Code Review", changelog)
         self.assertIn("structured code review receipts", changelog)
-        self.assertIn("Migrated product, design, provider, and HTML intake ownership out of the workflow preset", changelog)
-        self.assertIn("external intake refs and visual SSOT refs", changelog)
-        self.assertIn("/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation", changelog)
+        self.assertIn("Migrated product, design, provider, HTML SSOT, and structured IR intake ownership out of the workflow preset", changelog)
+        self.assertIn("structured IR refs", changelog)
+        self.assertIn("missing provider/intake evidence remains `[BLOCKED: PROVIDER_EVIDENCE]`", changelog)
+        self.assertIn("/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation", changelog)
         self.assertIn("/speckit.implement` only executes those tasks and records receipt evidence", changelog)
         self.assertIn("agent-native handoff orchestration", changelog)
         self.assertIn("Removed Python dispatch tooling", changelog)
@@ -4123,7 +4181,6 @@ class PresetContractTests(unittest.TestCase):
             "Worker Prompts",
             "Implementation Worker",
             "Code Review Worker",
-            "Visual Review Worker",
             "handoff-manifest.json",
             "speckit.implement.manifest.v1.schema.json",
             "speckit.implement.handoff.v2.schema.json",
@@ -4166,6 +4223,10 @@ class PresetContractTests(unittest.TestCase):
 
         self.assertIn("research.md validation decisions", document)
         self.assertIn("quickstart.md validation paths", document)
+        self.assertNotIn("Visual Review Worker", document)
+        self.assertNotIn("final_visual_review", document)
+        self.assertNotIn("visual_validation", document)
+        self.assertNotIn("visual_verification", document)
         self.assertNotIn("test-plan.md", document)
 
         forbidden_terms = [
@@ -4202,26 +4263,25 @@ class PresetContractTests(unittest.TestCase):
             "BDD and UIF artifacts need independent templates",
             "`/speckit.constitution`: constitution governance and project principles only",
             "`/speckit.checklist`: checklist artifacts and BDD/NFR/Visual Fidelity readiness gates only",
-            "external intake refs",
+            "external intake artifact refs",
             "visual SSOT refs",
-            "External evidence refs must not",
-            "decide visual planning readiness",
-            "proof sufficiency",
+            "HTML SSOT refs",
+            "structured IR refs",
+            "External evidence refs are consumed as source, readiness, blocker, and traceability inputs only",
             "Visual Fidelity Evidence Matrix",
-            "one row per visual requirement or visual proof obligation",
+            "one row per visual requirement",
             "Source `spec.md` section",
-            "Fidelity Scope",
-            "Screenshot Level",
-            "Evidence Refs",
-            "Visual Proof Required",
+            "Requirement Status",
+            "provider-evidence dependency",
+            "other evidence refs",
+            "readiness input",
             "Blocking Item ID",
-            "Exception Rule",
-            CANONICAL_RESPONSIVE_VISUAL_RULE,
+            "accepted exception refs",
             "single visual readiness record",
-            "only artifact that decides visual planning readiness",
-            "visual proof level sufficiency",
-            "screenshot sufficiency",
-            "accepted exception rules",
+            "records visual planning readiness",
+            "traceability refs",
+            "provider blocker status",
+            "must not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review",
             "checklist Gate Status",
             "checklist Blocking Items",
             "Source-side intake readiness remains separate",
@@ -4229,9 +4289,9 @@ class PresetContractTests(unittest.TestCase):
             "External design extraction is not a clarification responsibility",
             "NFR readiness belongs in `spec.md` product requirements",
             "`/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts",
-            "`/speckit.tasks` owns implementation, validation, visual verification, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`",
+            "`/speckit.tasks` owns implementation, non-visual acceptance, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`",
             "`/speckit.implement` may execute those tasks and record receipt evidence",
-            "must not invent validation strategy, add lifecycle roles, change requirements, update contracts, or widen scope during execution",
+            "must not invent validation strategy, visual validation work, lifecycle roles, requirements, contract updates, or wider scope during execution",
             "Handoff extensions must update schema, validator, command, and cross-agent documentation together",
             "Do not bump preset version or release archive URLs until release preparation",
             "Use extensions, not presets, for new tooling",

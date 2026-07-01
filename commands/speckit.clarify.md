@@ -25,7 +25,7 @@ Load the active `spec.md` through the core command. Official hooks still apply: 
 
 When `spec.md` was created from external intake evidence or visual SSOT refs, prioritize clarification questions for evidence-derived gaps already written in `spec.md`. Scan `spec.md` first for `[NEEDS CLARIFICATION]`, visual/UI coverage status `Unknown`, and gaps about provider-unprovided states, responsive behavior, business rules, permissions, and error handling.
 
-Do not call provider tools. Do not re-extract design facts, re-parse provider design links, parse HTML SSOT bundles, or turn clarification into an intake step. External intake owns source capture and provider readiness; `/speckit.specify` only projects confirmed evidence-backed requirements and trace refs into `spec.md`. `/speckit.clarify` only selects high-impact questions from existing `spec.md` gaps and records confirmed answers. Do not ask the user to fix provider extraction artifacts.
+Do not call provider tools. Do not re-extract design facts, re-parse provider design links, parse HTML SSOT bundles, re-parse structured IR artifacts, or turn clarification into an intake step. External intake owns source capture and provider readiness; `/speckit.specify` only projects confirmed evidence-backed requirements and trace refs into `spec.md`. `/speckit.clarify` only selects high-impact questions from existing `spec.md` product-decision gaps and records confirmed answers. Do not ask the user to fix provider extraction artifacts.
 
 Ask at most 5 high-impact questions whose answers materially affect requirements, implementation planning, or validation readiness. Maximum of 5 total questions. Present EXACTLY ONE question at a time. Do NOT output them all at once. Never reveal future queued questions.
 
@@ -39,7 +39,7 @@ Format recommendations as `**Recommended:** Option [X] - <brief rationale>` when
 6. required component reuse constraints explicitly stated in `spec.md`.
 7. data semantics for mock copy, API-backed copy, and interface-driven values.
 8. Prototype-uncovered navigation, dialogs, recovery paths, and failure handling.
-9. acceptance evidence, visual-difference tolerance, and exception approval flow.
+9. product-side acceptance evidence and accepted exception approval flow.
 
 After each accepted answer, write confirmed answers back into `spec.md` in the relevant Requirements, User Scenarios, Acceptance Criteria, Assumptions, Open Questions, or Visual & UI Specification, visual/responsive/state sections. Update affected visual/UI coverage status when the answer resolves an `Unknown` item. Ensure `## Clarifications`, `### Session YYYY-MM-DD`, and one `- Q: ... -> A: ...` bullet exist for the session. Save `spec.md` after each accepted answer. Do not create a separate provider-specific clarification document.
 

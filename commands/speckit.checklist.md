@@ -44,17 +44,17 @@ Check When readiness from `spec.md`: each trigger is an executable user action, 
 
 Check Then readiness from `spec.md`: each outcome maps to feedback, business state, error semantics, or assertion intent.
 
-Check Visual Fidelity Readiness when `spec.md` contains `Visual & UI Specification`, visual requirements, visual SSOT refs, external intake refs, provider evidence blockers, or provider-specific evidence requests. Also apply it when `spec.md` contains product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements.
+Check Visual Fidelity Readiness when `spec.md` contains `Visual & UI Specification`, visual requirements, visual SSOT refs, HTML SSOT refs, structured IR refs, external intake refs, provider evidence blockers, or provider-specific evidence requests. Also apply it when `spec.md` contains product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements.
 Use the behavior-testability checklist template as the visual gate authority.
 Check Visual/UI Coverage from `spec.md`: `Visual & UI Specification` exists when a visual or UI surface applies; otherwise `spec.md` records a Not Applicable rationale. Every identified visual/UI requirement must use status `Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`.
-Require source traceability, external intake readiness status when cited, evidence refs, and blockers, and clear visual requirements for state, responsive, accessibility, component mapping, and accepted exception coverage.
-Build a Visual Fidelity Evidence Matrix with one row per visual requirement or visual proof obligation. Record requirement status, Screenshot evidence level, declared visual proof required, visual SSOT refs, evidence refs, screenshot refs, and any Gate Status: BLOCKED item in Blocking Items.
-The Visual Fidelity Evidence Matrix alone decides visual planning readiness, proof level sufficiency, screenshot sufficiency, accepted exception rules, Gate Status, and Blocking Items.
-Use one Visual Fidelity Evidence Matrix as the single visual readiness record; do not duplicate visual evidence decisions outside the matrix and Blocking Items.
-Read visual facts from `spec.md` and evidence refs; do not call provider tools, re-extract external intake evidence, parse HTML SSOT bundles, rebuild provider matrices, or create another visual readiness path.
+Require source traceability, external intake readiness status when cited, HTML SSOT refs, structured IR refs, evidence refs, provider blocker status, and clear visual requirements for state, responsive, accessibility, component mapping, and accepted exception coverage.
+Build a Visual Fidelity Evidence Matrix with one row per visual requirement. Record requirement status, dependency on provider evidence, visual SSOT refs, HTML SSOT refs, structured IR refs, other evidence refs, readiness input, blocker status, and accepted exception refs.
+The Visual Fidelity Evidence Matrix records visual planning readiness, traceability refs, provider blocker status, accepted exception refs, Gate Status, and Blocking Items; it must not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review.
+Use one Visual Fidelity Evidence Matrix as the single visual readiness record; do not duplicate visual readiness decisions outside the matrix and Blocking Items.
+Read visual facts from `spec.md` and cited evidence refs; do not call provider tools, re-extract external intake evidence, parse HTML SSOT bundles, re-parse structured IR artifacts, rebuild provider matrices, or create another visual readiness path.
 Do not add historical visual rules or alternate visual decision paths.
 Unknown visual/UI coverage status must appear in Blocking Items and block PASS when it affects downstream behavior projection or design. Required visual/UI requirements without observable requirement text block PASS. `[BLOCKED: PROVIDER_EVIDENCE]` items remain provider evidence blockers and return to the external intake extension.
-Responsive visual requirements block PASS only when they are complex, multi-state, or declare L2 or L3 visual proof; missing viewport-specific evidence then sets Gate Status: BLOCKED and lists the item in Blocking Items.
+Responsive visual requirements block PASS only when required source-backed state or viewport evidence is missing for a feature that depends on provider evidence.
 Screenshots support visual facts but do not create product semantics.
 
 Check Non-Functional Requirement Readiness from `spec.md`: applicable performance, security and privacy, reliability and recovery, accessibility, compliance and auditability, observability, compatibility, data lifecycle, and cost or operational constraints are explicitly declared in `spec.md` as `Required`, `Not Applicable`, or `Unknown`.
