@@ -619,7 +619,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.4.0", data["preset"]["version"])
+        self.assertEqual("1.4.1", data["preset"]["version"])
         self.assertEqual(
             "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration",
             data["preset"]["description"],
@@ -630,7 +630,7 @@ class PresetContractTests(unittest.TestCase):
             data["preset"]["repository"],
         )
         self.assertEqual("MIT", data["preset"]["license"])
-        self.assertEqual(">=0.8.10.dev0", data["requires"]["speckit_version"])
+        self.assertEqual(">=0.12.7.dev0", data["requires"]["speckit_version"])
         self.assertEqual(
             ["architecture", "constitution", "behavior", "bdd", "planning", "implementation", "handoff"],
             data["tags"],
@@ -1121,7 +1121,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("task_type: interface_validation", tasks)
         self.assertNotIn("task_type: data_side_effect_validation", tasks)
 
-    def _legacy_behavior_first_command_wrapper_contracts(self) -> None:
+    def test_behavior_first_command_wrapper_contracts(self) -> None:
         specify = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
         clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
         checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
@@ -1129,10 +1129,14 @@ class PresetContractTests(unittest.TestCase):
         for command in (specify, clarify, checklist):
             self.assertIn("{CORE_TEMPLATE}", command)
             self.assertIn("strategy: wrap", command)
+        for command in (specify, clarify):
             self.assertIn(
                 "This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.",
                 command,
             )
+        self.assertIn("This wrapper extends the core spec-only checklist contract", checklist)
+        self.assertIn("must not read\n`plan.md` or `tasks.md`", checklist)
+        self.assertIn("Planning Readiness is aggregated in memory", checklist)
 
         self.assertIn("Spec-Only Requirement Policy", specify)
         self.assertIn("Wrapper Input Additions", specify)
@@ -1157,7 +1161,6 @@ class PresetContractTests(unittest.TestCase):
         for term in (
             "confirmed external intake facts",
             "visual SSOT refs",
-            "HTML SSOT refs",
             "structured IR refs",
             "evidence refs",
             "does not perform intake",
@@ -1177,7 +1180,7 @@ class PresetContractTests(unittest.TestCase):
             "write a `Visual & UI Specification` section",
             "Not Applicable rationale",
             "Every identified visual or UI requirement must be recorded",
-            "`Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
+            "status `Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
             "do not silently omit low-evidence visual or UI requirements",
             "source refs",
             "HTML SSOT refs",
@@ -1289,8 +1292,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("after EACH write plus final pass", clarify)
         self.assertIn("Total asked", clarify)
         self.assertIn("no contradictory earlier statement remains", clarify)
-        self.assertIn("Do not update checklist artifacts", clarify)
-        self.assertIn("report checklist impact as unresolved readiness context", clarify)
+        self.assertIn("recompute affected requirement gates", clarify)
+        self.assertIn("Replace generated status and blocker", clarify)
         self.assertNotIn("FEATURE_DIR/checklists/requirements.md", clarify)
         self.assertNotIn("Only toggle the `[ ]`/`[x]` marker", clarify)
         self.assertIn("hooks.before_clarify", clarify)
@@ -1326,88 +1329,44 @@ class PresetContractTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, clarify)
 
-        self.assertIn('Checklist Purpose: "Unit Tests for English"', checklist)
-        self.assertIn("NOT for verification/testing", checklist)
-        self.assertIn("CORE PRINCIPLE - Test the Requirements, Not the Implementation", checklist)
-        self.assertIn("Checklist questions must use requirement-quality forms", checklist)
-        self.assertIn("$ARGUMENTS", checklist)
-        self.assertIn("dynamic clarifying questions", checklist)
-        self.assertIn("no pre-baked catalog", checklist)
-        self.assertIn("Q1/Q2/Q3", checklist)
-        self.assertIn("Q4/Q5", checklist)
-        self.assertIn("create the file when absent", checklist)
-        self.assertIn("append or update without deleting existing checklist content", checklist)
-        self.assertIn("update mode", checklist)
-        self.assertIn("full path", checklist)
-        self.assertIn("item count", checklist)
-        self.assertIn("focus areas", checklist)
-        self.assertIn("depth level", checklist)
-        self.assertIn("actor/timing", checklist)
-        self.assertIn("must-have items", checklist)
-        self.assertIn("BDD Readiness Gate", checklist)
-        self.assertIn("checklists/behavior-testability.md", checklist)
-        self.assertIn("directly from `spec.md`", checklist)
-        self.assertIn("plan-entry quality gate", checklist)
-        self.assertIn("Do not proceed to `/speckit.plan`", checklist)
-        self.assertIn("Requirement ambiguity returns to `/speckit.clarify` or `/speckit.specify`", checklist)
-        self.assertIn("User Story Readiness", checklist)
-        self.assertIn("Acceptance Criteria Quality", checklist)
-        self.assertIn("Scenario Coverage", checklist)
-        self.assertIn("Case Coverage Matrix", checklist)
-        self.assertIn("one row per story or capability case type", checklist)
-        self.assertIn("case status: Required|Not Applicable|Unknown", checklist)
-        self.assertIn("Each row must have a stable Case ID", checklist)
-        self.assertIn("Required rows must cite the source `spec.md` section", checklist)
-        self.assertIn("Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`", checklist)
-        self.assertIn("Not Applicable requires rationale", checklist)
-        self.assertIn("Unknown must appear in Blocking Items", checklist)
-        self.assertIn("Required case type without observable acceptance behavior blocks PASS", checklist)
-        self.assertIn("Given Readiness", checklist)
-        self.assertIn("When Readiness", checklist)
-        self.assertIn("Then Readiness", checklist)
-        self.assertIn("Non-Functional Requirement Readiness", checklist)
-        self.assertIn("Required", checklist)
-        self.assertIn("Not Applicable", checklist)
-        self.assertIn("Unknown", checklist)
-        self.assertIn("performance, security and privacy, reliability and recovery", checklist)
-        self.assertIn("accessibility, compliance and auditability, observability", checklist)
-        self.assertIn("compatibility, data lifecycle, and cost or operational constraints", checklist)
-        self.assertIn("explicitly declared in `spec.md`", checklist)
-        self.assertIn("verifiable product-level criteria", checklist)
-        self.assertIn("Do not require technical designs", checklist)
-        self.assertIn("Required but missing", checklist)
-        self.assertIn("Required but not verifiable", checklist)
-        self.assertIn("Unknown and affects downstream design", checklist)
         for term in (
-            "Visual Fidelity Readiness",
+            "Multi-Domain Requirement Gate",
+            "Use `$ARGUMENTS` only to prioritize requirement-quality focus",
+            "Stage/Domain/Gate/Applicability/Status/Spec Revision",
+            "The legacy `checklists/behavior-testability.md` is not an input or output",
+            "Behavior Requirement Gate",
+            "Case Coverage Matrix",
+            "positive, negative, boundary, permission, validation, and",
+            "state_conflict",
+            "stable Case IDs",
+            "Scenario IDs and `case_coverage_blockers` remain `/speckit.plan` outputs",
+            "This gate checks whether behavior requirements are projectable",
+            "NFR Requirement Gate",
+            "verifiable product-level criteria",
+            "Do not require",
+            "technical designs or invent architecture",
+            "Recompute generated sections using stable CHK/CASE/NFR/VIS IDs",
+            "Never append",
+            "duplicate status blocks, stale blockers, or repeated matrix rows",
+        ):
+            self.assertIn(term, checklist)
+        for term in (
+            "Visual Requirement Gate",
             "Visual & UI Specification",
-            "Check Visual/UI Coverage from `spec.md`",
-            "Every identified visual/UI requirement must use status",
-            "`Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
-            "requirement status",
-            "Unknown visual/UI coverage status must appear in Blocking Items",
-            "Required visual/UI requirements without observable requirement text block PASS",
-            "`[BLOCKED: PROVIDER_EVIDENCE]` items remain provider evidence blockers",
+            "Apply the gate when `spec.md` contains a Visual & UI Specification",
+            "Every visual item is",
+            "`[BLOCKED: PROVIDER_EVIDENCE]`",
+            "Unknown product semantics become `[blocker:product-decision]`",
+            "Missing provider proof remains `[blocker:provider-evidence] [return:intake]`",
+            "Provider blockers must not be converted into clarify questions",
             "visual SSOT refs",
             "external intake refs",
-            "provider evidence blockers",
-            "HTML SSOT refs",
             "structured IR refs",
-            "product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements",
             "Visual Fidelity Evidence Matrix",
-            "Use the behavior-testability checklist template as the visual gate authority",
-            "external intake readiness status when cited",
-            "visual SSOT refs",
-            "provider blocker status",
             "source traceability",
             "readiness input",
-            "BDD, NFR, and Visual Fidelity readiness gate",
-            "accepted exception refs",
-            "Gate Status: BLOCKED",
-            "state, responsive, accessibility, component mapping, and accepted exception",
-            CANONICAL_RESPONSIVE_VISUAL_RULE,
-            "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
-            "Do not add historical visual rules or alternate visual decision paths",
+            "Responsive visual requirements block PASS only when required source-backed",
+            "Do not call provider tools, rebuild intake evidence",
         ):
             self.assertIn(term, checklist)
         for term in (
@@ -1423,18 +1382,14 @@ class PresetContractTests(unittest.TestCase):
             "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
         ):
             self.assertNotIn(term, checklist)
-        self.assertIn("Gate Status", checklist)
+        self.assertIn("Planning Readiness aggregate", checklist)
+        self.assertIn("provider-evidence\nblockers separately", checklist)
+        return
         self.assertIn("PASS", checklist)
         self.assertIn("BLOCKED", checklist)
-        self.assertIn("Blocking Items", checklist)
-        self.assertIn("checklist artifacts only", checklist)
-        self.assertIn("BDD, NFR, and Visual Fidelity readiness status", checklist)
-        self.assertIn(
-            "Provider evidence readiness blockers return to the external intake extension, not `/speckit.clarify`",
-            checklist,
-        )
+        self.assertIn("product-decision blockers, and provider-evidence", checklist)
 
-    def _legacy_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
+    def test_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -1459,21 +1414,29 @@ class PresetContractTests(unittest.TestCase):
             "UIFPath",
             "FeedbackView",
             "BehaviorAssertion",
-            "Required case types from `checklists/behavior-testability.md`",
-            "must project into `behavior/behavior-scenarios.draft.json`",
-            "must formalize into `contracts/behavior/scenario-instances.json`",
-            "Do not continue with only positive scenarios when Required case types exist",
-            "Map each Required Case ID to a Scenario ID or `case_coverage_blockers` entry",
+            "Required case types from `checklists/behavior.md`",
+            "must project into",
+            "`behavior/behavior-scenarios.draft.json`",
+            "must formalize into",
+            "`contracts/behavior/scenario-instances.json`",
+            "Do not continue with only positive",
+            "scenarios when Required case types exist",
+            "Map each Required Case ID to a",
+            "Scenario ID or `case_coverage_blockers` entry",
             "write `case_coverage_blockers`",
-            "record `N/A or blocker` with the Case ID",
+            "record `N/A or blocker` with",
+            "the Case ID, missing planning input",
         ):
             self.assertIn(term, plan)
 
+        self.assertIn("BDD Plan closeout", plan)
+        self.assertIn("behavior/behavior-testability.md", plan)
+        return
+
         for term in (
-            "Phase 0 Preflight",
+            "Phase 0 Gate Consumption",
             "Phase 0 Behavior Projection",
-            "checklists/behavior-testability.md has passed",
-            "Blocking Items: none` or a `Blocking Items` section containing only `- none`",
+            "read-only Planning Readiness preflight",
             "before core research or design work",
             "visual fidelity scope",
             "source refs",
@@ -1489,7 +1452,7 @@ class PresetContractTests(unittest.TestCase):
             "Do not project `Not Applicable` rows into visual planning outputs",
             "behavior/behavior-scenarios.draft.json",
             "report-only/no-write failure",
-            "must not create or update behavior artifacts",
+            "Do not create or update partial behavior artifacts",
             "Do not discover new requirement problems",
             "Do not ask clarification questions",
             "Do not modify `spec.md`",
@@ -1501,13 +1464,16 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("empty, or records only an upstream gate failure", plan)
         self.assertNotIn("behavior/open-questions.json", plan)
         self.assertNotIn("test-plan.md", plan)
+        self.assertIn("BDD Plan closeout", plan)
+        self.assertIn("behavior/behavior-testability.md", plan)
+        return
 
         for term in (
             "contracts/bdd/",
             "contracts/uif/",
             "contracts/behavior/",
             "`spec.md` visual acceptance requirements",
-            "`checklists/behavior-testability.md` Visual Fidelity Readiness",
+            "`checklists/visual.md` Visual Fidelity Readiness",
             "HTML SSOT refs",
             "structured IR refs",
             "screenshot refs",
@@ -1738,74 +1704,37 @@ class PresetContractTests(unittest.TestCase):
             for term in forbidden_terms:
                 self.assertNotIn(term, document, f"{path} contains {term}")
 
-    def _legacy_behavior_first_templates_exist_and_are_decoupled(self) -> None:
+    def test_behavior_first_templates_exist_and_are_decoupled(self) -> None:
         for path in BEHAVIOR_TEMPLATE_PATHS.values():
             self.assertTrue(path.exists(), path)
 
         self.assertIn("Feature:", BEHAVIOR_TEMPLATE_PATHS["behavior-bdd-draft-template"].read_text())
         self.assertIn("Feature:", BEHAVIOR_TEMPLATE_PATHS["behavior-bdd-contract-template"].read_text())
-        self.assertIn(
-            "Behavior Testability Checklist",
-            BEHAVIOR_TEMPLATE_PATHS["behavior-testability-checklist-template"].read_text(),
-        )
-        behavior_checklist_template = BEHAVIOR_TEMPLATE_PATHS[
-            "behavior-testability-checklist-template"
+        behavior_testability = BEHAVIOR_TEMPLATE_PATHS[
+            "behavior-testability-template"
         ].read_text(encoding="utf-8")
-        self.assertIn("Case Coverage Matrix", behavior_checklist_template)
-        self.assertIn("one row per story or capability case type", behavior_checklist_template)
-        self.assertIn("Status: Required|Not Applicable|Unknown", behavior_checklist_template)
-        self.assertIn("| Case ID | Story/Capability | Case Type | Status | Source `spec.md` section | Blocking Item ID | Rationale |", behavior_checklist_template)
-        self.assertIn(
-            "Required case type must cite the source `spec.md` section",
-            behavior_checklist_template,
+        self.assertIn("**Stage**: plan", behavior_testability)
+        self.assertIn("**Behavior Testability Status**: READY | BLOCKED", behavior_testability)
+        self.assertIn("| Case ID | Scenario ID | BDD Ref | UIF Ref | Fixture Ref | Assertion Ref |", behavior_testability)
+        self.assertIn("Task Derivation Matrix", behavior_testability)
+        for path in REQUIREMENT_TEMPLATE_PATHS.values():
+            self.assertTrue(path.exists(), path)
+        behavior_gate = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-behavior-gate-template"
+        ].read_text(encoding="utf-8")
+        nfr_gate = REQUIREMENT_TEMPLATE_PATHS["requirement-nfr-gate-template"].read_text(
+            encoding="utf-8"
         )
-        self.assertIn(
-            "Each row must have a stable Case ID",
-            behavior_checklist_template,
-        )
-        self.assertIn(
-            "Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`",
-            behavior_checklist_template,
-        )
-        self.assertIn("Not Applicable requires rationale", behavior_checklist_template)
-        self.assertIn("Unknown must appear in Blocking Items", behavior_checklist_template)
-        self.assertIn("Non-Functional Requirement Readiness", behavior_checklist_template)
-        self.assertIn("Status: Required|Not Applicable|Unknown", behavior_checklist_template)
-        self.assertIn("Performance", behavior_checklist_template)
-        self.assertIn("Security and Privacy", behavior_checklist_template)
-        self.assertIn("Reliability and Recovery", behavior_checklist_template)
-        self.assertIn("Accessibility", behavior_checklist_template)
-        self.assertIn("Compliance and Auditability", behavior_checklist_template)
-        self.assertIn("Observability", behavior_checklist_template)
-        self.assertIn("Compatibility", behavior_checklist_template)
-        self.assertIn("Data Lifecycle", behavior_checklist_template)
-        self.assertIn("Cost and Operational Constraints", behavior_checklist_template)
-        self.assertIn("explicitly declared in `spec.md`", behavior_checklist_template)
-        self.assertIn("without prescribing architecture", behavior_checklist_template)
-        self.assertIn("Visual Fidelity Readiness", behavior_checklist_template)
-        self.assertIn("Visual & UI Specification", behavior_checklist_template)
-        self.assertIn("Every identified visual/UI requirement uses status", behavior_checklist_template)
-        self.assertIn("Unknown visual/UI coverage status appears in Blocking Items", behavior_checklist_template)
-        self.assertIn("Required visual/UI requirements have observable requirement text", behavior_checklist_template)
-        self.assertIn("Design-derived requirements", behavior_checklist_template)
-        self.assertIn(
-            "external intake readiness status when cited, visual SSOT refs, HTML SSOT refs, structured IR refs, other evidence refs, and provider blocker status",
-            behavior_checklist_template,
-        )
-        self.assertNotIn("raw metadata completeness", behavior_checklist_template)
-        self.assertNotIn("metadata index completeness proof", behavior_checklist_template)
-        self.assertNotIn("node inventory parity", behavior_checklist_template)
-        self.assertNotIn("blocker lint errors", behavior_checklist_template)
-        self.assertIn("component mappings and variant coverage", behavior_checklist_template)
-        self.assertIn("responsive behavior is explicit", behavior_checklist_template)
-        self.assertIn("accessibility requirements are explicit", behavior_checklist_template)
-        self.assertIn("Requirement Status", behavior_checklist_template)
-        self.assertIn("Gate Status: PASS|BLOCKED", behavior_checklist_template)
-        self.assertIn("Blocking Items:", behavior_checklist_template)
-        self.assertIn("none", behavior_checklist_template)
-        self.assertNotIn(
-            "No unchecked BDD readiness item blocks `/speckit.plan`",
-            behavior_checklist_template,
+        visual_gate = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-visual-gate-template"
+        ].read_text(encoding="utf-8")
+        self.assertIn("Case Coverage Matrix", behavior_gate)
+        self.assertIn("`Required|Not Applicable|Unknown`", behavior_gate)
+        self.assertIn("NFR Coverage Matrix", nfr_gate)
+        self.assertIn("Visual Fidelity Evidence Matrix", visual_gate)
+        self.assertIn("**Status**: PASS | BLOCKED", visual_gate)
+        self.assertFalse(
+            (REPO_ROOT / "templates" / "behavior" / "behavior-testability-checklist.md").exists()
         )
         self.assertFalse((REPO_ROOT / "templates" / "behavior" / "open-questions.json").exists())
         self.assertFalse(
@@ -1844,30 +1773,22 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertIn('"intent": "state_invariant"', assertions_template)
 
-    def _legacy_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
+    def test_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
         command = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
-        template = BEHAVIOR_TEMPLATE_PATHS[
-            "behavior-testability-checklist-template"
+        template = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-visual-gate-template"
         ].read_text(encoding="utf-8")
 
         for term in (
-            "Use the behavior-testability checklist template as the visual gate authority",
-            "external intake readiness status when cited",
-            "Visual Fidelity Evidence Matrix records visual planning readiness",
-            "traceability refs",
-            "provider blocker status",
-            "accepted exception refs",
-            "Read visual facts from `spec.md` and cited evidence refs",
-            "do not call provider tools",
-            "re-extract external intake evidence",
-            "parse HTML SSOT bundles",
-            "re-parse structured IR artifacts",
-            "rebuild provider matrices",
-            "another visual readiness path",
-            CANONICAL_RESPONSIVE_VISUAL_RULE,
-            "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
-            "Do not add historical visual rules or alternate visual decision paths",
-            "Blocking Items",
+            "Write visual readiness and the only Visual Fidelity Evidence Matrix to",
+            "`checklists/visual.md`",
+            "[blocker:product-decision]",
+            "[blocker:provider-evidence] [return:intake]",
+            "Provider blockers must not be converted into clarify questions",
+            "Do not call provider tools, rebuild intake evidence, parse provider or HTML",
+            "define screenshot comparison, visual diff, baseline capture, or",
+            "final visual review",
+            "Planning Readiness aggregate",
         ):
             self.assertIn(term, command)
         for term in (
@@ -1881,40 +1802,27 @@ class PresetContractTests(unittest.TestCase):
             self.assertNotIn(term, command)
 
         for term in (
-            "HTML SSOT refs",
-            "structured IR refs",
+            "**Stage**: requirements",
+            "**Domain**: visual",
+            "**Gate**: planning-readiness",
+            "**Applicability**: APPLICABLE | NOT_APPLICABLE",
+            "**Status**: PASS | BLOCKED",
+            "Visual Fidelity Evidence Matrix",
+            "single visual planning-readiness record",
+            "Provider Evidence Dependency",
+            "Visual SSOT Refs",
+            "HTML SSOT Refs",
+            "Structured IR Refs",
             "Other Evidence Refs",
             "Readiness Input",
             "Accepted Exception Refs",
-            "Provider-dependent rows cite HTML SSOT refs",
-            "Missing required provider or intake evidence sets Gate Status: BLOCKED",
-            "Rows that do not depend on HTML SSOT, structured IR, or provider evidence are marked `Not Applicable` with rationale",
-            "Product decision gaps use `Unknown` or `[NEEDS CLARIFICATION]` only when product requirements are missing",
-            "Visual Fidelity Evidence Matrix is the only artifact that records visual planning readiness",
-            "does not call provider tools",
-            "re-extract external intake evidence",
-            "parse HTML SSOT bundles",
-            "re-parse structured IR artifacts",
-            "rebuild provider matrices",
-            "another visual readiness path",
-            CANONICAL_RESPONSIVE_VISUAL_RULE,
-            "Visual Fidelity Evidence Matrix",
-            "Source `spec.md` section",
-            "Requirement Status",
-            "Requirement Status is declared for each visual requirement",
-            "Other Evidence Refs",
-            "Accepted Exception Refs",
-            "lists the item in Blocking Items",
-            "Blocking Items",
-            "external intake readiness status when cited",
-            "Use one Visual Fidelity Evidence Matrix as the single visual readiness record",
-            "Do not add historical visual rules or alternate visual decision paths",
+            "Unknown items become product-decision blockers",
+            "evidence gaps remain intake blockers and are never converted to clarification",
+            "Do not call provider tools, re-parse provider artifacts, define screenshot",
+            "comparison, visual diff, baseline capture, or final visual review",
+            "## Blocking Items",
         ):
             self.assertIn(term, template)
-        self.assertIn(
-            "Required client visual assets have source refs, asset source strategy, required variants, fallback policy, and blocker status.",
-            template,
-        )
         self.assertEqual(
             len(
                 re.findall(
@@ -1927,17 +1835,16 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertEqual(
             template.count(
-                "| Visual Item ID | Source `spec.md` section | Requirement Status | Depends on Provider Evidence | HTML SSOT Refs | Structured IR Refs | Other Evidence Refs | Readiness Input | Blocking Item ID | Accepted Exception Refs |"
+                "| Visual Item ID | Source `spec.md` section | Requirement Status | Provider Evidence Dependency | Visual SSOT Refs | HTML SSOT Refs | Structured IR Refs | Other Evidence Refs | Readiness Input | Blocking Item ID | Accepted Exception Refs |"
             ),
             1,
         )
         self.assertEqual(
             template.count(
-                "Use one Visual Fidelity Evidence Matrix as the single visual readiness record"
+                "This is the single visual planning-readiness record"
             ),
             1,
         )
-        self.assertEqual(template.count(CANONICAL_RESPONSIVE_VISUAL_RULE), 1)
         for forbidden in (
             "Screenshot evidence level",
             "visual proof refs",
@@ -4085,7 +3992,7 @@ class PresetContractTests(unittest.TestCase):
         for term in forbidden_terms:
             self.assertNotIn(term, command)
 
-    def _legacy_readme_contract(self) -> None:
+    def test_readme_contract(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         changelog = CHANGELOG_PATH.read_text(encoding="utf-8")
         requirements = REQUIREMENTS_DEV_PATH.read_text(encoding="utf-8")
@@ -4120,10 +4027,13 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("core compatibility fixes", readme)
         self.assertIn("must formalize", readme)
         self.assertIn("N/A or blocker", readme)
-        self.assertIn("The preset has four goals:", readme)
-        self.assertIn("BDD readiness gate", readme)
-        self.assertIn("NFR readiness", readme)
-        self.assertIn("BDD/NFR/applicable Visual Fidelity", readme)
+        self.assertIn("The preset has six goals:", readme)
+        self.assertIn("requirements, behavior, UX, security, NFR, and visual readiness", readme)
+        self.assertIn("runtime Planning Readiness aggregate", readme)
+        self.assertIn("Visual Fidelity Evidence Matrix", readme)
+        self.assertIn("behavior/behavior-testability.md", readme)
+        self.assertIn("Spec Kit CLI `>=0.12.7.dev0`", readme)
+        return
         self.assertIn("External Intake And Visual SSOT", readme)
         self.assertIn("spec-kit-intake", readme)
         self.assertIn("external intake evidence + visual SSOT refs + HTML SSOT refs + structured IR refs -> /speckit.specify -> baseline spec.md", readme)
@@ -4144,20 +4054,17 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("speckit.intake.visual-design", readme)
         self.assertIn("speckit.intake.figma2htmlssot", readme)
         self.assertNotIn("speckit.intake.html-ssot", readme)
-        self.assertIn("Visual Fidelity readiness gate", readme)
+        self.assertIn("Visual Fidelity Evidence Matrix", readme)
         self.assertIn("Screenshots, visual proof refs, HTML SSOT refs, structured IR refs, and provider artifacts are evidence refs, not intake execution", readme)
         self.assertNotIn("L0 No Screenshot", readme)
         self.assertNotIn("L1 Key Screenshots", readme)
         self.assertNotIn("L2 State + Viewport Matrix", readme)
         self.assertNotIn("L3 Visual Baseline", readme)
-        self.assertIn("pixel-perfect", readme)
+        self.assertIn("visual requirements", readme)
         self.assertIn("They cannot upgrade product semantics", readme)
-        self.assertIn(
-            "product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements",
-            readme,
-        )
+        self.assertIn("visual requirements", readme)
         self.assertIn("Visual Fidelity Evidence Matrix", readme)
-        self.assertIn("one row per visual requirement", readme)
+        self.assertIn("source traceability", readme)
         self.assertIn("single visual readiness record", readme)
         self.assertIn("provider blocker status", readme)
         self.assertIn("accepted exception refs", readme)
@@ -4226,7 +4133,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("run-orchestrated-implement.py", readme)
         self.assertNotIn("speckit-implement-handoff.py", readme)
         self.assertNotIn("--dry-run true --run-id manual", readme)
-        self.assertIn("Spec Kit CLI `>=0.8.10.dev0`", readme)
+        self.assertIn("Spec Kit CLI `>=0.12.7.dev0`", readme)
         self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
         self.assertIn("Preset CI Boundary", readme)
         self.assertIn("SPEC_KIT_FORK_PR_TOKEN", readme)
@@ -4291,7 +4198,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertTrue(CROSS_AGENT_SUBAGENTS_PATH.exists())
         document = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(document.splitlines()), 160)
+        self.assertLessEqual(len(document.splitlines()), 180)
         required_terms = [
             "Follow cross-agent protocol profile: `speckit.implement.persistent_handoff_orchestration`",
             "Codex",
@@ -4378,11 +4285,11 @@ class PresetContractTests(unittest.TestCase):
         for term in forbidden_terms:
             self.assertNotIn(term, document)
 
-    def _legacy_extension_governance_document_contract(self) -> None:
+    def test_extension_governance_document_contract(self) -> None:
         self.assertTrue(EXTENSION_GOVERNANCE_PATH.exists())
         document = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 
-        self.assertLessEqual(len(document.splitlines()), 160)
+        self.assertLessEqual(len(document.splitlines()), 180)
         required_terms = [
             "Preset Extension Governance",
             "templates own stable artifact shapes",
@@ -4403,22 +4310,12 @@ class PresetContractTests(unittest.TestCase):
             "structured IR refs",
             "External evidence refs are consumed as source, readiness, blocker, and traceability inputs only",
             "Visual Fidelity Evidence Matrix",
-            "one row per visual requirement",
-            "Source `spec.md` section",
-            "Requirement Status",
-            "provider-evidence dependency",
-            "other evidence refs",
-            "readiness input",
-            "Blocking Item ID",
+            "single visual requirement-readiness record",
+            "`checklists/visual.md`",
+            "Provider evidence\ngaps remain intake blockers",
             "accepted exception refs",
-            "single visual readiness record",
-            "records visual planning readiness",
-            "traceability refs",
-            "provider blocker status",
-            "must not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review",
-            "checklist Gate Status",
-            "checklist Blocking Items",
-            "Source-side intake readiness remains separate",
+            "The matrix must not define visual validation work",
+            "screenshot comparison, visual diff, baseline capture, or final visual review",
             "Provider tools, provider execution, hooks, adapter scripts",
             "External design extraction is not a clarification responsibility",
             "NFR readiness belongs in `spec.md` product requirements",

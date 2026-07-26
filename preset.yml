@@ -3,14 +3,14 @@ schema_version: "1.0"
 preset:
   id: "workflow-preset"
   name: "Workflow Preset"
-  version: "1.4.0"
+  version: "1.4.1"
   description: "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration"
   author: "bigsmartben"
   repository: "https://github.com/bigsmartben/spec-kit-workflow-preset"
   license: "MIT"
 
 requires:
-  speckit_version: ">=0.8.10.dev0"
+  speckit_version: ">=0.12.7.dev0"
 
 provides:
   templates:
