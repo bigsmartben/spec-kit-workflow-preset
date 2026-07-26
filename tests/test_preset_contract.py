@@ -9,19 +9,10 @@ import yaml
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
-from validators.speckit_implement_contract import (
+from validators.speckit_behavior_contract import (
     validate_behavior_case_coverage,
     validate_behavior_contract_bundle,
     validate_behavior_draft_contract,
-    validate_commit_ready,
-    validate_dispatch_ready,
-    validate_implement_contract,
-    validate_handoff_contract,
-    validate_handoff_structure,
-    validate_manifest_contract,
-    validate_manifest_structure,
-    validate_receipt_contract,
-    validate_receipt_structure,
 )
 
 
@@ -29,7 +20,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PRESET_PATH = REPO_ROOT / "preset.yml"
 README_PATH = REPO_ROOT / "README.md"
 CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
-CROSS_AGENT_SUBAGENTS_PATH = REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-subagents.md"
 CROSS_AGENT_PROTOCOL_PATH = REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-protocol.md"
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
 EXTENSION_GOVERNANCE_PATH = REPO_ROOT / "docs" / "extension-governance.md"
@@ -40,7 +30,6 @@ CONSTITUTION_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.constitution.md"
 ANALYZE_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.analyze.md"
 PLAN_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.plan.md"
 TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
-IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
 CONSTITUTION_TEMPLATE_PATH = REPO_ROOT / "templates" / "constitution-template.md"
 ARCHITECTURE_TEMPLATE_PATH = REPO_ROOT / "templates" / "architecture-template.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
@@ -63,9 +52,6 @@ FORBIDDEN_VISUAL_COMPAT_TERMS = (
     "回退视觉规则",
 )
 REQUIREMENTS_DEV_PATH = REPO_ROOT / "requirements-dev.txt"
-MANIFEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.manifest.v1.schema.json"
-HANDOFF_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.handoff.v2.schema.json"
-RECEIPT_SCHEMA_PATH = REPO_ROOT / "schemas" / "speckit.implement.receipt.v1.schema.json"
 BEHAVIOR_SCHEMA_PATHS = {
     "speckit.behavior.scenarios.draft.v1": REPO_ROOT
     / "schemas"
@@ -131,198 +117,26 @@ REQUIREMENT_TEMPLATE_PATHS = {
     / "requirements"
     / "visual-gate.md",
 }
-HANDOFF_CLI_PATH = REPO_ROOT / "scripts" / "speckit-implement-handoff.py"
-BUILD_SCRIPT_PATH = REPO_ROOT / "scripts" / "build-task-shards.py"
-RUN_SCRIPT_PATH = REPO_ROOT / "scripts" / "run-orchestrated-implement.py"
-WORKFLOW_PATH = (
-    REPO_ROOT
-    / "workflows"
-    / "speckit-orchestrated-implement"
-    / "workflow.yml"
+REMOVED_IMPLEMENT_RUNTIME_PATHS = (
+    REPO_ROOT / "commands" / "speckit.implement.md",
+    REPO_ROOT / "schemas" / "speckit.implement.manifest.v1.schema.json",
+    REPO_ROOT / "schemas" / "speckit.implement.handoff.v2.schema.json",
+    REPO_ROOT / "schemas" / "speckit.implement.receipt.v1.schema.json",
+    REPO_ROOT / "validators" / "speckit_implement_contract.py",
+    REPO_ROOT / "tests" / "contracts" / "speckit-cross-agent-subagents.md",
 )
 
-RUN_ID = "run-001"
 FEATURE_PATH = "specs/001-demo"
-HANDOFF_DIR = f"{FEATURE_PATH}/handoffs/implement/{RUN_ID}"
-SHARD_ID = "S01-service-flow-01"
-RECEIPT_PATH = f"{HANDOFF_DIR}/results/{SHARD_ID}.json"
-SERVICE_PATH = f"{FEATURE_PATH}/src/service.py"
-TASKS_PATH = f"{FEATURE_PATH}/tasks.md"
-API_CONTRACT_PATH = f"{FEATURE_PATH}/contracts/api/refunds.openapi.yaml"
-SEQUENCES_PATH = f"{FEATURE_PATH}/contracts/sequences.md"
-QUICKSTART_PATH = f"{FEATURE_PATH}/quickstart.md"
 
 
-def no_data_side_effects_review(*, paths: list[str] | None = None) -> dict:
-    return {
-        "reviewed_diff_paths": paths or [SERVICE_PATH],
-        "runtime_data_writes_found": False,
-        "mutation_findings": [],
-    }
 
 
-def minimal_shard(
-    *,
-    shard_id: str = SHARD_ID,
-    vertical_capability: str = "service-flow",
-    task_ids: list[str] | None = None,
-) -> dict:
-    return {
-        "shard_id": shard_id,
-        "handoff_path": f"{HANDOFF_DIR}/{shard_id}.json",
-        "context_digest_path": f"{HANDOFF_DIR}/{shard_id}.context.md",
-        "receipt_path": f"{HANDOFF_DIR}/results/{shard_id}.json",
-        "task_ids": ["T001"] if task_ids is None else task_ids,
-        "vertical_capability": vertical_capability,
-    }
 
 
-def minimal_manifest(
-    *,
-    shards: list[dict] | None = None,
-    dependencies: list[dict] | None = None,
-    dispatch_order: list[list[str]] | None = None,
-    vertical_capability: str = "service-flow",
-    execution_mode: str = "isolated_subagent",
-) -> dict:
-    if shards is None:
-        shards = [minimal_shard(vertical_capability=vertical_capability)]
-    if dispatch_order is None:
-        dispatch_order = [[shard["shard_id"] for shard in shards]]
-
-    return {
-        "contract_type": "speckit.implement.manifest.v1",
-        "run_id": RUN_ID,
-        "feature_path": FEATURE_PATH,
-        "context_index_path": f"{HANDOFF_DIR}/context-index.json",
-        "execution_mode": execution_mode,
-        "planner_outputs": [
-            {
-                "vertical_capability": vertical_capability,
-                "planner_id": f"VP01-{vertical_capability}",
-                "shard_plan_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.plan.json",
-                "handoff_draft_paths": [
-                    f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.handoff.json"
-                ],
-                "context_digest_draft_paths": [
-                    f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.context.md"
-                ],
-            }
-        ],
-        "shards": shards,
-        "dependencies": dependencies or [],
-        "dispatch_order": dispatch_order,
-    }
 
 
-def minimal_handoff(
-    *,
-    shard_id: str = SHARD_ID,
-    vertical_capability: str = "service-flow",
-    planner_vertical_capability: str | None = None,
-    task_ids: list[str] | None = None,
-    allowed_write_paths: list[str] | None = None,
-    task_type: str = "implementation",
-) -> dict:
-    task_ids = ["T001"] if task_ids is None else task_ids
-    planner_vertical_capability = planner_vertical_capability or vertical_capability
-    receipt_path = f"{HANDOFF_DIR}/results/{shard_id}.json"
-    if allowed_write_paths is None:
-        allowed_write_paths = [SERVICE_PATH, receipt_path]
-
-    return {
-        "contract_type": "speckit.implement.handoff.v2",
-        "shard_id": shard_id,
-        "agent_topology": {
-            "core_agent": {"role": "orchestrator"},
-            "vertical_planner_agent": {
-                "role": "planner",
-                "vertical_planner_only": True,
-                "may_execute_implementation": False,
-                "may_write_manifest": False,
-                "may_update_tasks_md": False,
-            },
-            "worker_agent": {
-                "role": "executor",
-                "single_handoff_only": True,
-                "may_dispatch_workers": False,
-                "may_update_tasks_md": False,
-            },
-        },
-        "lifecycle_stage": "worker_execution",
-        "vertical_capability": vertical_capability,
-        "capability_boundary": {"owns": [], "depends_on": [], "must_not_touch": []},
-        "planner_outputs": {
-            "shard_plan_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.plan.json",
-            "handoff_draft_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.handoff.json",
-            "context_digest_draft_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.context.md",
-            "vertical_capability": planner_vertical_capability,
-        },
-        "draft_source": {
-            "vertical_planner_id": f"VP01-{vertical_capability}",
-            "handoff_draft_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.handoff.json",
-            "context_digest_draft_path": f"{HANDOFF_DIR}/planner-outputs/{vertical_capability}.context.md",
-        },
-        "task_ids": task_ids,
-        "task_type": task_type,
-        "task_text": ["Implement service"],
-        "context_digest_path": f"{HANDOFF_DIR}/{shard_id}.context.md",
-        "context_index_path": f"{HANDOFF_DIR}/context-index.json",
-        "allowed_read_paths": [TASKS_PATH],
-        "allowed_write_paths": allowed_write_paths,
-        "context_gaps": [],
-        "validation_commands": [],
-        "task_status_update": {
-            "mode": "receipt",
-            "receipt_path": receipt_path,
-            "committer": "core_agent",
-            "contract_type": "speckit.implement.receipt.v1",
-            "required_fields": [
-                "contract_type",
-                "shard_id",
-                "task_ids",
-                "completed_task_ids",
-                "validation_evidence",
-            ],
-        },
-        "forbidden_actions": ["Do not edit `tasks.md`."],
-    }
 
 
-def minimal_receipt(
-    *,
-    shard_id: str = SHARD_ID,
-    task_ids: list[str] | None = None,
-    completed_task_ids: list[str] | None = None,
-    changed_paths: list[str] | None = None,
-    validation_evidence: list[str] | None = None,
-    review_conclusion: dict | None = None,
-    data_side_effect_review: dict | None = None,
-    consistency_repairs: list[dict] | None = None,
-    deferred_validation_todos: list[dict] | None = None,
-    task_type: str = "implementation",
-) -> dict:
-    task_ids = task_ids or ["T001"]
-    receipt = {
-        "contract_type": "speckit.implement.receipt.v1",
-        "shard_id": shard_id,
-        "task_type": task_type,
-        "task_ids": task_ids,
-        "completed_task_ids": task_ids if completed_task_ids is None else completed_task_ids,
-        "changed_paths": changed_paths if changed_paths is not None else [SERVICE_PATH],
-        "validation_evidence": validation_evidence
-        if validation_evidence is not None
-        else ["unit tests passed"],
-    }
-    if review_conclusion is not None:
-        receipt["review_conclusion"] = review_conclusion
-    if data_side_effect_review is not None:
-        receipt["data_side_effect_review"] = data_side_effect_review
-    if consistency_repairs is not None:
-        receipt["consistency_repairs"] = consistency_repairs
-    if deferred_validation_todos is not None:
-        receipt["deferred_validation_todos"] = deferred_validation_todos
-    return receipt
 
 
 def minimal_behavior_scenarios_draft(
@@ -509,6 +323,61 @@ def minimal_exception_behavior_assertions_with_intent(intent: str) -> dict:
 
 
 class PresetContractTests(unittest.TestCase):
+    def test_manifest_excludes_implement_override_and_runtime(self) -> None:
+        manifest = yaml.safe_load(PRESET_PATH.read_text(encoding="utf-8"))
+        entries = manifest["provides"]["templates"]
+        command_entries = [entry for entry in entries if entry["type"] == "command"]
+        template_entries = [entry for entry in entries if entry["type"] == "template"]
+
+        self.assertEqual(7, len(command_entries))
+        self.assertEqual(24, len(template_entries))
+        self.assertEqual(31, len(entries))
+        self.assertNotIn(
+            "speckit.implement",
+            {entry["name"] for entry in command_entries},
+        )
+        self.assertFalse(
+            any("speckit.implement" in entry["file"] for entry in entries)
+        )
+        for path in REMOVED_IMPLEMENT_RUNTIME_PATHS:
+            self.assertFalse(path.exists(), path)
+
+    def test_tasks_end_with_mandatory_code_review_without_runtime_protocol(self) -> None:
+        tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
+        self.assertIn("Final Code Review", tasks)
+        self.assertIn("append the final phase after user-story tasks", tasks)
+        self.assertIn(
+            "`boundary`, `interface_contract`, `visual`, `data_side_effect`, "
+            "`behavior_contract`, `sequence_consistency`, and `asset_binding`",
+            tasks,
+        )
+        for forbidden in (
+            "speckit.implement.handoff",
+            "speckit.implement.receipt",
+            "handoff-manifest.json",
+            "Manual Worker Queue",
+            "Reviewer runtime",
+        ):
+            self.assertNotIn(forbidden, tasks)
+
+    def test_current_docs_define_core_implement_ownership(self) -> None:
+        current_docs = (
+            README_PATH.read_text(encoding="utf-8"),
+            EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8"),
+            AGENTS_PATH.read_text(encoding="utf-8"),
+            CROSS_AGENT_PROTOCOL_PATH.read_text(encoding="utf-8"),
+        )
+        for document in current_docs:
+            self.assertIn("Spec Kit core", document)
+            for forbidden in (
+                "speckit.implement.persistent_handoff_orchestration",
+                "Manual Worker Queue",
+                "Vertical Planner Agent",
+                "Worker Agent mode",
+                "speckit.implement.receipt.v1",
+            ):
+                self.assertNotIn(forbidden, document)
+
     def test_requirement_gate_and_clarify_repair_contract(self) -> None:
         checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
         clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
@@ -602,188 +471,14 @@ class PresetContractTests(unittest.TestCase):
         readme = README_PATH.read_text(encoding="utf-8")
         governance = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("multi-domain requirement gates", readme)
-        self.assertIn("no `planning-readiness.md` is generated", readme)
-        self.assertIn("`behavior/behavior-testability.md` is generated at plan closeout", readme)
-        self.assertIn("provider evidence remains an intake blocker", readme)
+        self.assertIn("requirement-domain readiness gates", readme)
+        self.assertIn("behavior/behavior-testability.md", readme)
+        self.assertIn("Missing provider evidence remains an intake blocker", readme)
 
-        self.assertIn("requirement-gate recomputation only", governance)
-        self.assertIn("requirements, behavior, UX, security, NFR, and visual requirement gates", governance)
+        self.assertIn("requirement-readiness gates", governance)
         self.assertIn("BDD Plan closeout", governance)
-        self.assertIn("must never be written as\n`planning-readiness.md`", governance)
-        self.assertIn("`behavior/behavior-testability.md` is a permitted planning artifact", governance)
+        self.assertIn("behavior/behavior-testability.md", governance)
 
-    def test_preset_manifest_contract(self) -> None:
-        data = yaml.safe_load(PRESET_PATH.read_text(encoding="utf-8"))
-
-        self.assertEqual("1.0", data["schema_version"])
-        self.assertEqual("workflow-preset", data["preset"]["id"])
-        self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("2.0.0", data["preset"]["version"])
-        self.assertEqual(
-            "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration",
-            data["preset"]["description"],
-        )
-        self.assertEqual("bigsmartben", data["preset"]["author"])
-        self.assertEqual(
-            "https://github.com/bigsmartben/spec-kit-workflow-preset",
-            data["preset"]["repository"],
-        )
-        self.assertEqual("MIT", data["preset"]["license"])
-        self.assertEqual(">=0.12.7.dev0", data["requires"]["speckit_version"])
-        self.assertEqual(
-            ["architecture", "constitution", "behavior", "bdd", "planning", "implementation", "handoff"],
-            data["tags"],
-        )
-
-        provides = data["provides"]["templates"]
-        self.assertEqual(35, len(provides))
-        entries = {entry["name"]: entry for entry in provides}
-        self.assertNotIn("behavior-open-questions-template", entries)
-        self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
-        for migrated_entry in (
-            "provider-evidence-packet-template",
-            "provider-intake-contract-template",
-            "design-requirement" + "-intake-template",
-            "requirement-merge" + "-report-template",
-            "speckit-design-visual" + "-item-matrix-v1-schema",
-        ):
-            self.assertNotIn(migrated_entry, entries)
-
-        plan_template = entries["plan-template"]
-        self.assertEqual("template", plan_template["type"])
-        self.assertEqual("templates/plan-template.md", plan_template["file"])
-        self.assertEqual("plan-template", plan_template["replaces"])
-        self.assertEqual("wrap", plan_template["strategy"])
-
-        constitution_template = entries["constitution-template"]
-        self.assertEqual("template", constitution_template["type"])
-        self.assertEqual("templates/constitution-template.md", constitution_template["file"])
-        self.assertEqual("constitution-template", constitution_template["replaces"])
-        self.assertEqual("wrap", constitution_template["strategy"])
-
-        architecture_template = entries["architecture-template"]
-        self.assertEqual("template", architecture_template["type"])
-        self.assertEqual("templates/architecture-template.md", architecture_template["file"])
-        self.assertEqual("architecture-template", architecture_template["replaces"])
-        self.assertEqual("replace", architecture_template["strategy"])
-
-        for command_name in ("speckit.plan", "speckit.tasks"):
-            command = entries[command_name]
-            self.assertEqual("command", command["type"])
-            self.assertEqual(f"commands/{command_name}.md", command["file"])
-            self.assertEqual(command_name, command["replaces"])
-            self.assertEqual("wrap", command["strategy"])
-
-        self.assertEqual(
-            "Consume project Architecture through Phase 0 behavior projection, formal contracts, and BDD Plan closeout",
-            entries["speckit.plan"]["description"],
-        )
-        self.assertEqual(
-            "Wrap core specification with spec-only requirement ownership",
-            entries["speckit.specify"]["description"],
-        )
-        self.assertEqual(
-            "Wrap core clarification with product-decision gate repair",
-            entries["speckit.clarify"]["description"],
-        )
-        self.assertEqual(
-            "Wrap core checklist generation with multi-domain requirement gates",
-            entries["speckit.checklist"]["description"],
-        )
-        for template_name in (*REQUIREMENT_TEMPLATE_PATHS, "behavior-testability-template"):
-            self.assertIn(template_name, entries)
-        self.assertNotIn("behavior-testability-checklist-template", entries)
-
-        for command_name in (
-            "speckit.specify",
-            "speckit.clarify",
-            "speckit.checklist",
-            "speckit.constitution",
-            "speckit.analyze",
-        ):
-            command = entries[command_name]
-            self.assertEqual("command", command["type"])
-            self.assertEqual(f"commands/{command_name}.md", command["file"])
-            self.assertEqual(command_name, command["replaces"])
-            self.assertEqual("wrap", command["strategy"])
-
-        specify_command = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
-        self.assertIn(
-            "Follow cross-agent protocol profile: `speckit.specify.single_core`",
-            specify_command,
-        )
-        self.assertIn("Preset-added requirement output writes only `spec.md`", specify_command)
-        for implement_only_term in (
-            "speckit.implement.persistent_handoff_orchestration",
-            "handoff-manifest.json",
-            "allowed_write_paths",
-            "receipt_path",
-            "Manual Worker Queue",
-        ):
-            self.assertNotIn(implement_only_term, specify_command)
-
-        self.assertEqual(
-            "Manage separate Constitution and Architecture artifacts under one project lifecycle",
-            entries["speckit.constitution"]["description"],
-        )
-        self.assertEqual(
-            "Add change scope granularity and Constitution-managed architecture governance",
-            entries["constitution-template"]["description"],
-        )
-
-        implement = entries["speckit.implement"]
-        self.assertEqual("command", implement["type"])
-        self.assertEqual("commands/speckit.implement.md", implement["file"])
-        self.assertEqual("speckit.implement", implement["replaces"])
-        self.assertEqual("replace", implement["strategy"])
-        for schema_name, schema_file in (
-            (
-                "speckit-implement-manifest-v1-schema",
-                "schemas/speckit.implement.manifest.v1.schema.json",
-            ),
-            (
-                "speckit-implement-handoff-v2-schema",
-                "schemas/speckit.implement.handoff.v2.schema.json",
-            ),
-            (
-                "speckit-implement-receipt-v1-schema",
-                "schemas/speckit.implement.receipt.v1.schema.json",
-            ),
-        ):
-            schema = entries[schema_name]
-            self.assertEqual("template", schema["type"])
-            self.assertEqual(schema_file, schema["file"])
-            self.assertEqual(schema_name, schema["replaces"])
-            self.assertEqual("replace", schema["strategy"])
-
-        for template_name, template_path in BEHAVIOR_TEMPLATE_PATHS.items():
-            template = entries[template_name]
-            self.assertEqual("template", template["type"])
-            self.assertEqual(
-                template_path.relative_to(REPO_ROOT).as_posix(),
-                template["file"],
-            )
-            self.assertEqual(template_name, template["replaces"])
-            self.assertEqual("replace", template["strategy"])
-
-        for contract_type, schema_path in BEHAVIOR_SCHEMA_PATHS.items():
-            schema_name = f"{contract_type}-schema".replace(".", "-").replace("_", "-")
-            schema = entries[schema_name]
-            self.assertEqual("template", schema["type"])
-            self.assertEqual(schema_path.relative_to(REPO_ROOT).as_posix(), schema["file"])
-            self.assertEqual(schema_name, schema["replaces"])
-            self.assertEqual("replace", schema["strategy"])
-
-        self.assertNotIn("scripts", data["provides"])
-        self.assertNotIn("files", data["provides"])
-        self.assertNotIn("workflows", data["provides"])
-
-    def test_cli_orchestration_files_are_not_packaged(self) -> None:
-        self.assertFalse(HANDOFF_CLI_PATH.exists())
-        self.assertFalse(BUILD_SCRIPT_PATH.exists())
-        self.assertFalse(RUN_SCRIPT_PATH.exists())
-        self.assertFalse(WORKFLOW_PATH.exists())
 
     def test_plan_command_wrapper_contract(self) -> None:
         command = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
@@ -876,20 +571,13 @@ class PresetContractTests(unittest.TestCase):
 
         for document in (readme, governance):
             self.assertIn("research.md", document)
-            self.assertIn("visual/IR source refs", document)
-            self.assertIn("contracts formalize visual interaction and state constraints", document)
-            self.assertIn("contracts/sequences.md records visual state flow only when it affects cross-boundary sequencing", document)
-            self.assertNotIn("research.md records visual validation decisions", document)
+            self.assertIn("visual/IR", document)
+            self.assertIn("contracts/sequences.md", document)
 
         self.assertIn(
             "fixed R/M/U/O model: R is Repository / Workspace, M is Module / Capability, U is Unit / Design Object, and O is Operation / Detail",
             readme,
         )
-        self.assertIn(
-            "Blocks constitution writes when a generated draft changes the fixed R/M/U/O mapping",
-            readme,
-        )
-        self.assertIn("single-file project Architecture lifecycle", readme)
         self.assertIn("System Boundary -> Conceptual Model", readme)
 
     def test_constitution_change_scope_granularity_contract(self) -> None:
@@ -984,7 +672,6 @@ class PresetContractTests(unittest.TestCase):
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
-        implement = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
 
         self.assertIn("Apply the constitution's Change Scope Granularity principle.", plan)
         self.assertIn("During planning, lock the change scope to `M + U`", plan)
@@ -998,11 +685,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Check that tasks preserve the planned `M + U` scope.", analyze)
         self.assertIn("Report missing, widened, or ambiguous scope boundaries as blockers.", analyze)
 
-        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
-        self.assertIn("Map planned `U` design objects to concrete source", implement)
-        self.assertIn("planned `U` design object", cross_agent)
-        self.assertIn("specific source, test, fixture, configuration, or receipt paths", cross_agent)
-        self.assertIn("context_gaps", cross_agent)
+        self.assertFalse((REPO_ROOT / "commands" / "speckit.implement.md").exists())
 
     def test_preplanning_commands_do_not_infer_scope_granularity(self) -> None:
         for path in (SPECIFY_COMMAND_PATH, CLARIFY_COMMAND_PATH, CHECKLIST_COMMAND_PATH):
@@ -1393,7 +1076,6 @@ class PresetContractTests(unittest.TestCase):
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
-        implement = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
 
         for term in (
             "behavior/bdd.draft.feature",
@@ -1571,26 +1253,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("./contracts/uif/", template)
         self.assertIn("./contracts/behavior/", template)
 
-        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
         self.assertNotIn("tests/contracts/", implement)
-        self.assertIn("contracts/bdd/", cross_agent)
-        self.assertIn("contracts/uif/", cross_agent)
-        self.assertIn("contracts/behavior/", cross_agent)
-        self.assertIn("behavior contract constraints", cross_agent)
-        self.assertIn("validation_evidence references", cross_agent)
-        self.assertIn("BDD scenario", cross_agent)
-        self.assertIn("behavior assertion", cross_agent)
-        self.assertIn("API contract", cross_agent)
-        self.assertIn("quickstart path", cross_agent)
-        self.assertIn("visual fidelity requirements", cross_agent)
-        self.assertIn("visual SSOT refs", cross_agent)
-        self.assertIn("HTML SSOT refs", cross_agent)
-        self.assertIn("structured IR refs", cross_agent)
-        self.assertIn("Client Asset Contract", cross_agent)
-        self.assertIn("asset binding", cross_agent)
-        self.assertIn("local asset paths or code asset mappings", cross_agent)
-        self.assertIn("missing required client visual assets", cross_agent)
-        self.assertIn("Visual Item ID", cross_agent)
+        self.assertIn("Read contracts/ for API specifications and test requirements", implement)
         self.assertIn("Requirement Status", cross_agent)
         self.assertIn("visual shard candidates must come only from `tasks.md` visual/UI task types", cross_agent)
         self.assertIn("only `Required` or `Required` plus an accepted exception is executable", cross_agent)
@@ -1687,7 +1351,6 @@ class PresetContractTests(unittest.TestCase):
             ANALYZE_COMMAND_PATH,
             PLAN_COMMAND_PATH,
             TASKS_COMMAND_PATH,
-            IMPLEMENT_COMMAND_PATH,
             PRESET_PATH,
         ]
         forbidden_terms = [
@@ -1869,214 +1532,8 @@ class PresetContractTests(unittest.TestCase):
             for forbidden in FORBIDDEN_VISUAL_COMPAT_TERMS:
                 self.assertNotIn(forbidden, lowered)
 
-    def test_implement_command_is_agent_native_handoff_orchestrator(self) -> None:
-        command = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
-        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
 
-        self.assertNotIn("{CORE_TEMPLATE}", command)
-        self.assertNotIn("strategy: wrap", command)
-        self.assertNotIn("uv run", command)
-        self.assertNotIn("run-orchestrated-implement.py", command)
-        self.assertNotIn("build-task-shards.py", command)
-        self.assertNotIn("speckit-implement-handoff.py", command)
-        self.assertNotIn("specify_cli.integrations", command)
-        self.assertNotIn("subprocess", command.lower())
-        self.assertNotIn("specify workflow run", command)
-        self.assertNotIn('"contract_type": "speckit.implement.handoff.v2"', command)
-        self.assertNotIn('"contract_type": "speckit.implement.manifest.v1"', command)
-        self.assertNotIn('"contract_type": "speckit.implement.receipt.v1"', command)
 
-        command_terms = [
-            "Core mode",
-            "Worker mode",
-            "Core Agent",
-            "Vertical Planner Agent",
-            "Worker Agent",
-            "vertical_capability",
-            "speckit.implement.handoff.v2",
-            "speckit.implement.receipt.v1",
-            "handoff-manifest.json",
-            "speckit.implement.manifest.v1.schema.json",
-            "speckit.implement.handoff.v2.schema.json",
-            "speckit.implement.receipt.v1.schema.json",
-            "validators/speckit_implement_contract.py",
-            "Use only this command, implement schemas, and implement validators as runtime contract sources",
-            "Runtime, shard, digest, path, asset binding, dispatch, Worker Prompt, and receipt rules are source-owned here",
-            "Use handoff JSON <path>",
-            "allowed_read_paths",
-            "allowed_write_paths",
-            "context_gaps",
-            "task_status_update",
-            "Do not edit `tasks.md`",
-            "Visual Implementation Boundary",
-            "visual task input filter",
-            "Visual Fidelity Readiness `Requirement Status` is `Required` or `Required` plus an accepted exception",
-            "Do not create handoffs or worker instructions for visual rows",
-            "`Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`",
-            "Route `Unknown` visual rows back to `/speckit.clarify`",
-            "Route `[BLOCKED: PROVIDER_EVIDENCE]` visual rows to the external intake extension",
-            "do not repair provider evidence in `/speckit.implement`",
-            "`/speckit.implement` must not discover visual requirements, repair Visual Fidelity Readiness evidence",
-            "Visual worker receipts must reference the relevant Visual Item ID",
-            "Follow cross-agent protocol profile: `speckit.implement.persistent_handoff_orchestration`",
-            "Manual Worker Queue",
-            "validate_manifest_structure()",
-            "validate_handoff_structure()",
-            "validate_dispatch_ready()",
-            "validate_receipt_structure()",
-            "validate_commit_ready()",
-        ]
-        for term in command_terms:
-            self.assertIn(term, command)
-
-        contract_terms = [
-            "planner_outputs",
-            "draft_source",
-            "context-index.json",
-            ".context.md",
-            "handoffs/implement/<run-id>",
-            "results/<shard>.json",
-            "exactly one handoff",
-            "intake",
-            "context_indexing",
-            "vertical_planning",
-            "manifest_assembly",
-            "worker_dispatch",
-            "worker_execution",
-            "receipt_review",
-            "code_review",
-            "task_commit",
-            "integration_verification",
-            "closeout",
-        ]
-        for term in contract_terms:
-            self.assertIn(term, cross_agent)
-
-    def test_implement_command_declares_deterministic_handoff_rules(self) -> None:
-        command = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
-        cross_agent = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
-
-        command_terms = [
-            "agent-runtime=<spec-kit-integration-key>",
-            "isolated_subagent",
-            "manual_fresh_worker_session",
-            "isolated subagent/subsession",
-            "write the manifest and handoffs, then stop with `Manual Worker Queue` entries",
-            "Consume planner outputs and worker receipts, not worker conversation history",
-            "Reject non-existent handoff paths",
-            "Reject handoffs not listed in `handoff-manifest.json`",
-        ]
-        for term in command_terms:
-            self.assertIn(term, command)
-
-        contract_terms = [
-            "Runtime Isolation Mapping",
-            "Worker payload",
-            "no full `spec.md`, `plan.md`, `research.md`, `contracts/`, `quickstart.md`",
-            "Shard Rules",
-            "Only Vertical Planner Agents may produce shard plans and digest drafts.",
-            "Only Core Agent may write final `handoff-manifest.json` and commit `tasks.md`.",
-            "Only Worker Agents may execute implementation handoffs.",
-            "one incomplete `tasks.md` checklist item maps to one candidate shard",
-            "group candidates only when lifecycle dependencies, vertical_capability, and allowed_write_paths match",
-            "shard IDs use `S<2-digit-sequence>-<vertical_capability>-<2-digit-sequence>`",
-            "Files",
-            "Schemas",
-            "Context Digest Rules",
-            "include task text for assigned `task_ids`",
-            "include document headings from `context-index.json`",
-            "include only sections referenced by assigned task paths or vertical_capability",
-            "record unresolved required context as `context_gaps`",
-            "Path Rules",
-            "Path and Receipt Rules",
-            "derive `allowed_write_paths` from paths referenced by assigned task text",
-            "include receipt path in `allowed_write_paths`",
-            "derive `allowed_read_paths` from allowed write parents, validation files, context digest, and context index",
-            "Reject non-existent handoff paths",
-            "Reject handoffs not listed in `handoff-manifest.json`",
-            "Implementation Worker",
-            "Code Review Worker",
-            "Manual Worker Queue",
-        ]
-        for term in contract_terms:
-            self.assertIn(term, cross_agent)
-        self.assertNotIn("Visual Review Worker", cross_agent)
-
-        self.assertIn("research.md validation decisions", cross_agent)
-        self.assertIn("quickstart.md validation paths", cross_agent)
-        self.assertIn("Code Review Worker", cross_agent)
-        self.assertIn("task_type: code_review", cross_agent)
-        self.assertIn("review_conclusion", cross_agent)
-        self.assertIn("checked_sources", cross_agent)
-        self.assertIn("data_side_effect_review", cross_agent)
-        self.assertIn("data side effects", cross_agent)
-        self.assertIn("field-level update/delete", cross_agent)
-        self.assertIn("runtime database writes", cross_agent)
-        self.assertIn("actual implementation diff", cross_agent)
-        self.assertIn("consistency_repairs", cross_agent)
-        self.assertIn("deferred_validation_todos", cross_agent)
-        self.assertIn("quickstart/contract validation command", cross_agent)
-        self.assertIn(
-            "Repair only authorized implementation drift against existing design, sequence, or contract constraints inside allowed_write_paths",
-            cross_agent,
-        )
-        self.assertIn("implementation changed_paths require at least one Code Review Receipt", cross_agent)
-        self.assertNotIn("## Shard Rules", command)
-        self.assertNotIn("## Context Digest Rules", command)
-        self.assertNotIn("## Path Rules", command)
-        self.assertNotIn("## Code Review Receipts", command)
-        self.assertNotIn("test-plan.md", command)
-
-    def test_contract_schemas_are_decoupled_json_files(self) -> None:
-        for path, contract_type in (
-            (MANIFEST_SCHEMA_PATH, "speckit.implement.manifest.v1"),
-            (HANDOFF_SCHEMA_PATH, "speckit.implement.handoff.v2"),
-            (RECEIPT_SCHEMA_PATH, "speckit.implement.receipt.v1"),
-        ):
-            schema = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual("object", schema["type"])
-            self.assertIn("required", schema)
-            self.assertIn("properties", schema)
-            self.assertEqual(contract_type, schema["properties"]["contract_type"]["const"])
-
-        handoff = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        self.assertIn("agent_topology", handoff["required"])
-        self.assertIn("planner_outputs", handoff["required"])
-        self.assertIn("draft_source", handoff["required"])
-        self.assertIn("task_type", handoff["required"])
-        self.assertIn("allowed_read_paths", handoff["required"])
-        self.assertIn("allowed_write_paths", handoff["required"])
-        self.assertIn("task_status_update", handoff["required"])
-
-        agent_topology = handoff["properties"]["agent_topology"]
-        self.assertIn("vertical_planner_agent", agent_topology["required"])
-        self.assertIn(
-            "may_execute_implementation",
-            agent_topology["properties"]["vertical_planner_agent"]["required"],
-        )
-
-        receipt = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        self.assertIn("task_type", receipt["required"])
-        review_conclusion = receipt["properties"]["review_conclusion"]
-        self.assertIn("checked_sources", review_conclusion["required"])
-        data_side_effect_review = receipt["properties"]["data_side_effect_review"]
-        self.assertIn("reviewed_diff_paths", data_side_effect_review["required"])
-        self.assertIn("mutation_findings", data_side_effect_review["required"])
-        self.assertIn("pattern", handoff["properties"]["shard_id"])
-        self.assertIn("pattern", receipt["properties"]["shard_id"])
-
-        manifest = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
-        manifest_shard = manifest["properties"]["shards"]["items"]["properties"]["shard_id"]
-        self.assertIn("pattern", manifest_shard)
-
-    def test_manifest_schema_declares_runtime_neutral_execution_mode(self) -> None:
-        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
-
-        self.assertIn("execution_mode", schema["required"])
-        self.assertEqual(
-            {"isolated_subagent", "manual_fresh_worker_session"},
-            set(schema["properties"]["execution_mode"]["enum"]),
-        )
 
     def test_behavior_first_schema_contracts_accept_minimal_examples(self) -> None:
         examples = {
@@ -2598,1760 +2055,92 @@ class PresetContractTests(unittest.TestCase):
             [minimal_uif_expected()],
         )
 
-    def test_manifest_schema_accepts_minimal_valid_manifest(self) -> None:
-        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
-        manifest = minimal_manifest(shards=[], dispatch_order=[])
-        Draft202012Validator(schema).validate(manifest)
-
-    def test_manifest_schema_rejects_unknown_execution_mode(self) -> None:
-        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
-        manifest = minimal_manifest(execution_mode="inline_same_session")
-
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(manifest)
-
-    def test_manifest_schema_rejects_empty_shard_task_ids(self) -> None:
-        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
-        manifest = minimal_manifest(shards=[minimal_shard(task_ids=[])])
-
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(manifest)
-
-    def test_validate_manifest_contract_rejects_unknown_dispatch_order_shard(self) -> None:
-        manifest = minimal_manifest(dispatch_order=[["S02-service-flow-01"]])
-        with self.assertRaises(ValueError):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_unknown_execution_mode(self) -> None:
-        manifest = minimal_manifest(execution_mode="inline_same_session")
-        with self.assertRaisesRegex(ValueError, "execution_mode"):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_duplicate_shard_ids(self) -> None:
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(task_ids=["T001"]),
-                minimal_shard(task_ids=["T002"]),
-            ],
-            dispatch_order=[[SHARD_ID]],
-        )
-        with self.assertRaisesRegex(ValueError, "duplicates shard_id"):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_empty_shard_task_ids(self) -> None:
-        manifest = minimal_manifest(shards=[minimal_shard(task_ids=[])])
-        with self.assertRaisesRegex(ValueError, "task_ids"):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_duplicate_shard_task_ids(self) -> None:
-        manifest = minimal_manifest(shards=[minimal_shard(task_ids=["T001", "T001"])])
-        with self.assertRaisesRegex(ValueError, "task_ids"):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_shard_id_vertical_capability_mismatch(
-        self,
-    ) -> None:
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(shard_id="S01-ui-01", vertical_capability="service-flow")
-            ],
-            dispatch_order=[["S01-ui-01"]],
-            vertical_capability="service-flow",
-        )
-
-        with self.assertRaisesRegex(ValueError, "shard_id vertical_capability mismatch"):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_invalid_shard_id_pattern(self) -> None:
-        manifest = minimal_manifest(
-            shards=[minimal_shard(shard_id="S1-service-flow-01")],
-            dispatch_order=[["S1-service-flow-01"]],
-        )
-
-        with self.assertRaisesRegex(ValueError, "invalid shard_id"):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_unknown_dependency_shard(self) -> None:
-        manifest = minimal_manifest(
-            dependencies=[{"shard_id": SHARD_ID, "depends_on": ["S02-service-flow-01"]}]
-        )
-        with self.assertRaises(ValueError):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_self_dependency(self) -> None:
-        manifest = minimal_manifest(
-            dependencies=[{"shard_id": SHARD_ID, "depends_on": [SHARD_ID]}]
-        )
-        with self.assertRaises(ValueError):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_dispatch_order_missing_shard(self) -> None:
-        second_shard = minimal_shard(shard_id="S02-service-flow-02", task_ids=["T002"])
-        manifest = minimal_manifest(
-            shards=[minimal_shard(), second_shard],
-            dispatch_order=[[SHARD_ID]],
-        )
-        with self.assertRaises(ValueError):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_duplicate_dispatch_order_shard(self) -> None:
-        manifest = minimal_manifest(dispatch_order=[[SHARD_ID], [SHARD_ID]])
-        with self.assertRaises(ValueError):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_rejects_dependency_after_dependent(self) -> None:
-        second_shard = minimal_shard(shard_id="S02-service-flow-02", task_ids=["T002"])
-        manifest = minimal_manifest(
-            shards=[minimal_shard(), second_shard],
-            dependencies=[{"shard_id": SHARD_ID, "depends_on": ["S02-service-flow-02"]}],
-            dispatch_order=[[SHARD_ID], ["S02-service-flow-02"]],
-        )
-        with self.assertRaises(ValueError):
-            validate_manifest_contract(manifest)
-
-    def test_validate_manifest_contract_accepts_valid_cross_fields(self) -> None:
-        validate_manifest_contract(minimal_manifest())
-        validate_manifest_structure(minimal_manifest())
-
-    def test_validate_implement_contract_rejects_missing_handoff(self) -> None:
-        with self.assertRaises(ValueError):
-            validate_implement_contract(
-                minimal_manifest(),
-                handoffs_by_path={},
-                receipts_by_path={},
-            )
-
-    def test_validate_implement_contract_rejects_unlisted_handoff(self) -> None:
-        with self.assertRaises(ValueError):
-            validate_implement_contract(
-                minimal_manifest(),
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                    f"{HANDOFF_DIR}/S02-service-flow-02.json": minimal_handoff(
-                        shard_id="S02-service-flow-02"
-                    ),
-                },
-                receipts_by_path={},
-            )
-
-    def test_validate_implement_contract_rejects_unlisted_receipt(self) -> None:
-        with self.assertRaises(ValueError):
-            validate_implement_contract(
-                minimal_manifest(),
-                handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff()},
-                receipts_by_path={
-                    RECEIPT_PATH: minimal_receipt(),
-                    f"{HANDOFF_DIR}/results/S02-service-flow-02.json": minimal_receipt(
-                        shard_id="S02-service-flow-02"
-                    ),
-                },
-            )
-
-    def test_validate_implement_contract_accepts_valid_bundle(self) -> None:
-        validate_implement_contract(
-            minimal_manifest(),
-            handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff()},
-            receipts_by_path={RECEIPT_PATH: minimal_receipt(changed_paths=[])},
-        )
-
-    def test_validate_commit_ready_rejects_implementation_changes_without_code_review(
-        self,
-    ) -> None:
-        with self.assertRaisesRegex(ValueError, "code review receipt"):
-            validate_commit_ready(
-                minimal_manifest(),
-                handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff()},
-                receipts_by_path={RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH])},
-            )
-
-    def test_validate_commit_ready_rejects_missing_shard_receipt(self) -> None:
-        second_shard_id = "S02-service-flow-02"
-        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
-        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
-            ],
-            dispatch_order=[[SHARD_ID, second_shard_id]],
-        )
-
-        with self.assertRaisesRegex(ValueError, "missing receipt"):
-            validate_commit_ready(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                    second_handoff_path: minimal_handoff(
-                        shard_id=second_shard_id,
-                        task_ids=["T002"],
-                        allowed_write_paths=[f"{FEATURE_PATH}/src/other.py", second_receipt_path],
-                    ),
-                },
-                receipts_by_path={RECEIPT_PATH: minimal_receipt()},
-            )
-
-    def test_validate_commit_ready_rejects_missing_code_review_receipt(self) -> None:
-        review_shard_id = "S02-service-flow-02"
-        review_receipt_path = f"{HANDOFF_DIR}/results/{review_shard_id}.json"
-        review_handoff_path = f"{HANDOFF_DIR}/{review_shard_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=review_shard_id, task_ids=["T099"]),
-            ],
-            dependencies=[{"shard_id": review_shard_id, "depends_on": [SHARD_ID]}],
-            dispatch_order=[[SHARD_ID], [review_shard_id]],
-        )
-        review_handoff = minimal_handoff(
-            shard_id=review_shard_id,
-            task_ids=["T099"],
-            allowed_write_paths=[review_receipt_path],
-            task_type="code_review",
-        )
-        review_handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
-
-        with self.assertRaisesRegex(ValueError, "missing receipt"):
-            validate_commit_ready(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                    review_handoff_path: review_handoff,
-                },
-                receipts_by_path={RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH])},
-            )
-
-    def test_validate_commit_ready_rejects_code_review_that_misses_implementation_diff(
-        self,
-    ) -> None:
-        review_shard_id = "S02-service-flow-02"
-        review_receipt_path = f"{HANDOFF_DIR}/results/{review_shard_id}.json"
-        review_handoff_path = f"{HANDOFF_DIR}/{review_shard_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(
-                    shard_id=review_shard_id,
-                    task_ids=["T099"],
-                ),
-            ],
-            dependencies=[
-                {"shard_id": review_shard_id, "depends_on": [SHARD_ID]},
-            ],
-            dispatch_order=[[SHARD_ID], [review_shard_id]],
-        )
-        review_handoff = minimal_handoff(
-            shard_id=review_shard_id,
-            task_ids=["T099"],
-            allowed_write_paths=[review_receipt_path],
-            task_type="code_review",
-        )
-        review_handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
-
-        with self.assertRaisesRegex(ValueError, "implementation changed_paths"):
-            validate_commit_ready(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                    review_handoff_path: review_handoff,
-                },
-                receipts_by_path={
-                    RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH]),
-                    review_receipt_path: minimal_receipt(
-                        shard_id=review_shard_id,
-                        task_ids=["T099"],
-                        task_type="code_review",
-                        changed_paths=[review_receipt_path],
-                        validation_evidence=["Code review checked implementation diff."],
-                        review_conclusion={
-                            "status": "approved",
-                            "summary": "Review complete.",
-                            "checked_sources": [QUICKSTART_PATH],
-                            "findings": [],
-                        },
-                        data_side_effect_review=no_data_side_effects_review(
-                            paths=[QUICKSTART_PATH]
-                        ),
-                    ),
-                },
-            )
-
-    def test_validate_commit_ready_accepts_union_code_review_coverage(self) -> None:
-        review_one_id = "S02-service-flow-02"
-        review_two_id = "S03-service-flow-03"
-        second_impl_id = "S04-service-flow-04"
-        second_service_path = f"{FEATURE_PATH}/src/other_service.py"
-        review_one_receipt_path = f"{HANDOFF_DIR}/results/{review_one_id}.json"
-        review_two_receipt_path = f"{HANDOFF_DIR}/results/{review_two_id}.json"
-        second_impl_receipt_path = f"{HANDOFF_DIR}/results/{second_impl_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_impl_id, task_ids=["T002"]),
-                minimal_shard(shard_id=review_one_id, task_ids=["T098"]),
-                minimal_shard(shard_id=review_two_id, task_ids=["T099"]),
-            ],
-            dependencies=[
-                {"shard_id": review_one_id, "depends_on": [SHARD_ID, second_impl_id]},
-                {"shard_id": review_two_id, "depends_on": [SHARD_ID, second_impl_id]},
-            ],
-            dispatch_order=[[SHARD_ID, second_impl_id], [review_one_id, review_two_id]],
-        )
-        second_impl_handoff = minimal_handoff(
-            shard_id=second_impl_id,
-            task_ids=["T002"],
-            allowed_write_paths=[second_service_path, second_impl_receipt_path],
-        )
-        review_one = minimal_handoff(
-            shard_id=review_one_id,
-            task_ids=["T098"],
-            allowed_write_paths=[review_one_receipt_path],
-            task_type="code_review",
-        )
-        review_one["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, SERVICE_PATH]
-        review_two = minimal_handoff(
-            shard_id=review_two_id,
-            task_ids=["T099"],
-            allowed_write_paths=[review_two_receipt_path],
-            task_type="code_review",
-        )
-        review_two["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH, second_service_path]
-
-        validate_commit_ready(
-            manifest,
-            handoffs_by_path={
-                f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                f"{HANDOFF_DIR}/{second_impl_id}.json": second_impl_handoff,
-                f"{HANDOFF_DIR}/{review_one_id}.json": review_one,
-                f"{HANDOFF_DIR}/{review_two_id}.json": review_two,
-            },
-            receipts_by_path={
-                RECEIPT_PATH: minimal_receipt(changed_paths=[SERVICE_PATH]),
-                second_impl_receipt_path: minimal_receipt(
-                    shard_id=second_impl_id,
-                    task_ids=["T002"],
-                    changed_paths=[second_service_path],
-                ),
-                review_one_receipt_path: minimal_receipt(
-                    shard_id=review_one_id,
-                    task_ids=["T098"],
-                    task_type="code_review",
-                    changed_paths=[review_one_receipt_path],
-                    validation_evidence=["quickstart.md code review covered service diff."],
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "checked_sources": [QUICKSTART_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[SERVICE_PATH]
-                    ),
-                ),
-                review_two_receipt_path: minimal_receipt(
-                    shard_id=review_two_id,
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    changed_paths=[review_two_receipt_path],
-                    validation_evidence=["quickstart.md code review covered other service diff."],
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "checked_sources": [QUICKSTART_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[second_service_path]
-                    ),
-                ),
-            },
-        )
-
-    def test_validate_implement_contract_rejects_overlapping_allowed_write_paths(self) -> None:
-        second_shard_id = "S02-service-flow-02"
-        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
-        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
-            ],
-            dispatch_order=[[SHARD_ID, second_shard_id]],
-        )
-
-        with self.assertRaisesRegex(ValueError, "allowed_write_paths"):
-            validate_implement_contract(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                    second_handoff_path: minimal_handoff(
-                        shard_id=second_shard_id,
-                        task_ids=["T002"],
-                        allowed_write_paths=[SERVICE_PATH, second_receipt_path],
-                    ),
-                },
-                receipts_by_path={},
-            )
-
-    def test_validate_implement_contract_rejects_contained_allowed_write_paths(self) -> None:
-        second_shard_id = "S02-service-flow-02"
-        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
-        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
-            ],
-            dispatch_order=[[SHARD_ID, second_shard_id]],
-        )
-
-        with self.assertRaisesRegex(ValueError, "allowed_write_paths"):
-            validate_implement_contract(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                    second_handoff_path: minimal_handoff(
-                        shard_id=second_shard_id,
-                        task_ids=["T002"],
-                        allowed_write_paths=[f"{FEATURE_PATH}/src", second_receipt_path],
-                    ),
-                },
-                receipts_by_path={},
-            )
-
-    def test_validate_dispatch_ready_accepts_serial_shared_allowed_write_paths(self) -> None:
-        second_shard_id = "S02-service-flow-02"
-        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
-        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
-            ],
-            dependencies=[{"shard_id": second_shard_id, "depends_on": [SHARD_ID]}],
-            dispatch_order=[[SHARD_ID], [second_shard_id]],
-        )
-
-        validate_dispatch_ready(
-            manifest,
-            handoffs_by_path={
-                f"{HANDOFF_DIR}/{SHARD_ID}.json": minimal_handoff(),
-                second_handoff_path: minimal_handoff(
-                    shard_id=second_shard_id,
-                    task_ids=["T002"],
-                    allowed_write_paths=[SERVICE_PATH, second_receipt_path],
-                ),
-            },
-        )
-
-    def test_validate_implement_contract_rejects_overlapping_capability_owns(self) -> None:
-        second_shard_id = "S02-service-flow-02"
-        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
-        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
-        first_handoff = minimal_handoff()
-        first_handoff["capability_boundary"]["owns"] = [SERVICE_PATH]
-        second_handoff = minimal_handoff(
-            shard_id=second_shard_id,
-            task_ids=["T002"],
-            allowed_write_paths=[f"{FEATURE_PATH}/src/other.py", second_receipt_path],
-        )
-        second_handoff["capability_boundary"]["owns"] = [SERVICE_PATH]
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
-            ],
-            dispatch_order=[[SHARD_ID, second_shard_id]],
-        )
-
-        with self.assertRaisesRegex(ValueError, "capability_boundary.owns"):
-            validate_implement_contract(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": first_handoff,
-                    second_handoff_path: second_handoff,
-                },
-                receipts_by_path={},
-            )
-
-    def test_validate_implement_contract_rejects_contained_capability_owns(self) -> None:
-        second_shard_id = "S02-service-flow-02"
-        second_receipt_path = f"{HANDOFF_DIR}/results/{second_shard_id}.json"
-        second_handoff_path = f"{HANDOFF_DIR}/{second_shard_id}.json"
-        first_handoff = minimal_handoff()
-        first_handoff["capability_boundary"]["owns"] = [f"{FEATURE_PATH}/src"]
-        second_handoff = minimal_handoff(
-            shard_id=second_shard_id,
-            task_ids=["T002"],
-            allowed_write_paths=[f"{FEATURE_PATH}/tests/test_service.py", second_receipt_path],
-        )
-        second_handoff["capability_boundary"]["owns"] = [SERVICE_PATH]
-        manifest = minimal_manifest(
-            shards=[
-                minimal_shard(),
-                minimal_shard(shard_id=second_shard_id, task_ids=["T002"]),
-            ],
-            dispatch_order=[[SHARD_ID, second_shard_id]],
-        )
-
-        with self.assertRaisesRegex(ValueError, "capability_boundary.owns"):
-            validate_implement_contract(
-                manifest,
-                handoffs_by_path={
-                    f"{HANDOFF_DIR}/{SHARD_ID}.json": first_handoff,
-                    second_handoff_path: second_handoff,
-                },
-                receipts_by_path={},
-            )
-
-    def test_handoff_schema_accepts_minimal_valid_handoff(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        Draft202012Validator(schema).validate(minimal_handoff())
-
-    def test_handoff_schema_allows_context_gaps_for_blocked_handoff(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff()
-        handoff["context_gaps"] = ["Missing API contract context"]
-        Draft202012Validator(schema).validate(handoff)
-
-    def test_validate_handoff_structure_allows_context_gaps(self) -> None:
-        handoff = minimal_handoff()
-        handoff["context_gaps"] = ["Missing API contract context"]
-        validate_handoff_structure(handoff)
-
-    def test_validate_dispatch_ready_rejects_context_gaps(self) -> None:
-        handoff = minimal_handoff()
-        handoff["context_gaps"] = ["Missing API contract context"]
-        with self.assertRaisesRegex(ValueError, "context_gaps"):
-            validate_dispatch_ready(
-                minimal_manifest(),
-                handoffs_by_path={f"{HANDOFF_DIR}/{SHARD_ID}.json": handoff},
-            )
-
-    def test_validate_handoff_contract_rejects_tasks_md_in_allowed_write_paths(self) -> None:
-        handoff = minimal_handoff(allowed_write_paths=[SERVICE_PATH, TASKS_PATH, RECEIPT_PATH])
-        with self.assertRaises(ValueError):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_rejects_context_gaps(self) -> None:
-        handoff = minimal_handoff()
-        handoff["context_gaps"] = ["Missing API contract context"]
-        with self.assertRaisesRegex(ValueError, "context_gaps"):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_rejects_duplicate_task_ids(self) -> None:
-        handoff = minimal_handoff(task_ids=["T001", "T001"])
-        with self.assertRaisesRegex(ValueError, "task_ids"):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_rejects_allowed_write_path_in_must_not_touch(self) -> None:
-        handoff = minimal_handoff()
-        handoff["capability_boundary"]["must_not_touch"] = [SERVICE_PATH]
-        with self.assertRaisesRegex(ValueError, "must_not_touch"):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_rejects_allowed_write_path_contained_in_must_not_touch(
-        self,
-    ) -> None:
-        handoff = minimal_handoff()
-        handoff["capability_boundary"]["must_not_touch"] = [f"{FEATURE_PATH}/src"]
-        with self.assertRaisesRegex(ValueError, "must_not_touch"):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_accepts_valid_cross_fields(self) -> None:
-        validate_handoff_contract(minimal_handoff())
-        validate_handoff_structure(minimal_handoff())
-
-    def test_validate_handoff_contract_rejects_planner_output_vertical_mismatch(self) -> None:
-        handoff = minimal_handoff(planner_vertical_capability="ui")
-        with self.assertRaises(ValueError):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_rejects_shard_id_vertical_capability_mismatch(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(shard_id="S01-ui-01", vertical_capability="service-flow")
-        with self.assertRaisesRegex(ValueError, "shard_id vertical_capability mismatch"):
-            validate_handoff_contract(handoff)
-
-    def test_validate_handoff_contract_rejects_invalid_shard_id_pattern(self) -> None:
-        handoff = minimal_handoff(shard_id="S01_service_flow_01")
-        with self.assertRaisesRegex(ValueError, "invalid shard_id"):
-            validate_handoff_contract(handoff)
-
-    def test_receipt_schema_accepts_minimal_valid_receipt(self) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        Draft202012Validator(schema).validate(minimal_receipt())
-
-    def test_receipt_schema_accepts_code_review_receipt_fields(self) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        Draft202012Validator(schema).validate(
-            minimal_receipt(
-                task_type="code_review",
-                changed_paths=[SERVICE_PATH, RECEIPT_PATH],
-                review_conclusion={
-                    "status": "changes_requested",
-                    "summary": "Implementation drift repaired; e2e environment pending.",
-                    "checked_sources": [
-                        API_CONTRACT_PATH,
-                        SEQUENCES_PATH,
-                        QUICKSTART_PATH,
-                    ],
-                    "findings": [
-                        {
-                            "id": "CR-001",
-                            "severity": "high",
-                            "category": "sequence_drift",
-                            "summary": "Retry order differed from contracts/sequences.md.",
-                            "paths": [SERVICE_PATH],
-                            "resolution": "repaired",
-                        }
-                    ],
-                },
-                data_side_effect_review={
-                    "reviewed_diff_paths": [SERVICE_PATH],
-                    "runtime_data_writes_found": True,
-                    "mutation_findings": [
-                        {
-                            "id": "DSE-001",
-                            "severity": "high",
-                            "category": "field_level_update",
-                            "summary": "Order status update may affect shared fulfillment flow.",
-                            "paths": [SERVICE_PATH],
-                            "operation": "update",
-                            "tables_or_entities": ["orders"],
-                            "fields": ["status"],
-                            "resolution": "blocked",
-                        }
-                    ],
-                },
-                consistency_repairs=[
-                    {
-                        "finding_id": "CR-001",
-                        "reason": "Restore planned retry ordering.",
-                        "changed_paths": [SERVICE_PATH],
-                        "evidence": ["contracts/sequences.md retry flow"],
-                    }
-                ],
-                deferred_validation_todos=[
-                    {
-                        "id": "E2E-001",
-                        "reason": "Real payment sandbox unavailable.",
-                        "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
-                        "validation_path": "quickstart.md#real-e2e",
-                        "commands": ["npm run e2e:payment"],
-                        "blocking": False,
-                    }
-                ],
-            )
-        )
-
-    def test_receipt_schema_rejects_review_conclusion_without_checked_sources(self) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        receipt = minimal_receipt(
-            task_type="code_review",
-            review_conclusion={
-                "status": "approved",
-                "summary": "Review complete.",
-                "findings": [],
-            },
-        )
-
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(receipt)
-
-    def test_receipt_schema_requires_data_side_effect_review_for_code_review_receipt(
-        self,
-    ) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        receipt = minimal_receipt(
-            task_type="code_review",
-            review_conclusion={
-                "status": "approved",
-                "summary": "Review complete.",
-                "checked_sources": [SERVICE_PATH],
-                "findings": [],
-            },
-        )
-
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(receipt)
-
-    def test_receipt_schema_rejects_data_side_effect_review_without_reviewed_diff_paths(
-        self,
-    ) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        receipt = minimal_receipt(
-            task_type="code_review",
-            review_conclusion={
-                "status": "approved",
-                "summary": "Review complete.",
-                "checked_sources": [SERVICE_PATH],
-                "findings": [],
-            },
-            data_side_effect_review={
-                "runtime_data_writes_found": False,
-                "mutation_findings": [],
-            },
-        )
-
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(receipt)
-
-    def test_receipt_schema_rejects_empty_deferred_validation_environment(self) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        receipt = minimal_receipt(
-            task_type="code_review",
-            review_conclusion={
-                "status": "blocked",
-                "summary": "Real e2e environment unavailable.",
-                "checked_sources": [QUICKSTART_PATH],
-                "findings": [],
-            },
-            deferred_validation_todos=[
-                {
-                    "id": "E2E-001",
-                    "reason": "Real e2e environment missing.",
-                    "missing_environment": [],
-                    "validation_path": "quickstart.md#payment-e2e",
-                    "commands": ["npm run e2e:payment"],
-                    "blocking": False,
-                }
-            ],
-        )
-
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(receipt)
-
-    def test_validate_receipt_contract_rejects_path_mismatch(self) -> None:
-        with self.assertRaises(ValueError):
-            validate_receipt_contract(
-                minimal_handoff(),
-                minimal_receipt(),
-                f"{HANDOFF_DIR}/results/wrong.json",
-            )
-
-    def test_validate_receipt_contract_rejects_shard_mismatch(self) -> None:
-        with self.assertRaises(ValueError):
-            validate_receipt_contract(
-                minimal_handoff(),
-                minimal_receipt(shard_id="S02-service-flow-01"),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_accepts_valid_cross_fields(self) -> None:
-        validate_receipt_contract(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
-        validate_receipt_structure(minimal_handoff(), minimal_receipt(), RECEIPT_PATH)
-
-    def test_validate_receipt_structure_accepts_changed_path_inside_allowed_directory(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(
-            allowed_write_paths=[f"{FEATURE_PATH}/src", RECEIPT_PATH],
-        )
-        validate_receipt_structure(
-            handoff,
-            minimal_receipt(changed_paths=[SERVICE_PATH]),
-            RECEIPT_PATH,
-        )
-
-    def test_validate_receipt_contract_rejects_completed_tasks_with_deferred_validation(
-        self,
-    ) -> None:
-        with self.assertRaisesRegex(ValueError, "completed_task_ids"):
-            validate_receipt_contract(
-                minimal_handoff(),
-                minimal_receipt(
-                    deferred_validation_todos=[
-                        {
-                            "id": "VAL-001",
-                            "reason": "Sandbox credentials unavailable.",
-                            "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
-                            "validation_path": "quickstart.md#payment",
-                            "commands": ["npm run e2e:payment"],
-                            "blocking": False,
-                        }
-                    ],
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_completed_code_review_without_approval(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
-
-        with self.assertRaisesRegex(ValueError, "approved"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "changes_requested",
-                        "summary": "Review found pending repairs.",
-                        "checked_sources": [SERVICE_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(),
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_requires_review_conclusion_for_code_review_task(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["task_text"] = ["T099 Review final implementation readiness"]
-
-        with self.assertRaisesRegex(ValueError, "review_conclusion"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(task_ids=["T099"], task_type="code_review"),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_code_review_receipt_without_task_type(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-
-        with self.assertRaisesRegex(ValueError, "task_type"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(task_ids=["T099"], task_type="implementation"),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_requires_checked_sources_for_code_review_task(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-
-        with self.assertRaisesRegex(ValueError, "checked_sources"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "findings": [],
-                    },
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_requires_data_side_effect_review_for_code_review_task(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
-
-        with self.assertRaisesRegex(ValueError, "data_side_effect_review"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "checked_sources": [SERVICE_PATH],
-                        "findings": [],
-                    },
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_requires_complete_data_side_effect_review(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
-
-        for field in (
-            "reviewed_diff_paths",
-            "runtime_data_writes_found",
-            "mutation_findings",
-        ):
-            data_side_effect_review = no_data_side_effects_review()
-            data_side_effect_review.pop(field)
-
-            with self.subTest(field=field):
-                with self.assertRaisesRegex(ValueError, field):
-                    validate_receipt_contract(
-                        handoff,
-                        minimal_receipt(
-                            task_ids=["T099"],
-                            task_type="code_review",
-                            review_conclusion={
-                                "status": "approved",
-                                "summary": "Review complete.",
-                                "checked_sources": [SERVICE_PATH],
-                                "findings": [],
-                            },
-                            data_side_effect_review=data_side_effect_review,
-                        ),
-                        RECEIPT_PATH,
-                    )
-
-    def test_validate_receipt_contract_rejects_unreviewed_diff_path_for_data_side_effect_review(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
-
-        with self.assertRaisesRegex(ValueError, "reviewed_diff_paths"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "checked_sources": [SERVICE_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review={
-                        "reviewed_diff_paths": [f"{FEATURE_PATH}/src/unread.py"],
-                        "runtime_data_writes_found": False,
-                        "mutation_findings": [],
-                    },
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_approved_with_unresolved_high_data_side_effect(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, SERVICE_PATH]
-
-        with self.assertRaisesRegex(ValueError, "data side-effect"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "checked_sources": [SERVICE_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review={
-                        "reviewed_diff_paths": [SERVICE_PATH],
-                        "runtime_data_writes_found": True,
-                        "mutation_findings": [
-                            {
-                                "id": "DSE-001",
-                                "severity": "high",
-                                "category": "field_level_update",
-                                "summary": "Shared status field update may disable other flows.",
-                                "paths": [SERVICE_PATH],
-                                "operation": "update",
-                                "tables_or_entities": ["orders"],
-                                "fields": ["status"],
-                                "resolution": "todo",
-                            }
-                        ],
-                    },
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_checked_source_outside_allowed_reads(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-
-        with self.assertRaisesRegex(ValueError, "checked_sources"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Review complete.",
-                        "checked_sources": [API_CONTRACT_PATH],
-                        "findings": [],
-                    },
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_repair_path_outside_allowed_writes(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, SEQUENCES_PATH]
-
-        with self.assertRaisesRegex(ValueError, "consistency repair changed path"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    completed_task_ids=[],
-                    review_conclusion={
-                        "status": "changes_requested",
-                        "summary": "Contract drift repaired.",
-                        "checked_sources": [SEQUENCES_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[SEQUENCES_PATH]
-                    ),
-                    consistency_repairs=[
-                        {
-                            "finding_id": "CR-001",
-                            "reason": "Align API contract.",
-                            "changed_paths": [f"{FEATURE_PATH}/contracts/api/refunds.yaml"],
-                            "evidence": ["plan.md API contract"],
-                        }
-                    ],
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_requires_todo_for_deferred_real_e2e(self) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH]
-        handoff["validation_commands"] = ["npm run e2e:payment"]
-        handoff["task_text"] = ["T099 Review real e2e readiness"]
-
-        with self.assertRaisesRegex(ValueError, "deferred_validation_todos"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    completed_task_ids=[],
-                    validation_evidence=[
-                        "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
-                    ],
-                    review_conclusion={
-                        "status": "blocked",
-                        "summary": "Real e2e environment unavailable.",
-                        "checked_sources": [QUICKSTART_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[QUICKSTART_PATH]
-                    ),
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_approved_with_unresolved_high_finding(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, API_CONTRACT_PATH]
-
-        with self.assertRaisesRegex(ValueError, "unresolved"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Approved despite known API drift.",
-                        "checked_sources": [API_CONTRACT_PATH],
-                        "findings": [
-                            {
-                                "id": "CR-001",
-                                "severity": "high",
-                                "category": "api_contract_drift",
-                                "summary": "Response schema still differs from API contract.",
-                                "paths": [SERVICE_PATH],
-                                "resolution": "todo",
-                            }
-                        ],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[API_CONTRACT_PATH]
-                    ),
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_rejects_approved_when_real_e2e_deferred(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, QUICKSTART_PATH]
-        handoff["validation_commands"] = ["npm run e2e:payment"]
-
-        with self.assertRaisesRegex(ValueError, "approved"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    completed_task_ids=[],
-                    validation_evidence=[
-                        "quickstart.md command npm run e2e:payment: real e2e cannot run, missing PAYMENT_SANDBOX_TOKEN"
-                    ],
-                    review_conclusion={
-                        "status": "approved",
-                        "summary": "Approved although real e2e is missing.",
-                        "checked_sources": [QUICKSTART_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[QUICKSTART_PATH]
-                    ),
-                    deferred_validation_todos=[
-                        {
-                            "id": "E2E-001",
-                            "reason": "Real e2e environment missing.",
-                            "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
-                            "validation_path": "quickstart.md#payment-e2e",
-                            "commands": ["npm run e2e:payment"],
-                            "blocking": False,
-                        }
-                    ],
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_requires_code_review_command_evidence(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [TASKS_PATH, API_CONTRACT_PATH, QUICKSTART_PATH]
-        handoff["validation_commands"] = ["npm run test:contract", "npm run e2e:payment"]
-
-        with self.assertRaisesRegex(ValueError, "validation_evidence"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    task_ids=["T099"],
-                    task_type="code_review",
-                    completed_task_ids=[],
-                    validation_evidence=["Code review completed."],
-                    review_conclusion={
-                        "status": "changes_requested",
-                        "summary": "Review complete; validation still pending.",
-                        "checked_sources": [API_CONTRACT_PATH, QUICKSTART_PATH],
-                        "findings": [],
-                    },
-                    data_side_effect_review=no_data_side_effects_review(
-                        paths=[API_CONTRACT_PATH]
-                    ),
-                ),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_accepts_code_review_with_repair_and_e2e_todo(
-        self,
-    ) -> None:
-        handoff = minimal_handoff(task_ids=["T099"], task_type="code_review")
-        handoff["allowed_read_paths"] = [
-            TASKS_PATH,
-            SEQUENCES_PATH,
-            QUICKSTART_PATH,
-            SERVICE_PATH,
-        ]
-        handoff["validation_commands"] = ["npm run e2e:payment"]
-        handoff["task_text"] = ["T099 Review design drift and real e2e readiness"]
-
-        validate_receipt_contract(
-            handoff,
-            minimal_receipt(
-                task_ids=["T099"],
-                task_type="code_review",
-                completed_task_ids=[],
-                changed_paths=[SERVICE_PATH],
-                validation_evidence=[
-                    "checked contracts/sequences.md; quickstart.md command npm run e2e:payment deferred because PAYMENT_SANDBOX_TOKEN is unavailable; real e2e deferred"
-                ],
-                review_conclusion={
-                    "status": "changes_requested",
-                    "summary": "Sequence drift repaired; real e2e pending.",
-                    "checked_sources": [SEQUENCES_PATH, QUICKSTART_PATH],
-                    "findings": [
-                        {
-                            "id": "CR-001",
-                            "severity": "high",
-                            "category": "sequence_drift",
-                            "summary": "Retry sequence drifted from planned flow.",
-                            "paths": [SERVICE_PATH],
-                            "resolution": "repaired",
-                        }
-                    ],
-                },
-                data_side_effect_review=no_data_side_effects_review(),
-                consistency_repairs=[
-                    {
-                        "finding_id": "CR-001",
-                        "reason": "Align implementation with planned sequence.",
-                        "changed_paths": [SERVICE_PATH],
-                        "evidence": ["contracts/sequences.md"],
-                    }
-                ],
-                deferred_validation_todos=[
-                    {
-                        "id": "E2E-001",
-                        "reason": "Real e2e environment missing.",
-                        "missing_environment": ["PAYMENT_SANDBOX_TOKEN"],
-                        "validation_path": "quickstart.md#payment-e2e",
-                        "commands": ["npm run e2e:payment"],
-                        "blocking": False,
-                    }
-                ],
-            ),
-            RECEIPT_PATH,
-        )
-
-    def test_validate_receipt_contract_rejects_generic_behavior_evidence(self) -> None:
-        handoff = minimal_handoff()
-        handoff["allowed_read_paths"] = [
-            TASKS_PATH,
-            f"{FEATURE_PATH}/contracts/bdd/refund.feature",
-            f"{FEATURE_PATH}/contracts/behavior/scenario-instances.json",
-            f"{FEATURE_PATH}/contracts/api/refunds.openapi.yaml",
-            f"{FEATURE_PATH}/quickstart.md",
-        ]
-        handoff["task_text"] = [
-            "Implement SCN-001 and AST-001 from contracts/api/refunds.openapi.yaml"
-        ]
-
-        with self.assertRaisesRegex(ValueError, "validation_evidence"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(validation_evidence=["unit tests passed"]),
-                RECEIPT_PATH,
-            )
-
-    def test_validate_receipt_contract_accepts_behavior_evidence_references(self) -> None:
-        handoff = minimal_handoff()
-        handoff["allowed_read_paths"] = [
-            TASKS_PATH,
-            f"{FEATURE_PATH}/contracts/bdd/refund.feature",
-            f"{FEATURE_PATH}/contracts/behavior/scenario-instances.json",
-            f"{FEATURE_PATH}/contracts/api/refunds.openapi.yaml",
-            f"{FEATURE_PATH}/quickstart.md",
-        ]
-        handoff["task_text"] = [
-            "Implement SCN-001 and AST-001 from contracts/api/refunds.openapi.yaml"
-        ]
-
-        validate_receipt_contract(
-            handoff,
-            minimal_receipt(
-                validation_evidence=[
-                    "SCN-001 covered; AST-001 verified against contracts/api/refunds.openapi.yaml and quickstart.md"
-                ]
-            ),
-            RECEIPT_PATH,
-        )
-
-    def test_validate_receipt_contract_rejects_generic_visual_evidence(self) -> None:
-        handoff = minimal_handoff(
-            shard_id="S01-ui-01",
-            vertical_capability="ui",
-            allowed_write_paths=[f"{FEATURE_PATH}/src/ui/refund.tsx", f"{HANDOFF_DIR}/results/S01-ui-01.json"],
-        )
-        handoff["allowed_read_paths"] = [
-            TASKS_PATH,
-            f"{FEATURE_PATH}/checklists/behavior-testability.md",
-            f"{FEATURE_PATH}/contracts/uif/refund.json",
-            f"{FEATURE_PATH}/quickstart.md",
-        ]
-        handoff["task_text"] = [
-            "T010 ui_acceptance for Visual Item ID VUI-001 with Requirement Status Required and structured IR ref ir/refund.json"
-        ]
-        receipt_path = f"{HANDOFF_DIR}/results/S01-ui-01.json"
-        handoff["task_status_update"]["receipt_path"] = receipt_path
-
-        with self.assertRaisesRegex(ValueError, "Visual Item ID"):
-            validate_receipt_contract(
-                handoff,
-                minimal_receipt(
-                    shard_id="S01-ui-01",
-                    changed_paths=[f"{FEATURE_PATH}/src/ui/refund.tsx"],
-                    validation_evidence=["unit tests passed"],
-                ),
-                receipt_path,
-            )
-
-    def test_validate_receipt_contract_accepts_visual_evidence_references(self) -> None:
-        handoff = minimal_handoff(
-            shard_id="S01-ui-01",
-            vertical_capability="ui",
-            allowed_write_paths=[f"{FEATURE_PATH}/src/ui/refund.tsx", f"{HANDOFF_DIR}/results/S01-ui-01.json"],
-        )
-        handoff["allowed_read_paths"] = [
-            TASKS_PATH,
-            f"{FEATURE_PATH}/checklists/behavior-testability.md",
-            f"{FEATURE_PATH}/contracts/uif/refund.json",
-            f"{FEATURE_PATH}/quickstart.md",
-        ]
-        handoff["task_text"] = [
-            "T010 ui_acceptance for Visual Item ID VUI-001 with Requirement Status Required and structured IR ref ir/refund.json"
-        ]
-        receipt_path = f"{HANDOFF_DIR}/results/S01-ui-01.json"
-        handoff["task_status_update"]["receipt_path"] = receipt_path
-
-        validate_receipt_contract(
-            handoff,
-            minimal_receipt(
-                shard_id="S01-ui-01",
-                changed_paths=[f"{FEATURE_PATH}/src/ui/refund.tsx"],
-                validation_evidence=[
-                    "Visual Item ID VUI-001 Requirement Status Required verified with structured IR ref ir/refund.json and quickstart.md#visual-refund"
-                ],
-            ),
-            receipt_path,
-        )
-
-    def test_handoff_schema_rejects_worker_that_can_update_tasks_md(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff()
-        handoff["agent_topology"]["worker_agent"]["may_update_tasks_md"] = True
-        with self.assertRaises(Exception):
-            Draft202012Validator(schema).validate(handoff)
-
-    def test_handoff_schema_rejects_planner_that_can_execute_implementation(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff()
-        handoff["agent_topology"]["vertical_planner_agent"]["may_execute_implementation"] = True
-        with self.assertRaises(Exception):
-            Draft202012Validator(schema).validate(handoff)
-
-    def test_manifest_schema_rejects_invalid_shard_id_pattern(self) -> None:
-        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
-        manifest = minimal_manifest(
-            shards=[minimal_shard(shard_id="S1-service-flow-01")],
-            dispatch_order=[["S1-service-flow-01"]],
-        )
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(manifest)
-
-    def test_handoff_schema_rejects_invalid_shard_id_pattern(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff(shard_id="S01_service_flow_01")
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(handoff)
-
-    def test_receipt_schema_rejects_invalid_shard_id_pattern(self) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        receipt = minimal_receipt(shard_id="S01-service-flow-1")
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(receipt)
-
-    def test_handoff_schema_rejects_unknown_vertical_capability(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff(shard_id="S01-unknown-01", vertical_capability="unknown")
-        with self.assertRaises(Exception):
-            Draft202012Validator(schema).validate(handoff)
-
-    def test_handoff_schema_rejects_tasks_md_in_allowed_write_paths(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff(allowed_write_paths=[TASKS_PATH])
-        with self.assertRaises(Exception):
-            Draft202012Validator(schema).validate(handoff)
-
-    def test_handoff_schema_rejects_empty_task_ids(self) -> None:
-        schema = json.loads(HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
-        handoff = minimal_handoff(task_ids=[])
-        with self.assertRaises(ValidationError):
-            Draft202012Validator(schema).validate(handoff)
-
-    def test_receipt_schema_rejects_empty_validation_evidence(self) -> None:
-        schema = json.loads(RECEIPT_SCHEMA_PATH.read_text(encoding="utf-8"))
-        receipt = minimal_receipt(validation_evidence=[])
-        with self.assertRaises(Exception):
-            Draft202012Validator(schema).validate(receipt)
-
-    def test_implement_prompt_omits_narrative_filler(self) -> None:
-        command = IMPLEMENT_COMMAND_PATH.read_text(encoding="utf-8")
-
-        lines = command.splitlines()
-        self.assertLessEqual(len(lines), 80)
-        self.assertLessEqual(len(command), 4200)
-        self.assertLessEqual(max(len(line) for line in lines), 120)
-        forbidden_terms = [
-            "This command is",
-            "The current agent either acts",
-            "The Core Agent is the only",
-            "Worker Agent restrictions",
-            "Use the narrowest",
-            "A handoff should not",
-            "unless the task itself",
-            "When a task spans",
-            "If any condition is unclear",
-        ]
-        for term in forbidden_terms:
-            self.assertNotIn(term, command)
-
-    def test_readme_contract(self) -> None:
-        readme = README_PATH.read_text(encoding="utf-8")
-        changelog = CHANGELOG_PATH.read_text(encoding="utf-8")
-        requirements = REQUIREMENTS_DEV_PATH.read_text(encoding="utf-8")
-
-        self.assertIn("specify preset add workflow-preset --from", readme)
-        self.assertIn("specify preset add --dev /path/to/workflow-preset", readme)
-        self.assertIn("/speckit.plan", readme)
-        self.assertIn("/speckit.tasks", readme)
-        self.assertIn("/speckit.analyze", readme)
-        self.assertIn("/speckit.implement", readme)
-        self.assertIn("class-diagram.md", readme)
-        self.assertIn("contracts/sequences.md", readme)
-        self.assertNotIn("test-plan.md", readme)
-        self.assertIn("test strategy derivation", readme)
-        self.assertIn("validation decisions in `research.md`", readme)
-        self.assertIn("validation paths in `quickstart.md`", readme)
-        self.assertIn("handoffs/implement", readme)
-        self.assertIn("agent-native handoff orchestration", readme)
-        self.assertIn("Core Agent", readme)
-        self.assertIn("Vertical Planner Agent", readme)
-        self.assertIn("Worker Agent", readme)
-        self.assertIn("lifecycle", readme)
-        self.assertIn("vertical capability", readme)
-        self.assertIn("speckit.implement.handoff.v2", readme)
-        self.assertIn("speckit.implement.receipt.v1", readme)
-        self.assertIn("commands/speckit.implement.md", readme)
-        self.assertIn("validators/speckit_implement_contract.py", readme)
-        self.assertNotIn("tests/contracts/", readme)
-        self.assertIn("Problem Addressed", readme)
-        self.assertIn("reasoning quality", readme)
-        self.assertNotIn("compatible with the core workflow", readme)
-        self.assertNotIn("core compatibility fixes", readme)
-        self.assertIn("must formalize", readme)
-        self.assertIn("N/A or blocker", readme)
-        self.assertIn("The preset has six goals:", readme)
-        self.assertIn("requirements, behavior, UX, security, NFR, and visual readiness", readme)
-        self.assertIn("runtime Planning Readiness aggregate", readme)
-        self.assertIn("Visual Fidelity Evidence Matrix", readme)
-        self.assertIn("behavior/behavior-testability.md", readme)
-        self.assertIn("Spec Kit CLI `>=0.12.7.dev0`", readme)
-        return
-        self.assertIn("External Intake And Visual SSOT", readme)
-        self.assertIn("spec-kit-intake", readme)
-        self.assertIn("external intake evidence + visual SSOT refs + HTML SSOT refs + structured IR refs -> /speckit.specify -> baseline spec.md", readme)
-        self.assertIn("does not perform intake", readme)
-        self.assertIn("parse HTML SSOT bundles", readme)
-        self.assertIn("re-parse structured IR artifacts", readme)
-        self.assertIn("decide provider source readiness", readme)
-        self.assertIn("visual SSOT refs", readme)
-        self.assertIn("HTML SSOT refs", readme)
-        self.assertIn("structured IR refs", readme)
-        self.assertIn("visual/IR traceability refs", readme)
-        self.assertIn("non-visual acceptance", readme)
-        self.assertIn("external evidence refs", readme)
-        self.assertIn("source-backed facts", readme)
-        self.assertIn("Missing product decisions become `[NEEDS CLARIFICATION]`", readme)
-        self.assertIn("missing provider or intake evidence for a feature that depends on that evidence becomes `[BLOCKED: PROVIDER_EVIDENCE]`", readme)
-        self.assertIn("features that do not depend on HTML SSOT, structured IR, or provider evidence are `Not Applicable`", readme)
-        self.assertIn("speckit.intake.visual-design", readme)
-        self.assertIn("speckit.intake.figma2htmlssot", readme)
-        self.assertNotIn("speckit.intake.html-ssot", readme)
-        self.assertIn("Visual Fidelity Evidence Matrix", readme)
-        self.assertIn("Screenshots, visual proof refs, HTML SSOT refs, structured IR refs, and provider artifacts are evidence refs, not intake execution", readme)
-        self.assertNotIn("L0 No Screenshot", readme)
-        self.assertNotIn("L1 Key Screenshots", readme)
-        self.assertNotIn("L2 State + Viewport Matrix", readme)
-        self.assertNotIn("L3 Visual Baseline", readme)
-        self.assertIn("visual requirements", readme)
-        self.assertIn("They cannot upgrade product semantics", readme)
-        self.assertIn("visual requirements", readme)
-        self.assertIn("Visual Fidelity Evidence Matrix", readme)
-        self.assertIn("source traceability", readme)
-        self.assertIn("single visual readiness record", readme)
-        self.assertIn("provider blocker status", readme)
-        self.assertIn("accepted exception refs", readme)
-        self.assertIn("It does not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review", readme)
-        self.assertNotIn("proof sufficiency", readme)
-        self.assertNotIn("screenshot sufficiency", readme)
-        self.assertNotIn("visual implementation review", readme)
-        self.assertNotIn("visual proof evidence", readme)
-        self.assertNotIn("visual proof, asset binding, and evidence requirements", readme)
-        self.assertIn("The intake extension owns source capture", readme)
-        self.assertIn("HTML SSOT bundle contracts", readme)
-        self.assertIn("structured IR contracts", readme)
-        self.assertIn("source-side validators live in the `spec-kit-intake` extension", readme)
-        self.assertIn("[BLOCKED: PROVIDER_EVIDENCE]", readme)
-        self.assertNotIn(
-            "writes or marks it as `[NEEDS CLARIFICATION]`",
-            readme,
-        )
-        self.assertIn("source-side readiness", readme)
-        self.assertIn("artifact refs, readiness inputs, blocker status, and traceability refs", readme)
-        self.assertIn("clarifies evidence-derived gaps already written in `spec.md`", readme)
-        self.assertIn("does not call provider tools", readme)
-        self.assertIn("explicit non-functional requirement declarations", readme)
-        self.assertIn("Required, Not Applicable, or Unknown", readme)
-        self.assertIn("missing or unverifiable NFR assumptions", readme)
-        self.assertIn("Phase 0 behavior projection", readme)
-        self.assertIn("Case Coverage Matrix", readme)
-        self.assertIn("case coverage", readme)
-        self.assertIn("Required, Not Applicable, or Unknown", readme)
-        lowered = readme.lower()
-        for forbidden in FORBIDDEN_VISUAL_COMPAT_TERMS:
-            self.assertNotIn(forbidden, lowered)
-        self.assertNotIn(
-            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
-            readme,
-        )
-        self.assertNotIn(
-            "Responsive visual readiness records viewport-specific evidence or sets Gate Status: BLOCKED",
-            readme,
-        )
-        self.assertIn("failure scenarios", readme)
-        self.assertIn(
-            "error code, failure feedback, and state invariant, rollback, or compensation assertion",
-            readme,
-        )
-        self.assertIn("UI implementation, non-visual acceptance, contract validation, data-side-effect validation, integration/e2e validation, and scope-aware code review tasks", readme)
-        self.assertIn("without inventing validation strategy, changing requirements, updating contracts, or widening scope", readme)
-        self.assertIn("validation_evidence", readme)
-        self.assertIn("Context-load controls", readme)
-        self.assertIn("context-load controls", changelog)
-        self.assertIn("Packaged contract validators", readme)
-        self.assertNotIn("Development-only contract helpers", readme)
-        self.assertIn("Case Coverage Matrix", changelog)
-        self.assertIn("failure behavior scenarios", changelog)
-        self.assertIn("Change Scope Granularity", changelog)
-        self.assertIn("/speckit.constitution", changelog)
-        self.assertIn("Moved behavior draft generation from `/speckit.specify` to `/speckit.plan` Phase 0", changelog)
-        self.assertIn("BDD readiness gate", changelog)
-        self.assertIn("NFR readiness", changelog)
-        self.assertIn("explicitly declare applicable non-functional requirements", changelog)
-        self.assertIn("Removed `behavior/open-questions.json`", changelog)
-        self.assertIn("Hardened behavior contract quality gates", changelog)
-        self.assertIn("formalization blockers", changelog)
-        self.assertIn("behavior-linked validation evidence", changelog)
-        self.assertIn("only the checklist Visual Fidelity Evidence Matrix decides visual planning readiness", changelog)
-        self.assertNotIn("run-orchestrated-implement.py", readme)
-        self.assertNotIn("speckit-implement-handoff.py", readme)
-        self.assertNotIn("--dry-run true --run-id manual", readme)
-        self.assertIn("Spec Kit CLI `>=0.12.7.dev0`", readme)
-        self.assertIn("python3 -m pip install -r requirements-dev.txt", readme)
-        self.assertIn("Preset CI Boundary", readme)
-        self.assertIn("SPEC_KIT_FORK_PR_TOKEN", readme)
-        self.assertIn("bigsmartben/spec-kit", readme)
-        self.assertIn("workflow-preset-release-v<version>", readme)
-        self.assertIn("integration PR", readme)
-        self.assertIn("next patch version", readme)
-        self.assertIn("does not open pull requests to `github/spec-kit`", readme)
-        self.assertNotIn("repository_dispatch", readme)
-        self.assertIn("PyYAML", requirements)
-        self.assertIn("jsonschema", requirements)
-        self.assertIn("## 1.2.0", changelog)
-        self.assertIn("## 1.1.0", changelog)
-        self.assertIn("## 1.0.3", changelog)
-        self.assertIn("Final Code Review", changelog)
-        self.assertIn("structured code review receipts", changelog)
-        self.assertIn("Migrated product, design, provider, HTML SSOT, and structured IR intake ownership out of the workflow preset", changelog)
-        self.assertIn("structured IR refs", changelog)
-        self.assertIn("missing provider/intake evidence remains `[BLOCKED: PROVIDER_EVIDENCE]`", changelog)
-        self.assertIn("/speckit.tasks` defines validation, visual verification, contract validation, data-side-effect validation", changelog)
-        self.assertIn("/speckit.implement` only executes those tasks and records receipt evidence", changelog)
-        self.assertIn("agent-native handoff orchestration", changelog)
-        self.assertIn("Removed Python dispatch tooling", changelog)
-
-    def test_cross_agent_protocol_contract_document(self) -> None:
-        self.assertTrue(CROSS_AGENT_PROTOCOL_PATH.exists())
-        document = CROSS_AGENT_PROTOCOL_PATH.read_text(encoding="utf-8")
-
-        self.assertLessEqual(len(document.splitlines()), 95)
-        required_terms = [
-            "Spec Kit Cross-Agent Protocol",
-            "BaseSubagentProtocol",
-            "`stage`",
-            "`owner_agent`",
-            "`input_scope`",
-            "`allowed_reads`",
-            "`allowed_writes`",
-            "`output_contract`",
-            "`validation_gate`",
-            "`stop_conditions`",
-            "`fallback`",
-            "speckit.specify.single_core",
-            "speckit.plan.stage_local_planning",
-            "speckit.tasks.stage_local_derivation",
-            "speckit.analyze.read_only_parallel_review",
-            "speckit.implement.persistent_handoff_orchestration",
-            "Profiles inherit the scheduling protocol, not execution permissions.",
-            "Persistent handoff orchestration",
-            "Manual Worker Queue",
-            "validate_manifest_structure()",
-            "validate_handoff_structure()",
-            "validate_dispatch_ready()",
-            "validate_receipt_structure()",
-            "validate_commit_ready()",
-        ]
-        for term in required_terms:
-            self.assertIn(term, document)
-
-        self.assertNotIn("```json", document)
-
-    def test_cross_agent_subagent_contract_document(self) -> None:
-        self.assertTrue(CROSS_AGENT_SUBAGENTS_PATH.exists())
-        document = CROSS_AGENT_SUBAGENTS_PATH.read_text(encoding="utf-8")
-
-        self.assertLessEqual(len(document.splitlines()), 180)
-        required_terms = [
-            "Follow cross-agent protocol profile: `speckit.implement.persistent_handoff_orchestration`",
-            "Codex",
-            "Claude Code",
-            "Gemini CLI",
-            "GitHub Copilot",
-            "Runtime Isolation Mapping",
-            "Isolated execution",
-            "codex",
-            "claude",
-            "gemini",
-            "opencode",
-            "generic",
-            "isolated subagent/subsession",
-            "manual fresh Worker-mode sessions",
-            "Dispatch Payloads",
-            "Worker payload",
-            "no full `spec.md`, `plan.md`, `research.md`, `contracts/`, `quickstart.md`",
-            "Reduce implementation-stage context load and reasoning drift",
-            "Vertical Planner Agent",
-            "Worker Prompts",
-            "Implementation Worker",
-            "Code Review Worker",
-            "handoff-manifest.json",
-            "speckit.implement.manifest.v1.schema.json",
-            "speckit.implement.handoff.v2.schema.json",
-            "speckit.implement.receipt.v1.schema.json",
-            "validate_manifest_structure()",
-            "validate_handoff_structure()",
-            "validate_dispatch_ready()",
-            "validate_receipt_structure()",
-            "validate_commit_ready()",
-            "Shard Rules",
-            "Context Digest Rules",
-            "Path and Receipt Rules",
-            "Only Vertical Planner Agents may produce shard plans and digest drafts.",
-            "Only Core Agent may write final `handoff-manifest.json` and commit `tasks.md`.",
-            "Only Worker Agents may execute implementation handoffs.",
-            "Verify contract_type == speckit.implement.handoff.v2",
-            "Load context_digest_path before editing",
-            "Stop if context_gaps is not empty at dispatch",
-            "Execute only task_ids",
-            "Read only allowed_read_paths",
-            "Write only allowed_write_paths",
-            "Do not edit tasks.md",
-            "Do not dispatch workers",
-            "Reject non-existent handoff paths",
-            "Reject handoffs not listed in `handoff-manifest.json`",
-            "validation_evidence references to relevant BDD scenario",
-            "behavior assertion",
-            "API contract",
-            "quickstart path",
-            "receipt path not equal to handoff `task_status_update.receipt_path`",
-            "task_type: code_review",
-            "review_conclusion",
-            "checked_sources",
-            "consistency_repairs",
-            "deferred_validation_todos",
-            "quickstart/contract validation command",
-        ]
-        for term in required_terms:
-            self.assertIn(term, document)
-
-        self.assertIn("research.md validation decisions", document)
-        self.assertIn("quickstart.md validation paths", document)
-        self.assertNotIn("Visual Review Worker", document)
-        self.assertNotIn("final_visual_review", document)
-        self.assertNotIn("visual_validation", document)
-        self.assertNotIn("visual_verification", document)
-        self.assertNotIn("test-plan.md", document)
-
-        forbidden_terms = [
-            "核心思路",
-            "也就是",
-            "推荐架构",
-            "不同平台的 subagent 启动方式不同",
-            "跨平台稳定性的关键",
-            "这样 Codex",
-            "只做编排",
-            "只做执行",
-            "Scope",
-            "```json",
-        ]
-        for term in forbidden_terms:
-            self.assertNotIn(term, document)
-
-    def test_extension_governance_document_contract(self) -> None:
-        self.assertTrue(EXTENSION_GOVERNANCE_PATH.exists())
-        document = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
-
-        self.assertLessEqual(len(document.splitlines()), 180)
-        required_terms = [
-            "Preset Extension Governance",
-            "templates own stable artifact shapes",
-            "commands own stage-local generation instructions",
-            "structured JSON artifacts require schemas",
-            "validators/",
-            "An upstream stage may define the explicit consumption contract for its direct",
-            "Source intake artifacts belong in an extension, not this preset",
-            "External intake owns source capture",
-            "rendered HTML SSOT bundles",
-            "Behavior-first extension rule",
-            "BDD and UIF artifacts need independent templates",
-            "`/speckit.constitution`: durable Constitution governance plus the separate",
-            "`/speckit.checklist`: requirements, behavior, UX, security, NFR, and visual requirement gates only",
-            "external intake artifact refs",
-            "visual SSOT refs",
-            "HTML SSOT refs",
-            "structured IR refs",
-            "External evidence refs are consumed as source, readiness, blocker, and traceability inputs only",
-            "Visual Fidelity Evidence Matrix",
-            "single visual requirement-readiness record",
-            "`checklists/visual.md`",
-            "Provider evidence\ngaps remain intake blockers",
-            "accepted exception refs",
-            "The matrix must not define visual validation work",
-            "screenshot comparison, visual diff, baseline capture, or final visual review",
-            "Provider tools, provider execution, hooks, adapter scripts",
-            "External design extraction is not a clarification responsibility",
-            "NFR readiness belongs in `spec.md` product requirements",
-            "`/speckit.plan`: Architecture-guided planning, Phase 0 behavior projection",
-            "`/speckit.tasks` owns implementation, non-visual acceptance, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`",
-            "`/speckit.implement` may execute those tasks and record receipt evidence",
-            "must not invent validation strategy, visual validation work, lifecycle roles, requirements, contract updates, or wider scope during execution",
-            "Handoff extensions must update schema, validator, command, and cross-agent documentation together",
-            "Do not bump preset version or release archive URLs until release preparation",
-            "Use extensions, not presets, for new tooling",
-            "/speckit.analyze",
-            "vertical consistency",
-            "tests/test_preset_contract.py",
-        ]
-        for term in required_terms:
-            self.assertIn(term, document)
-
-        forbidden_terms = [
-            "TBD",
-            "TODO",
-            "Do not create `contracts/bdd/`",
-            "Do not create formal behavior contracts during specification",
-        ]
-        for term in forbidden_terms:
-            self.assertNotIn(term, document)
-        lowered = document.lower()
-        for forbidden in FORBIDDEN_VISUAL_COMPAT_TERMS:
-            self.assertNotIn(forbidden, lowered)
-        self.assertNotIn(
-            "Responsive visual readiness must record viewport-specific evidence or set Gate Status: BLOCKED",
-            document,
-        )
-        self.assertNotIn(
-            "Responsive visual readiness records viewport-specific evidence or sets Gate Status: BLOCKED",
-            document,
-        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def test_agents_references_extension_governance(self) -> None:
         agents = AGENTS_PATH.read_text(encoding="utf-8")
@@ -4441,9 +2230,24 @@ class PresetContractTests(unittest.TestCase):
             "tests/test_presets.py",
             "__pycache__",
             ".pyc",
-            "*.pyc",
             "ZipInfo",
             "1980, 1, 1",
+            'MANIFEST_NAME="spec-kit-workflow-preset-v${VERSION}.manifest.json"',
+            '"source_commit": source_commit',
+            '"sha256": zip_sha256',
+            "Verify release manifest",
+            "validators/speckit_behavior_contract.py",
+            '"requirements-dev.txt"',
+            '"tests"',
+            "test ! -e .specify/presets/workflow-preset/commands/speckit.implement.md",
+            "core_implement_sha",
+            "WORKFLOW_PRESET_MANIFEST_URL",
+            "presets/workflow-preset.release.json",
+            'entry["source_commit"] = release_manifest["source_commit"]',
+            'entry["sha256"] = release_manifest["artifact"]["sha256"]',
+            "curl --fail --location",
+            "archive.extractall",
+            'cmp "${ZIP_PATH}" "${existing_dir}/${ZIP_NAME}"',
             "github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true')",
             "env.CREATE_INTEGRATION_PR == 'true'",
             "refs/tags/v${VERSION}",
@@ -4463,10 +2267,10 @@ class PresetContractTests(unittest.TestCase):
             "client_payload[download_url]",
             "repository_dispatch",
             "repos/bigsmartben/spec-kit/dispatches",
-            "tests/contracts/speckit-cross-agent-protocol.md",
-            "tests/contracts/speckit-cross-agent-subagents.md",
             "::warning::SPEC_KIT_FORK_DISPATCH_TOKEN",
             "skipping integration PR",
+            "gh release upload \"${TAG_NAME}\" \"${ZIP_PATH}\" --clobber",
+            "\"${GITHUB_WORKSPACE}/\" \"${fork_dir}/spec-kit/presets/workflow-preset/\"",
         ]
         for term in forbidden_terms:
             self.assertNotIn(term, workflow_text)

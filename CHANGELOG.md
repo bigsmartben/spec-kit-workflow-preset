@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 3.0.0 - 2026-07-26
+
+- Removed the preset-owned `speckit.implement` replacement and its manifest,
+  transfer, worker-result schemas, validator, and persistent execution
+  protocol. The active Spec Kit core command now owns implementation.
+- Kept Final Code Review as the last mandatory `tasks.md` phase so standard
+  core implementation executes and validates it in checklist order.
+- Split behavior-only cross-field validation into
+  `validators/speckit_behavior_contract.py`.
+- Defined release snapshots as immutable, source-backed artifacts; downstream
+  bundling must preserve release file hashes and must not modify a published
+  version in place.
+
 ## 2.0.0 - 2026-07-26
 
 - Moved project Architecture generation into `/speckit.constitution`, which now

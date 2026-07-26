@@ -14,10 +14,15 @@ This repository is a Spec Kit community preset named `workflow-preset`.
 ## Development Rules
 
 - Preserve the preset contract tested by `tests/test_preset_contract.py`.
-- Follow the Extension Governance in `docs/extension-governance.md` before adding or changing preset commands, templates, schemas, validators, handoff contracts, or behavior-first artifacts.
+- Follow the Extension Governance in `docs/extension-governance.md` before adding or changing preset commands, templates, schemas, validators, or behavior-first artifacts.
 - Keep `/speckit.plan` and `/speckit.tasks` as core-template wrappers.
-- Keep `/speckit.implement` as a replacement command with Core Agent, Vertical Planner Agent, and Worker Agent modes.
-- Do not reintroduce Python orchestration, workflow shell dispatch, integration adapter scripts, or worker dispatch from scripts.
+- Do not declare, copy, or replace `/speckit.implement`; implementation execution
+  belongs to the currently installed Spec Kit core command.
+- Keep Final Code Review as the last mandatory phase generated in `tasks.md`.
+- Do not introduce an implementation reviewer runtime, persistent transfer
+  protocol, execution manifest, worker result protocol, Python orchestration,
+  workflow shell dispatch, integration adapter scripts, or script-based worker
+  dispatch.
 - Planning design artifacts are optional and contextual:
   - `class-diagram.md`
   - `contracts/sequences.md`
@@ -41,20 +46,6 @@ This repository is a Spec Kit community preset named `workflow-preset`.
 - Source releases must provide source-backed metadata for the integration fork:
   repository URL, release version, source commit SHA, download URL, and
   validation evidence.
-
-## Handoff Boundaries
-
-When working from a generated handoff JSON:
-
-- Treat the handoff JSON and its `context_digest_path` as primary context.
-- Verify `contract_type` is `speckit.implement.handoff.v2`.
-- Verify the handoff declares `agent_topology`, `lifecycle_stage`, `vertical_capability`, `capability_boundary`, `planner_outputs`, and `draft_source`.
-- Verify `agent_topology.vertical_planner_agent.may_execute_implementation` is false.
-- Stop before editing if `context_gaps` is not empty.
-- Execute only the listed `task_ids`.
-- Write only paths listed in `allowed_write_paths`.
-- Do not edit `tasks.md`; write only the declared receipt and scoped task paths.
-- Do not read full `spec.md`, `plan.md`, `research.md`, `contracts/`, `class-diagram.md`, or `quickstart.md` unless the handoff explicitly allows it.
 
 ## Validation
 

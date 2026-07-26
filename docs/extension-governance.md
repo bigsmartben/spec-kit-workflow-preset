@@ -1,172 +1,158 @@
 # Preset Extension Governance
-This document is the repository-level rule set for extending `workflow-preset`.
-It exists to keep preset changes aligned with Spec Kit's preset model and this
-repository's contract tests.
+
+This document defines the ownership boundaries for `workflow-preset`.
 
 ## Source Of Truth
-- `preset.yml` declares every packaged command, template, schema, and script.
-- `commands/` contains stage-local LLM instructions.
+
+- `preset.yml` declares every packaged command, template, and schema.
+- `commands/` contains stage-local instructions.
 - `templates/` contains stable artifact shapes.
-- `schemas/` contains machine-readable JSON contracts.
-- `validators/` contains pure in-memory cross-field contract checks.
-- `tests/test_preset_contract.py` is the executable contract for this preset.
+- `schemas/` contains machine-readable behavior contracts.
+- `validators/speckit_behavior_contract.py` contains pure in-memory behavior
+  cross-field checks.
+- `tests/test_preset_contract.py` is the executable preset contract.
 
-## Preset Boundaries
+## Preset Boundary
 
-Presets customize existing Spec Kit workflows by overriding or composing
-commands, templates, and scripts. Use extensions, not presets, for new tooling,
-external integrations, static analyzers, workflow runners, or commands that add
-a new capability outside the existing Spec Kit workflow.
+The preset enriches existing Spec Kit stages. It does not own execution
+orchestration or add a second implementation engine.
 
-Do not reintroduce Python orchestration, workflow shell dispatch, integration
-adapter scripts, or worker dispatch from scripts.
+| Stage | Owner | Durable output |
+|---|---|---|
+| `/speckit.constitution` | preset wrapper | Constitution and project Architecture |
+| `/speckit.specify` | preset wrapper | requirement and UI/UX intent in `spec.md` |
+| `/speckit.clarify` | preset wrapper | clarified requirement decisions |
+| `/speckit.checklist` | preset wrapper | requirement-readiness gates |
+| `/speckit.plan` | preset wrapper | design, behavior contracts, and validation design |
+| `/speckit.tasks` | preset wrapper | executable checklist in `tasks.md` |
+| `/speckit.analyze` | preset wrapper | read-only consistency findings |
+| `/speckit.implement` | Spec Kit core | execution of `tasks.md` |
 
-Source intake artifacts belong in an extension, not this preset. External intake owns source capture, provider evidence, provider metadata, rendered HTML SSOT bundles, structured IR artifacts,
-source-side readiness, and blocker codes. This preset may consume confirmed
-external intake artifact refs, visual SSOT refs, HTML SSOT refs, structured IR refs,
-source refs, coverage gaps, readiness inputs, accepted exception refs, and provider blockers already cited in `spec.md`.
-External evidence refs are consumed as source, readiness, blocker, and traceability inputs only. Provider tools, provider execution, hooks, adapter scripts,
-and authentication are external integration concerns and remain outside this
-preset.
+`workflow-preset` MUST NOT declare, package, copy, or replace
+`speckit.implement`. The active Spec Kit core version is the single source of
+truth for the implementation command. A core implementation change therefore
+requires no preset release.
 
-## Template And Command Ownership
+The preset MUST NOT introduce an implementation-specific reviewer command,
+runtime role, persistent transfer protocol, execution manifest, worker result
+protocol, manual execution queue, or implementation validator.
 
-- templates own stable artifact shapes.
-- commands own stage-local generation instructions.
-- Commands may name the inputs they consume, the outputs they write, and the
-  local update rules for their own phase.
-- An upstream stage may define the explicit consumption contract for its direct
-  standard SDD downstream stage when both stages are wrapped by this preset.
-- Do not encode full output structures only inside command text when the output
-  is intended to be durable or reused by later phases.
+## Artifact Pipeline
 
-Stage ownership:
+The workflow is a producer-to-consumer pipeline:
 
-- `/speckit.constitution`: durable Constitution governance plus the separate
-  project-level `.specify/memory/architecture.md` lifecycle.
-- `/speckit.specify`: requirement artifacts only.
-- `/speckit.clarify`: product-decision clarification and affected requirement-gate recomputation only.
-- `/speckit.checklist`: requirements, behavior, UX, security, NFR, and visual requirement gates only.
-- `/speckit.plan`: Architecture-guided planning, Phase 0 behavior projection,
-  planning artifacts, formal contracts, and BDD Plan closeout.
-- `/speckit.tasks`: `tasks.md` only.
-- `/speckit.analyze`: vertical consistency checks across requirements, behavior drafts, contracts, and tasks only.
-- `/speckit.implement`: implementation handoff execution only.
+```text
+spec.md + requirement gates
+    -> plan artifacts + BDD/UIF/validation design
+    -> tasks.md implementation and validation checklist
+    -> core /speckit.implement execution
+```
 
-`/speckit.tasks` owns implementation, non-visual acceptance, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`. `/speckit.implement` may execute those tasks and record receipt evidence, but it must not invent validation strategy, visual validation work, lifecycle roles, requirements, contract updates, or wider scope during execution.
+Tasks maps upstream artifacts into checklist items. It must not create another
+planning system or execution protocol.
 
-When external intake evidence or visual SSOT refs have already been projected into `spec.md`, `/speckit.clarify` may clarify those requirement gaps from `spec.md`, but extraction remains outside clarification.
-External design extraction is not a clarification responsibility.
+Examples:
 
-Visual Fidelity readiness applies to external-intake-derived and product-side
-visual requirements. `checklists/visual.md` and its Visual Fidelity Evidence
-Matrix are the single visual requirement-readiness record. Provider evidence
-gaps remain intake blockers. The matrix must not define visual validation work,
-screenshot comparison, visual diff, baseline capture, or final visual review.
+- A UI state in `spec.md` and `contracts/uif/` becomes a concrete UI
+  implementation task plus a UI acceptance task.
+- A real-system path in `quickstart.md` becomes an integration/e2e task with
+  environment and evidence expectations.
+- A persistence change becomes implementation and data-side-effect validation
+  tasks, followed by the final review scope.
+
+## Final Code Review Gate
+
+`/speckit.tasks` MUST append Final Code Review as the last mandatory phase of
+`tasks.md`. It is an ordinary ordered task phase executed by the standard core
+implementation command, not an independent runtime.
+
+The phase must cover each applicable scope:
+
+- planned `M + U` boundary;
+- interface contracts;
+- behavior contracts;
+- UI state, viewport, and visual/IR consistency;
+- data side effects;
+- sequence consistency;
+- asset bindings;
+- integration/e2e evidence and unresolved blockers.
+
+Completion requires the review tasks themselves to pass. No separate worker
+result file or orchestration layer is required.
 
 ## Structured Artifact Rules
 
 Machine-readable JSON artifacts are contracts, not prose examples. Stable
-structured JSON artifacts require schemas in `schemas/` and focused validator
-coverage in `validators/` when cross-field rules matter.
+behavior JSON artifacts require schemas in `schemas/` and focused coverage in
+`validators/speckit_behavior_contract.py` when cross-field rules matter.
 
-Every schema or validator added for a preset artifact must be covered by
+Every packaged schema and validator must be covered by
 `tests/test_preset_contract.py`.
 
-## Cross-Agent Protocol Rules
+## Cross-Agent Rules
 
-Shared multi-agent runtime behavior belongs in command source, schemas, and validators.
-Test coverage for shared multi-agent behavior belongs in `tests/contracts/speckit-cross-agent-protocol.md`.
-Commands may reference only their own profile. A profile inherits scheduling
-protocol fields, not execution permissions from another command.
-Commands must not reference `tests/` or `docs/` paths as runtime contract sources.
+Planning and task derivation may use bounded, stage-local subagents when the
+runtime supports them. The owning command remains the sole final writer for its
+stage. Delegation metadata is transient derivation context and must not become
+an implementation transfer format.
 
-Persistent handoff orchestration belongs only to `/speckit.implement`.
-Manifest files, handoff files, receipts, `allowed_write_paths`, dispatch
-readiness, commit readiness, and manual worker queues must not be introduced
-into `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, or
-`/speckit.analyze`.
-
-The implement handoff runtime profile lives in `commands/speckit.implement.md`;
-test coverage lives in `tests/contracts/speckit-cross-agent-subagents.md`.
-Both must stay aligned with the implement schemas and validator gates.
-
-## Behavior-first extension rule
-
-BDD and UIF artifacts need independent templates. A behavior-first extension
-must not rely only on command prose to define:
-
-- BDD draft files.
-- UIF intent files.
-- data fixture intent files.
-- behavior scenario draft files.
-- formal BDD contracts.
-- Expected UIF contracts.
-- behavior scenario, fixture, and assertion contracts.
-
-Phase 0 behavior drafts and planning-phase formal contracts must be separate
-artifacts with separate owners. If they are JSON, they also need schemas and
-validator coverage.
+Shared stage-local behavior is documented in
+`tests/contracts/speckit-cross-agent-protocol.md`. Commands may reference only
+their own stage profile. Commands must not use `tests/` or `docs/` paths as
+runtime sources.
 
 ## Planning Artifact Boundaries
 
-Keep `/speckit.plan` and `/speckit.tasks` as core-template wrappers unless the
-contract tests are intentionally updated to change that rule.
+Keep `/speckit.plan` and `/speckit.tasks` as core-template wrappers unless an
+intentional contract change says otherwise.
 
-Planning design artifacts remain optional and contextual:
+Optional contextual design artifacts include:
 
 - `class-diagram.md`
 - `contracts/sequences.md`
 
-Validation decisions are recorded in `research.md`, executable paths in
-`quickstart.md`, and the BDD Plan closeout maps them to Required Cases in
-`behavior/behavior-testability.md`. `/speckit.tasks` derives concrete tasks from
-that READY mapping. Do not add a standalone `test-plan.md`.
+Validation decisions stay in `research.md`, executable paths stay in
+`quickstart.md`, and BDD Plan closeout maps them into
+`behavior/behavior-testability.md`. `/speckit.tasks` derives unit, contract,
+integration, UI acceptance, real-system e2e, and review tasks from that mapping.
+Do not add a standalone `test-plan.md`.
 
-Planning Readiness is aggregated at runtime from metadata-bearing requirement
-gates. It is not a durable artifact and must never be written as
-`planning-readiness.md`.
+## External Intake Boundary
 
-`behavior/behavior-testability.md` is a permitted planning artifact, not a test
-strategy document. It contains the task-derivation matrix and READY/BLOCKED
-decision; it must not duplicate requirement prose, provider intake, or
-clarification.
+External source capture, provider access, rendered HTML, structured IR,
+screenshots, authentication, and provider evidence generation belong to
+extensions. This preset only consumes confirmed refs already projected into
+requirements and readiness artifacts.
 
-Keep product requirements in `spec.md`, including explicit NFR assumptions;
-NFR readiness belongs in `spec.md` product requirements rather than downstream
-planning guesses. Keep domain model details in `data-model.md`, interface
-schemas in `contracts/`, and validation run guidance in `quickstart.md`.
+Provider evidence gaps remain intake blockers. Product decision gaps return to
+clarification. Neither planning nor implementation may silently manufacture
+missing evidence.
 
-For visual planning, research.md records visual/IR source refs, readiness inputs, accepted exception refs, related contract paths, and unresolved blocker refs only; it must not duplicate the Visual Fidelity Evidence Matrix or define visual validation strategy, screenshot comparison, visual diff, baseline capture, or final visual review. contracts formalize visual interaction and state constraints by referencing accepted visual items, source refs, structured IR refs, and accepted exception refs; contracts/sequences.md records visual state flow only when it affects cross-boundary sequencing, async callbacks, retry, rollback, compensation, or error propagation, and must not define visual style, tokens, layout breakpoints, screenshot matrices, or validation commands.
+## Release And Integration Boundary
 
-## Handoff Extension Rules
+The source repository owns development, tests, tags, releases, and release
+artifacts. The Spec Kit fork owns only a reproducible bundled snapshot and
+catalog metadata.
 
-Handoff extensions must update schema, validator, command, and cross-agent documentation together.
-Any new implementation-stage artifact that Worker
-Agents may read or write must be reflected in:
+Integration must use an immutable release:
 
-- `schemas/speckit.implement.*.schema.json` when the JSON contract changes.
-- `validators/speckit_implement_contract.py` when cross-field validation changes.
-- `commands/speckit.implement.md` when Core, Vertical Planner, or Worker
-  behavior changes.
-- `tests/contracts/speckit-cross-agent-protocol.md` when shared profile behavior changes.
-- `tests/contracts/speckit-cross-agent-subagents.md` when implement worker prompts,
-  context digest rules, shard rules, or path rules change.
-- `tests/test_preset_contract.py` for all of the above.
+1. publish a new source version;
+2. record the source repository, version, commit SHA, artifact URL, and artifact
+   SHA-256;
+3. extract the bundled snapshot without edits;
+4. verify every bundled file hash against the release manifest;
+5. ensure bundled and `--from <version>` installations are identical.
 
-## Release Discipline
+Never change a published version in place or modify the bundled snapshot after
+integration.
 
-Do not bump preset version or release archive URLs until release preparation.
-Unreleased behavior belongs under `## Unreleased` in `CHANGELOG.md`.
+## Validation
 
-## Verification
-
-After changing preset commands, templates, schemas, validators, governance docs,
-or public documentation, run:
+Run:
 
 ```bash
 python3 -m unittest tests/test_preset_contract.py
 ```
 
-If the system Python lacks development dependencies, use a local virtual
-environment and the same unittest command from that environment.
+Release preparation must also run the install smoke checks in
+`.github/workflows/preset-artifact.yml`.

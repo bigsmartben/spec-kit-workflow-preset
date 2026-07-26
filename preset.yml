@@ -3,8 +3,8 @@ schema_version: "1.0"
 preset:
   id: "workflow-preset"
   name: "Workflow Preset"
-  version: "2.0.0"
-  description: "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration"
+  version: "3.0.0"
+  description: "Constitution-managed architecture, behavior-first specification, design artifacts, and execution-ready task mapping"
   author: "bigsmartben"
   repository: "https://github.com/bigsmartben/spec-kit-workflow-preset"
   license: "MIT"
@@ -83,13 +83,6 @@ provides:
       description: "Require READY behavior testability and derive complete task chains"
       replaces: "speckit.tasks"
       strategy: "wrap"
-
-    - type: "command"
-      name: "speckit.implement"
-      file: "commands/speckit.implement.md"
-      description: "Run agent-native handoff orchestration or execute one worker handoff"
-      replaces: "speckit.implement"
-      strategy: "replace"
 
     - type: "template"
       name: "behavior-bdd-draft-template"
@@ -238,27 +231,6 @@ provides:
       replaces: "speckit-behavior-assertions-v1-schema"
       strategy: "replace"
 
-    - type: "template"
-      name: "speckit-implement-manifest-v1-schema"
-      file: "schemas/speckit.implement.manifest.v1.schema.json"
-      description: "Decouple the handoff manifest JSON contract"
-      replaces: "speckit-implement-manifest-v1-schema"
-      strategy: "replace"
-
-    - type: "template"
-      name: "speckit-implement-handoff-v2-schema"
-      file: "schemas/speckit.implement.handoff.v2.schema.json"
-      description: "Decouple the handoff JSON contract"
-      replaces: "speckit-implement-handoff-v2-schema"
-      strategy: "replace"
-
-    - type: "template"
-      name: "speckit-implement-receipt-v1-schema"
-      file: "schemas/speckit.implement.receipt.v1.schema.json"
-      description: "Decouple the receipt JSON contract"
-      replaces: "speckit-implement-receipt-v1-schema"
-      strategy: "replace"
-
 tags:
   - "architecture"
   - "constitution"
@@ -266,4 +238,3 @@ tags:
   - "bdd"
   - "planning"
   - "implementation"
-  - "handoff"
