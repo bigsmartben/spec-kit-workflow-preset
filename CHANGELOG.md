@@ -13,6 +13,14 @@
   boundaries, constraints, gaps, and validation implications into its normal
   research, data model, contracts, plan, and quickstart outputs.
 
+## 1.4.1 - 2026-07-26
+
+- Raised the minimum Spec Kit version to `0.12.7.dev0`, the first core version
+  that provides the requirement-gate Planning Readiness preflight consumed by
+  this preset.
+- Restored runnable contract coverage for current wrapper, planning, template,
+  visual-readiness, documentation, and governance invariants.
+
 ## 1.4.0 - 2026-07-26
 
 - Separated requirement-stage Planning Readiness from plan-stage Behavior
