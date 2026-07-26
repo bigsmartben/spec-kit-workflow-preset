@@ -4303,7 +4303,7 @@ class PresetContractTests(unittest.TestCase):
             "Behavior-first extension rule",
             "BDD and UIF artifacts need independent templates",
             "`/speckit.constitution`: durable Constitution governance plus the separate",
-            "`/speckit.checklist`: checklist artifacts and BDD/NFR/Visual Fidelity readiness gates only",
+            "`/speckit.checklist`: requirements, behavior, UX, security, NFR, and visual requirement gates only",
             "external intake artifact refs",
             "visual SSOT refs",
             "HTML SSOT refs",
