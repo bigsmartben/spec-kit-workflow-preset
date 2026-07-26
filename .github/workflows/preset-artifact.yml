@@ -164,11 +164,13 @@ jobs:
               "CHANGELOG.md",
               "LICENSE",
               "AGENTS.md",
+              "requirements-dev.txt",
               "commands",
               "templates",
               "schemas",
               "validators",
               "docs",
+              "tests",
           ]
           forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
           forbidden_suffixes = (".pyc", ".pyo")
@@ -248,6 +250,7 @@ jobs:
 
           required_entries = {
               "preset.yml",
+              "requirements-dev.txt",
               "commands/speckit.plan.md",
               "commands/speckit.tasks.md",
               "templates/plan-template.md",
@@ -257,6 +260,8 @@ jobs:
               "templates/behavior/behavior-testability.md",
               "validators/speckit_behavior_contract.py",
               "docs/extension-governance.md",
+              "tests/test_preset_contract.py",
+              "tests/contracts/speckit-cross-agent-protocol.md",
           }
           forbidden_entries = {
               "commands/speckit.implement.md",
