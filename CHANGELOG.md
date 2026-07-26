@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.0.0 - 2026-07-26
+
 - Moved project Architecture generation into `/speckit.constitution`, which now
   manages separate `constitution.md` and single-file `architecture.md`
   lifecycles for greenfield, brownfield, and amendment runs.
