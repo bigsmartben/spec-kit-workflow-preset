@@ -143,15 +143,21 @@ jobs:
         run: |
           set -euo pipefail
           ZIP_NAME="spec-kit-workflow-preset-v${VERSION}.zip"
+          MANIFEST_NAME="spec-kit-workflow-preset-v${VERSION}.manifest.json"
           rm -f "${ZIP_NAME}"
+          rm -f "${MANIFEST_NAME}"
 
           python3 - <<'PY'
           from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+          import hashlib
+          import json
           import os
           from pathlib import Path
+          import subprocess
 
           version = os.environ["VERSION"]
           zip_name = f"spec-kit-workflow-preset-v{version}.zip"
+          manifest_name = f"spec-kit-workflow-preset-v{version}.manifest.json"
           include_roots = [
               "preset.yml",
               "README.md",
@@ -185,19 +191,50 @@ jobs:
                   if file_path.is_file():
                       files.append(file_path)
 
+          packaged_files = []
           with ZipFile(zip_name, "w", compression=ZIP_DEFLATED) as archive:
               for file_path in sorted(files, key=lambda item: item.as_posix()):
                   name = file_path.as_posix()
                   if is_forbidden(name):
                       continue
+                  content = file_path.read_bytes()
                   info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
                   info.compress_type = ZIP_DEFLATED
                   info.external_attr = 0o644 << 16
-                  archive.writestr(info, file_path.read_bytes())
+                  archive.writestr(info, content)
+                  packaged_files.append(
+                      {"path": name, "sha256": hashlib.sha256(content).hexdigest()}
+                  )
+
+          zip_sha256 = hashlib.sha256(Path(zip_name).read_bytes()).hexdigest()
+          source_commit = subprocess.run(
+              ["git", "rev-parse", "HEAD"],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.strip()
+          release_manifest = {
+              "schema_version": "1.0",
+              "preset_id": "workflow-preset",
+              "version": version,
+              "source_repository": "https://github.com/bigsmartben/spec-kit-workflow-preset",
+              "source_commit": source_commit,
+              "artifact": {
+                  "name": zip_name,
+                  "sha256": zip_sha256,
+              },
+              "files": packaged_files,
+          }
+          Path(manifest_name).write_text(
+              json.dumps(release_manifest, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
           PY
 
           echo "zip_name=${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
           echo "zip_path=${GITHUB_WORKSPACE}/${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "manifest_name=${MANIFEST_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "manifest_path=${GITHUB_WORKSPACE}/${MANIFEST_NAME}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify preset artifact
         env:
@@ -211,7 +248,6 @@ jobs:
 
           required_entries = {
               "preset.yml",
-              "commands/speckit.implement.md",
               "commands/speckit.plan.md",
               "commands/speckit.tasks.md",
               "templates/plan-template.md",
@@ -219,9 +255,15 @@ jobs:
               "templates/requirements/nfr-gate.md",
               "templates/requirements/visual-gate.md",
               "templates/behavior/behavior-testability.md",
-              "schemas/speckit.implement.handoff.v2.schema.json",
-              "validators/speckit_implement_contract.py",
+              "validators/speckit_behavior_contract.py",
               "docs/extension-governance.md",
+          }
+          forbidden_entries = {
+              "commands/speckit.implement.md",
+              "schemas/speckit.implement.manifest.v1.schema.json",
+              "schemas/speckit.implement.handoff.v2.schema.json",
+              "schemas/speckit.implement.receipt.v1.schema.json",
+              "validators/speckit_implement_contract.py",
           }
           forbidden_prefixes = (".github/", ".git/", "docs/superpowers/")
           forbidden_suffixes = (".pyc", ".pyo")
@@ -244,6 +286,37 @@ jobs:
           if forbidden:
               print(f"Forbidden artifact entries: {forbidden}", file=sys.stderr)
               sys.exit(1)
+          stale_runtime = sorted(forbidden_entries & names)
+          if stale_runtime:
+              print(f"Removed implement runtime entries found: {stale_runtime}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Verify release manifest
+        env:
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          MANIFEST_NAME: ${{ steps.package.outputs.manifest_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import zipfile
+          from pathlib import Path
+
+          zip_path = Path(os.environ["ZIP_NAME"])
+          manifest = json.loads(Path(os.environ["MANIFEST_NAME"]).read_text(encoding="utf-8"))
+          assert manifest["artifact"]["name"] == zip_path.name
+          assert manifest["artifact"]["sha256"] == hashlib.sha256(zip_path.read_bytes()).hexdigest()
+          assert manifest["source_commit"]
+          with zipfile.ZipFile(zip_path) as archive:
+              actual = {
+                  name: hashlib.sha256(archive.read(name)).hexdigest()
+                  for name in archive.namelist()
+              }
+          expected = {entry["path"]: entry["sha256"] for entry in manifest["files"]}
+          assert actual == expected
           PY
 
       - name: Install specify from fork in smoke venv
@@ -270,6 +343,8 @@ jobs:
           constitution_resolve_out="${RUNNER_TEMP}/constitution-template-resolve.txt"
           cd "$project_dir"
           specify init --here --integration claude --script sh --ignore-agent-tools
+          test -f .claude/skills/speckit-implement/SKILL.md
+          core_implement_sha="$(sha256sum .claude/skills/speckit-implement/SKILL.md | awk '{print $1}')"
           specify preset remove workflow-preset
           specify preset add --dev "$GITHUB_WORKSPACE"
           specify preset info workflow-preset
@@ -287,11 +362,9 @@ jobs:
           grep -q "M: Module / Capability" .specify/presets/workflow-preset/templates/constitution-template.md
           grep -q "U: Unit / Design Object" .specify/presets/workflow-preset/templates/constitution-template.md
           grep -q "O: Operation / Detail" .specify/presets/workflow-preset/templates/constitution-template.md
-          test -f .specify/presets/workflow-preset/commands/speckit.implement.md
+          test ! -e .specify/presets/workflow-preset/commands/speckit.implement.md
           test -f .claude/skills/speckit-implement/SKILL.md
-          grep -q "Core Agent" .claude/skills/speckit-implement/SKILL.md
-          grep -q "Vertical Planner Agent" .claude/skills/speckit-implement/SKILL.md
-          grep -q "Worker Agent" .claude/skills/speckit-implement/SKILL.md
+          test "${core_implement_sha}" = "$(sha256sum .claude/skills/speckit-implement/SKILL.md | awk '{print $1}')"
 
       - name: Upload preset artifact
         uses: actions/upload-artifact@v7
@@ -300,12 +373,21 @@ jobs:
           path: ${{ steps.package.outputs.zip_path }}
           if-no-files-found: error
 
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.manifest_name }}
+          path: ${{ steps.package.outputs.manifest_path }}
+          if-no-files-found: error
+
       - name: Create or update release artifact
         if: ${{ github.ref_type == 'tag' || env.CREATE_INTEGRATION_PR == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
           ZIP_PATH: ${{ steps.package.outputs.zip_path }}
+          MANIFEST_NAME: ${{ steps.package.outputs.manifest_name }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
@@ -322,8 +404,18 @@ jobs:
               exit 1
             fi
           fi
-          gh release view "${TAG_NAME}" >/dev/null 2>&1 || gh release create "${TAG_NAME}" --verify-tag --title "${TAG_NAME}" --notes ""
-          gh release upload "${TAG_NAME}" "${ZIP_PATH}" --clobber
+          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+            existing_dir="$(mktemp -d)"
+            gh release download "${TAG_NAME}" \
+              --pattern "${ZIP_NAME}" \
+              --pattern "${MANIFEST_NAME}" \
+              --dir "${existing_dir}"
+            cmp "${ZIP_PATH}" "${existing_dir}/${ZIP_NAME}"
+            cmp "${MANIFEST_PATH}" "${existing_dir}/${MANIFEST_NAME}"
+          else
+            gh release create "${TAG_NAME}" --verify-tag --title "${TAG_NAME}" --notes ""
+            gh release upload "${TAG_NAME}" "${ZIP_PATH}" "${MANIFEST_PATH}"
+          fi
 
       - name: Create or update spec-kit integration PR
         if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && env.CREATE_INTEGRATION_PR == 'true') }}
@@ -331,6 +423,7 @@ jobs:
           GH_TOKEN: ${{ secrets.SPEC_KIT_FORK_PR_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          MANIFEST_NAME: ${{ steps.package.outputs.manifest_name }}
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN}" ]]; then
@@ -340,21 +433,43 @@ jobs:
 
           gh auth setup-git
           WORKFLOW_PRESET_DOWNLOAD_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/${ZIP_NAME}"
+          WORKFLOW_PRESET_MANIFEST_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/${MANIFEST_NAME}"
           fork_dir="$(mktemp -d)"
           gh repo clone bigsmartben/spec-kit "${fork_dir}/spec-kit" -- --depth 1 --branch "${INPUT_SPEC_KIT_REF}"
 
+          release_dir="$(mktemp -d)"
+          curl --fail --location --silent --show-error \
+            "${WORKFLOW_PRESET_DOWNLOAD_URL}" \
+            --output "${release_dir}/${ZIP_NAME}"
+          curl --fail --location --silent --show-error \
+            "${WORKFLOW_PRESET_MANIFEST_URL}" \
+            --output "${release_dir}/${MANIFEST_NAME}"
+          python3 - "${release_dir}/${ZIP_NAME}" "${release_dir}/${MANIFEST_NAME}" <<'PY'
+          import hashlib
+          import json
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          zip_path = Path(sys.argv[1])
+          manifest = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          assert manifest["artifact"]["name"] == zip_path.name
+          assert manifest["artifact"]["sha256"] == hashlib.sha256(zip_path.read_bytes()).hexdigest()
+          with zipfile.ZipFile(zip_path) as archive:
+              actual = {
+                  name: hashlib.sha256(archive.read(name)).hexdigest()
+                  for name in archive.namelist()
+              }
+              archive.extractall(zip_path.parent / "extracted")
+          expected = {entry["path"]: entry["sha256"] for entry in manifest["files"]}
+          assert actual == expected
+          PY
+
           rsync -a --delete \
-            --exclude ".git/" \
-            --exclude ".github/" \
-            --exclude "docs/superpowers/" \
-            --exclude "__pycache__/" \
-            --exclude "*.pyc" \
-            --exclude "*.pyo" \
-            --exclude ".pytest_cache/" \
-            --exclude "spec-kit-workflow-preset-v*.zip" \
-            "${GITHUB_WORKSPACE}/" "${fork_dir}/spec-kit/presets/workflow-preset/"
+            "${release_dir}/extracted/" "${fork_dir}/spec-kit/presets/workflow-preset/"
 
           cd "${fork_dir}/spec-kit"
+          cp "${release_dir}/${MANIFEST_NAME}" "presets/workflow-preset.release.json"
           python3 - <<'PY'
           import json
           import os
@@ -364,6 +479,9 @@ jobs:
           import yaml
 
           version = os.environ["VERSION"]
+          release_manifest = json.loads(
+              Path("presets/workflow-preset.release.json").read_text(encoding="utf-8")
+          )
           catalog_path = Path("presets/catalog.json")
           community_catalog_path = Path("presets/catalog.community.json")
           manifest_path = Path("presets/workflow-preset/preset.yml")
@@ -383,6 +501,8 @@ jobs:
               entry["provides"]["commands"] = command_count
               entry["provides"]["templates"] = template_count
               entry["tags"] = manifest["tags"]
+              entry["source_commit"] = release_manifest["source_commit"]
+              entry["sha256"] = release_manifest["artifact"]["sha256"]
           community_catalog["presets"]["workflow-preset"]["download_url"] = (
               f"https://github.com/bigsmartben/spec-kit-workflow-preset/"
               f"releases/download/v{version}/spec-kit-workflow-preset-v{version}.zip"
@@ -410,12 +530,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="workflow-preset-release-v${VERSION}"
           git switch -C "${branch}" "origin/${INPUT_SPEC_KIT_REF}"
-          git add presets/catalog.json presets/catalog.community.json presets/workflow-preset tests/test_presets.py
+          git add presets/catalog.json presets/catalog.community.json \
+            presets/workflow-preset presets/workflow-preset.release.json \
+            tests/test_presets.py
           if git diff --cached --quiet; then
             echo "No workflow-preset integration changes to commit."
             exit 0
           fi
-          git commit -m "Update workflow-preset to v${VERSION}"
+          git commit -m "Update workflow-preset to v${VERSION}" \
+            -m "Assisted-by: GitHub Actions (autonomous)"
           git push --force-with-lease origin "${branch}"
 
           body_file="$(mktemp)"
