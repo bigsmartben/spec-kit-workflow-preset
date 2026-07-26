@@ -15,7 +15,7 @@ orchestration contract that writes handoffs to disk.
 
 `workflow-preset` turns a Spec Kit feature from a single broad implementation prompt into a staged workflow with stable design context and explicit worker boundaries.
 
-The preset has four goals:
+The preset has six goals:
 
 - Make requirements, behavior, UX, security, NFR, and visual readiness explicit
   before planning without creating a Planning Readiness summary file.

@@ -669,7 +669,7 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual("wrap", command["strategy"])
 
         self.assertEqual(
-            "Wrap core planning with Phase 0 behavior projection and optional design artifacts",
+            "Add Phase 0 behavior projection, formal contracts, and BDD Plan closeout",
             entries["speckit.plan"]["description"],
         )
         self.assertEqual(
