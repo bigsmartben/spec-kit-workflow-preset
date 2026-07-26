@@ -1,13 +1,14 @@
 # Workflow Preset
 
-This Spec Kit community preset combines behavior-first specification, design-aware planning, scoped change governance, and agent-native handoff orchestration.
+This Spec Kit community preset combines Constitution-managed project Architecture, behavior-first specification, design-aware planning, scoped change governance, and agent-native handoff orchestration.
 
 It wraps `/speckit.specify`, `/speckit.checklist`, `/speckit.clarify`,
 `/speckit.constitution`, `/speckit.plan`, `/speckit.tasks`, and
 `/speckit.analyze` with multi-domain requirement gates, Change Scope
-Granularity and Architecture SSOT governance, Phase 0 behavior projection,
-formal behavior contracts, plan-stage Behavior Testability, optional design
-artifacts, and task-time validation derivation. It replaces
+Granularity, a single-file project Architecture lifecycle, Architecture-guided
+planning, Phase 0 behavior projection, formal behavior contracts, plan-stage
+Behavior Testability, optional design artifacts, and task-time validation
+derivation. It replaces
 `/speckit.implement` with a Core Agent, Vertical Planner Agent, and Worker Agent
 orchestration contract that writes handoffs to disk.
 
@@ -62,16 +63,20 @@ Requirement capabilities:
 
 Governance capabilities:
 
-- Wraps `/speckit.constitution` and the constitution template with Change Scope Granularity and Architecture SSOT governance.
+- Wraps `/speckit.constitution` so one Constitution-stage lifecycle maintains separate `.specify/memory/constitution.md` and `.specify/memory/architecture.md` files.
+- Establishes a user-confirmed input agreement for greenfield, brownfield, and amendment runs; no UC, README, or repository path is an automatic prerequisite or authority.
+- Produces one five-section project Architecture through System Boundary -> Conceptual Model -> Technical Decisions & Evidence -> Planning Guardrails & Gaps reasoning, with no 4+1 views or secondary models.
 - Defines the fixed R/M/U/O model: R is Repository / Workspace, M is Module / Capability, U is Unit / Design Object, and O is Operation / Detail. These letters must not be renamed or expanded with alternate nouns.
 - Blocks constitution writes when a generated draft changes the fixed R/M/U/O mapping.
-- Routes architecture decisions, domain facts, object design, flows, and interface contracts to architecture SSOT artifacts instead of embedding concrete implementation content in ratified constitution principles.
+- Keeps durable governance in `constitution.md` and project-level boundaries, concepts, technical direction, evidence, constraints, and gaps in `architecture.md`.
 - Requires planning to lock M + U before execution maps units to concrete paths.
 - Treats unresolved U -> path mapping as a context gap instead of widening execution to repository-wide or broad module scope.
 
 Planning capabilities:
 
 - Wraps `/speckit.plan` to run Phase 0 preflight, Phase 0 behavior projection, and optional/contextual design artifacts when useful.
+- Requires `/speckit.plan` to read project Architecture before writing and to preserve its decisions in `research.md`, concepts in `data-model.md`, boundaries in `contracts/`, and constraints or gaps in `plan.md` and `quickstart.md`.
+- Stops planning and returns to `/speckit.constitution` when a feature conflicts with or requires changing project Architecture.
 - Requires the runtime Planning Readiness aggregate to pass before planning;
   no `planning-readiness.md` is generated.
 - Treats Phase 0 preflight failures as report-only/no-write failures.
@@ -144,13 +149,13 @@ Context-load controls:
 
 ## Workflow
 
-1. `/speckit.constitution` preserves Change Scope Granularity and Architecture SSOT governance when the project constitution is created or updated.
+1. `/speckit.constitution` confirms greenfield, brownfield, or amendment inputs, then maintains separate Constitution and project Architecture files.
 2. `/speckit.specify` keeps the core requirements output in `spec.md`.
 3. `/speckit.clarify` resolves requirement ambiguity in `spec.md`.
 4. `/speckit.checklist` evaluates requirements, behavior, UX, security, NFR,
    and visual readiness directly from `spec.md`; `/speckit.clarify` repairs
    product-decision blockers and re-evaluates affected gates.
-5. `/speckit.plan` applies Change Scope Granularity, runs Phase 0 preflight, performs Phase 0 behavior projection, formalizes behavior drafts into contracts, and adds design artifacts when they help implementation.
+5. `/speckit.plan` reads project Architecture, applies Change Scope Granularity, runs Phase 0 preflight, performs Phase 0 behavior projection, formalizes behavior drafts into contracts, and adds design artifacts when they help implementation.
 6. `/speckit.tasks` reads the core plan outputs, optional design artifacts, behavior contracts, interface contracts, `research.md`, and `quickstart.md`, then produces executable tasks with inline test level, data strategy, visual/IR traceability refs, asset binding, non-visual acceptance, and evidence requirements.
 7. `/speckit.analyze` checks vertical consistency across requirements, behavior drafts, contracts, and tasks.
 8. `/speckit.implement` enters Core Agent mode when no handoff path is provided.
@@ -167,6 +172,8 @@ Context-load controls:
 - It does not move product requirements out of `spec.md`.
 - It does not move API or message schemas out of `contracts/`.
 - It does not replace `data-model.md`, `research.md`, or `quickstart.md`.
+- It does not generate 4+1, UML, C4, PoC code, or Architecture-consumption audit artifacts.
+- It does not treat `uc.md` or any discovered conventional path as an automatic Constitution-stage input.
 - It does not infer UIF from built code; UIF remains a requirement and planning contract.
 - It does not provide a Python orchestration script, workflow shell runner, or integration adapter layer.
 - It does not allow Worker Agents to freely expand context by reading full planning documents when the digest is insufficient.
@@ -197,6 +204,14 @@ Run the behavior-first workflow:
 /speckit.plan
 /speckit.tasks
 /speckit.analyze
+```
+
+At `/speckit.constitution`, identify the mode and selected inputs. For example:
+
+```text
+/speckit.constitution Brownfield amendment. Use the existing constitution,
+docs/platform-boundaries.md, and repository configuration under services/api/
+as authorized evidence. Exclude Git history. Update both Constitution and Architecture.
 ```
 
 ### External Intake And Visual SSOT
@@ -253,6 +268,7 @@ Run a single worker handoff directly:
 The core governance and planning workflow still owns its normal artifacts:
 
 - `.specify/memory/constitution.md`
+- `.specify/memory/architecture.md`
 - `specs/<feature>/plan.md`
 - `specs/<feature>/research.md`
 - `specs/<feature>/data-model.md`
@@ -322,6 +338,7 @@ Contract files packaged by the preset:
 Governance templates packaged by the preset:
 
 - `templates/constitution-template.md`
+- `templates/architecture-template.md`
 
 Packaged contract validators:
 
@@ -330,6 +347,8 @@ Packaged contract validators:
 Source intake templates, provider design contracts, visual requirements schemas, HTML SSOT bundle contracts, structured IR contracts, and source-side validators live in the `spec-kit-intake` extension.
 
 ## Artifact Roles
+
+`.specify/memory/architecture.md` is the project-level Architecture source for planning. It contains exactly Architecture Overview, System Boundary, Conceptual Model, Technical Decisions & Evidence, and Planning Guardrails & Gaps. Optional tables may be empty; an explicit Architecture goal, authorized source list, and owned boundary are required. For example, a payment boundary may own payment authorization but explicitly not own order fulfillment; feature `contracts/` must preserve that responsibility and dependency direction.
 
 `checklists/behavior.md` owns observable behavior and the Case Coverage Matrix;
 `checklists/nfr.md` owns product-level non-functional readiness; and

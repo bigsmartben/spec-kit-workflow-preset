@@ -4,7 +4,7 @@ preset:
   id: "workflow-preset"
   name: "Workflow Preset"
   version: "1.4.0"
-  description: "Behavior-first specification, design artifacts, and agent-native handoff orchestration"
+  description: "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration"
   author: "bigsmartben"
   repository: "https://github.com/bigsmartben/spec-kit-workflow-preset"
   license: "MIT"
@@ -24,9 +24,16 @@ provides:
     - type: "template"
       name: "constitution-template"
       file: "templates/constitution-template.md"
-      description: "Add change scope granularity and architecture SSOT governance to the constitution template"
+      description: "Add change scope granularity and Constitution-managed architecture governance"
       replaces: "constitution-template"
       strategy: "wrap"
+
+    - type: "template"
+      name: "architecture-template"
+      file: "templates/architecture-template.md"
+      description: "Define the single-file project Architecture maintained by the Constitution stage"
+      replaces: "architecture-template"
+      strategy: "replace"
 
     - type: "command"
       name: "speckit.specify"
@@ -52,7 +59,7 @@ provides:
     - type: "command"
       name: "speckit.constitution"
       file: "commands/speckit.constitution.md"
-      description: "Wrap core constitution updates with change scope granularity and architecture SSOT governance"
+      description: "Manage separate Constitution and Architecture artifacts under one project lifecycle"
       replaces: "speckit.constitution"
       strategy: "wrap"
 
@@ -66,7 +73,7 @@ provides:
     - type: "command"
       name: "speckit.plan"
       file: "commands/speckit.plan.md"
-      description: "Add Phase 0 behavior projection, formal contracts, and BDD Plan closeout"
+      description: "Consume project Architecture through Phase 0 behavior projection, formal contracts, and BDD Plan closeout"
       replaces: "speckit.plan"
       strategy: "wrap"
 
@@ -253,6 +260,8 @@ provides:
       strategy: "replace"
 
 tags:
+  - "architecture"
+  - "constitution"
   - "behavior"
   - "bdd"
   - "planning"

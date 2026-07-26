@@ -35,17 +35,20 @@ preset.
 - commands own stage-local generation instructions.
 - Commands may name the inputs they consume, the outputs they write, and the
   local update rules for their own phase.
-- Do not put downstream prohibitions in upstream commands.
+- An upstream stage may define the explicit consumption contract for its direct
+  standard SDD downstream stage when both stages are wrapped by this preset.
 - Do not encode full output structures only inside command text when the output
   is intended to be durable or reused by later phases.
 
 Stage ownership:
 
-- `/speckit.constitution`: constitution governance and project principles only.
+- `/speckit.constitution`: durable Constitution governance plus the separate
+  project-level `.specify/memory/architecture.md` lifecycle.
 - `/speckit.specify`: requirement artifacts only.
 - `/speckit.clarify`: product-decision clarification and affected requirement-gate recomputation only.
 - `/speckit.checklist`: requirements, behavior, UX, security, NFR, and visual requirement gates only.
-- `/speckit.plan`: Phase 0 behavior projection, planning artifacts, formal contracts, and BDD Plan closeout.
+- `/speckit.plan`: Architecture-guided planning, Phase 0 behavior projection,
+  planning artifacts, formal contracts, and BDD Plan closeout.
 - `/speckit.tasks`: `tasks.md` only.
 - `/speckit.analyze`: vertical consistency checks across requirements, behavior drafts, contracts, and tasks only.
 - `/speckit.implement`: implementation handoff execution only.
