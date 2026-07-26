@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.0.0 - 2026-07-26
+
 - Removed the preset-owned `speckit.implement` replacement and its manifest,
   transfer, worker-result schemas, validator, and persistent execution
   protocol. The active Spec Kit core command now owns implementation.

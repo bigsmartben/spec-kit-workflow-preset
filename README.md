@@ -183,7 +183,7 @@ specify preset add --dev /path/to/spec-kit-workflow-preset
 Published release:
 
 ```bash
-specify preset add --from https://github.com/bigsmartben/spec-kit-workflow-preset/releases/download/v<VERSION>/spec-kit-workflow-preset-v<VERSION>.zip
+specify preset add --from https://github.com/bigsmartben/spec-kit-workflow-preset/releases/download/v3.0.0/spec-kit-workflow-preset-v3.0.0.zip
 ```
 
 After installation, resolve a preset-owned wrapper:
