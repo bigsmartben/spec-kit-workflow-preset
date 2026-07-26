@@ -21,7 +21,8 @@ description: Run implement orchestration.
   `1. /speckit.implement Use handoff JSON <path>`.
 - Consume planner outputs and worker receipts, not worker conversation history.
 ## Visual Implementation Boundary
-- Visual Fidelity Readiness `Requirement Status` is `Required` or `Required` plus an accepted exception.
+- In `checklists/visual.md`:
+  Visual Fidelity Readiness `Requirement Status` is `Required` or `Required` plus an accepted exception.
   This is the `/speckit.tasks` visual task input filter.
 - Do not create handoffs or worker instructions for visual rows with `Requirement Status`
   `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`.
@@ -56,7 +57,7 @@ description: Run implement orchestration.
   `validate_handoff_structure()`, `validate_dispatch_ready()`, `validate_receipt_structure()`,
   `validate_commit_ready()`.
 ## Runtime Stops
-- Stop on missing handoff files, unlisted handoffs, non-empty `context_gaps`, schema mismatch,
-  current-role writes outside `allowed_write_paths`, or planning artifact updates.
+- Stop on missing/unlisted handoffs, non-empty `context_gaps`, schema mismatch,
+  writes outside `allowed_write_paths`, or planning artifact updates.
 - Stop instead of inventing validation strategy, roles, requirements, contract updates, wider scope,
   or validation planning artifacts.

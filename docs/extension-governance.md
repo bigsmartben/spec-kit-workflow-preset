@@ -43,9 +43,9 @@ Stage ownership:
 
 - `/speckit.constitution`: constitution governance and project principles only.
 - `/speckit.specify`: requirement artifacts only.
-- `/speckit.clarify`: requirement clarification only.
-- `/speckit.checklist`: checklist artifacts and BDD/NFR/Visual Fidelity readiness gates only.
-- `/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts.
+- `/speckit.clarify`: product-decision clarification and affected requirement-gate recomputation only.
+- `/speckit.checklist`: requirements, behavior, UX, security, NFR, and visual requirement gates only.
+- `/speckit.plan`: Phase 0 behavior projection, planning artifacts, formal contracts, and BDD Plan closeout.
 - `/speckit.tasks`: `tasks.md` only.
 - `/speckit.analyze`: vertical consistency checks across requirements, behavior drafts, contracts, and tasks only.
 - `/speckit.implement`: implementation handoff execution only.
@@ -55,7 +55,11 @@ Stage ownership:
 When external intake evidence or visual SSOT refs have already been projected into `spec.md`, `/speckit.clarify` may clarify those requirement gaps from `spec.md`, but extraction remains outside clarification.
 External design extraction is not a clarification responsibility.
 
-Visual Fidelity readiness applies to external-intake-derived and product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements. The Visual Fidelity Evidence Matrix is the single visual readiness record and uses one row per visual requirement with Source `spec.md` section, Requirement Status, provider-evidence dependency, visual SSOT refs, HTML SSOT refs, structured IR refs, other evidence refs, readiness input, Blocking Item ID, and accepted exception refs. It records visual planning readiness, traceability refs, provider blocker status, accepted exception refs, checklist Gate Status, and checklist Blocking Items. It must not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review. Source-side intake readiness remains separate: an intake extension may prove raw metadata completeness, source coverage, node inventory parity, HTML SSOT coverage, structured IR coverage, and blocker lint errors, but that proof is not re-run by this preset.
+Visual Fidelity readiness applies to external-intake-derived and product-side
+visual requirements. `checklists/visual.md` and its Visual Fidelity Evidence
+Matrix are the single visual requirement-readiness record. Provider evidence
+gaps remain intake blockers. The matrix must not define visual validation work,
+screenshot comparison, visual diff, baseline capture, or final visual review.
 
 ## Structured Artifact Rules
 
@@ -111,10 +115,19 @@ Planning design artifacts remain optional and contextual:
 - `class-diagram.md`
 - `contracts/sequences.md`
 
-Validation strategy is derived by `/speckit.tasks` from behavior contracts,
-interface contracts, `research.md`, and `quickstart.md`. Do not add a
-standalone `test-plan.md` artifact unless the preset contract is deliberately
-changed for an audit or manual-review requirement.
+Validation decisions are recorded in `research.md`, executable paths in
+`quickstart.md`, and the BDD Plan closeout maps them to Required Cases in
+`behavior/behavior-testability.md`. `/speckit.tasks` derives concrete tasks from
+that READY mapping. Do not add a standalone `test-plan.md`.
+
+Planning Readiness is aggregated at runtime from metadata-bearing requirement
+gates. It is not a durable artifact and must never be written as
+`planning-readiness.md`.
+
+`behavior/behavior-testability.md` is a permitted planning artifact, not a test
+strategy document. It contains the task-derivation matrix and READY/BLOCKED
+decision; it must not duplicate requirement prose, provider intake, or
+clarification.
 
 Keep product requirements in `spec.md`, including explicit NFR assumptions;
 NFR readiness belongs in `spec.md` product requirements rather than downstream

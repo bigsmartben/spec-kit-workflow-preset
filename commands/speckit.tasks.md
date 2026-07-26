@@ -7,6 +7,27 @@ strategy: wrap
 
 Preserve the planned `M + U` scope in task text when deriving implementation, validation, and integration tasks. Do not generate execution metadata or write-path fields.
 
+## Behavior Testability Preflight
+
+Before writing `tasks.md`, require
+`behavior/behavior-testability.md` with:
+
+- `Stage: plan`
+- `Behavior Testability Status: READY`
+- current `Spec Revision` and `Plan Revision`
+- one complete Task Derivation Matrix row for every Required Case
+
+If the file is missing, stale, malformed, or BLOCKED, stop before writing
+`tasks.md` and report its blocker IDs. The legacy
+`checklists/behavior-testability.md` cannot satisfy this preflight.
+
+Use the Task Derivation Matrix as the primary task input. For each Required
+Case, generate the ordered chain:
+
+```text
+fixture → validation/test → implementation → evidence
+```
+
 ## Task-Derivation Subagents
 
 Follow cross-agent protocol profile: `speckit.tasks.stage_local_derivation`.
@@ -46,7 +67,11 @@ If any listed file exists under FEATURE_DIR, task generation must consume it as 
 - `quickstart.md`: executable validation paths and evidence collection guidance.
 - `spec.md` visual acceptance requirements: visual fidelity requirements, source refs, visual SSOT refs, HTML SSOT refs, structured IR refs, screenshot refs, visual proof refs, and external evidence refs.
 - `spec.md` Client Asset Contract: asset source strategy, required variants, fallback policy, and blocker status.
-- `checklists/behavior-testability.md` Visual Fidelity Readiness: `Requirement Status`, readiness input, visual/IR traceability refs, blockers, and accepted exceptions.
+- `behavior/behavior-testability.md`: Required Case to scenario, contract,
+  fixture, assertion, validation, quickstart, and Visual/NFR mapping.
+- `checklists/visual.md` Visual Fidelity Readiness: `Requirement Status`,
+  readiness input, visual/IR traceability refs, blockers, and accepted
+  exceptions.
 - `contracts/bdd/`: formal BDD acceptance contracts.
 - `contracts/uif/`: Expected UIF interaction contracts.
 - `contracts/behavior/`: formal scenario instance, fixture, and assertion contracts.
@@ -62,7 +87,10 @@ Use Visual Fidelity Readiness as the only visual planning readiness source. Do n
 
 Use each Visual Fidelity Readiness row's `Requirement Status` as the visual task input filter. Generate UI implementation, asset binding, and non-visual acceptance tasks only for rows with status `Required` or `Required` plus an accepted exception; tasks for accepted exceptions must cite the exception rule. Do not generate implementation, validation, verification, evidence, asset binding, UI acceptance, or review tasks for `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]` rows. Route `Unknown` rows back to `/speckit.clarify`; route `[BLOCKED: PROVIDER_EVIDENCE]` rows to the external intake extension. `/speckit.tasks` must not discover visual requirements, repair evidence, re-parse provider artifacts, or define visual validation strategy; it only decomposes visual specifications that already passed the readiness gate.
 
-Missing Required case coverage is a coverage blocker, not silently skipped work. If `checklists/behavior-testability.md` marks a case type Required but the matching BDD or behavior contract is absent and no `Not Applicable` rationale or `case_coverage_blockers` entry exists, report the missing case instead of generating a complete-looking task list.
+Missing Required case coverage is a coverage blocker, not silently skipped
+work. If `behavior/behavior-testability.md` contains a Required Case without a
+complete derivation row, report the blocker instead of generating a
+complete-looking task list.
 
 ## Validation Task Derivation
 
@@ -123,7 +151,15 @@ When persistence, migrations, external writes, retries, rollback, or compensatio
 
 ## Final Code Review
 
-When generating `tasks.md`, append the final phase after user-story tasks in the same checklist format. Use this final review scope taxonomy when applicable: `boundary`, `interface_contract`, `visual`, `data_side_effect`, `behavior_contract`, `sequence_consistency`, and `asset_binding`. Checked sources include `class-diagram.md`, `contracts/sequences.md`, `contracts/`, `contracts/uif/`, `research.md`, `quickstart.md`, `spec.md` visual acceptance requirements, `spec.md` Client Asset Contract entries, and `checklists/behavior-testability.md` Visual Fidelity Readiness, plus data side-effect review and real-system e2e environment readiness.
+When generating `tasks.md`, append the final phase after user-story tasks in
+the same checklist format. Use this final review scope taxonomy when
+applicable: `boundary`, `interface_contract`, `visual`, `data_side_effect`,
+`behavior_contract`, `sequence_consistency`, and `asset_binding`. Checked sources include
+`class-diagram.md`, `contracts/sequences.md`, `contracts/`,
+`contracts/uif/`, `research.md`, `quickstart.md`,
+`behavior/behavior-testability.md`, `spec.md` visual acceptance requirements,
+`spec.md` Client Asset Contract entries, and `checklists/visual.md` Visual
+Fidelity Readiness, plus data side-effect review and real-system e2e environment readiness.
 
 Code review task text must require review of runtime database writes and other persistent data changes, including field-level update/delete behavior, bulk writes, soft deletes, ORM whole-object saves, migrations/backfills, retries, rollback/compensation, and external-system writes. Do not generate field-level mutation allowlists or pre-implementation data-write gates in normal tasks.
 

@@ -21,7 +21,10 @@ This repository is a Spec Kit community preset named `workflow-preset`.
 - Planning design artifacts are optional and contextual:
   - `class-diagram.md`
   - `contracts/sequences.md`
-- Validation strategy is derived by `/speckit.tasks` from behavior contracts, interface contracts, `research.md`, and `quickstart.md`; do not add standalone `test-plan.md` without intentionally updating the preset contract.
+- Validation decisions stay in `research.md` and executable paths in
+  `quickstart.md`; plan closeout maps them into
+  `behavior/behavior-testability.md`, and `/speckit.tasks` derives concrete
+  tasks. Do not add standalone `test-plan.md`.
 - Do not move product requirements out of `spec.md`, domain model details out of `data-model.md`, interface schemas out of `contracts/`, or validation run guidance out of `quickstart.md`.
 
 ## Integration Boundary

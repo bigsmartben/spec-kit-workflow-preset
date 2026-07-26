@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Separated requirement-stage Planning Readiness from plan-stage Behavior
+  Testability without adding commands or a `planning-readiness.md` artifact.
+- Replaced the legacy combined behavior-testability checklist with
+  requirements, behavior, UX, security, NFR, and visual domain gates.
+- Added BDD Plan closeout output at
+  `behavior/behavior-testability.md`; tasks now require its current READY
+  decision and derive fixture → validation/test → implementation → evidence
+  chains.
+- Preserved provider-evidence blockers as intake responsibilities and made
+  legacy `checklists/behavior-testability.md` non-authoritative.
+
 ## 1.3.12 - 2026-07-01
 
 - Added a shared cross-agent protocol contract with command profiles for specify, plan, tasks, analyze, and implement, while keeping persistent handoff orchestration scoped to `/speckit.implement`.

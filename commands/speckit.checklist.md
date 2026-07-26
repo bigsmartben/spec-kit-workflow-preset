@@ -1,74 +1,104 @@
 ---
-description: Wrap core checklist generation with BDD, NFR, and Visual Fidelity readiness gate.
+description: Wrap core checklist generation with multi-domain requirement gates.
 strategy: wrap
 ---
 
-## Checklist Purpose: "Unit Tests for English"
+## Multi-Domain Requirement Gate
 
-This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.
+This wrapper extends the core spec-only checklist contract. It must not read
+`plan.md` or `tasks.md`, create planning artifacts, redefine extension hooks,
+or introduce a new command.
 
-Checklists validate whether requirements are complete, clear, consistent, measurable, and ready for downstream planning. NOT for verification/testing: do not test implementation behavior, code execution, UI rendering, API responses, or whether the built system works.
+Use `$ARGUMENTS` only to prioritize requirement-quality focus. The standard
+domain evaluation is always:
 
-CORE PRINCIPLE - Test the Requirements, Not the Implementation. Checklist questions must use requirement-quality forms such as "Are ... specified?", "Is ... quantified?", "Can ... be objectively verified?", or "Are ... requirements consistent?"
+| Domain | Output | Template |
+|---|---|---|
+| requirements | `checklists/requirements.md` | core baseline |
+| behavior | `checklists/behavior.md` | `requirement-behavior-gate-template` |
+| UX | `checklists/ux.md` | `requirement-domain-gate-template` |
+| security | `checklists/security.md` | `requirement-domain-gate-template` |
+| NFR | `checklists/nfr.md` | `requirement-nfr-gate-template` |
+| visual | `checklists/visual.md` | `requirement-visual-gate-template` |
 
-Use `$ARGUMENTS` as checklist intent. Generate dynamic clarifying questions with no pre-baked catalog only when the answer changes BDD, NFR, or Visual Fidelity checklist content. Use Q1/Q2/Q3 for initial questions and Q4/Q5 only for justified follow-up gaps.
+Every standard domain must be written as `APPLICABLE` or
+`NOT_APPLICABLE` with a concrete reason. Every file uses the core
+`Stage/Domain/Gate/Applicability/Status/Spec Revision` metadata contract.
+Planning Readiness is aggregated in memory; do not create
+`planning-readiness.md`.
 
-For `checklists/behavior-testability.md`, create the file when absent; otherwise append or update without deleting existing checklist content. Before finishing, report the full path, item count, update mode, focus areas, depth level, actor/timing, must-have items, readiness status, and blockers.
+The legacy `checklists/behavior-testability.md` is not an input or output of
+this command. Preserve an existing legacy file for migration history but never
+update it or treat it as a current Gate.
 
-## BDD Readiness Gate
+## Behavior Requirement Gate
 
-Create or update `checklists/behavior-testability.md` as checklist artifacts only. This checklist is the plan-entry quality gate for BDD readiness and must evaluate requirements directly from `spec.md`; it must not depend on behavior drafts.
+Write behavior requirement quality and the Case Coverage Matrix to
+`checklists/behavior.md`.
 
-Include these sections:
+- Evaluate user-story readiness, observable acceptance behavior, and Given,
+  When, and Then requirement readiness.
+- Use one row per story/capability and case type.
+- Cover positive, negative, boundary, permission, validation, and
+  state_conflict.
+- Use stable Case IDs.
+- Status is `Required|Not Applicable|Unknown`.
+- Required rows cite a `spec.md` section.
+- Not Applicable requires rationale.
+- Unknown becomes `[blocker:product-decision]` and blocks PASS.
+- Scenario IDs and `case_coverage_blockers` remain `/speckit.plan` outputs.
 
-- User Story Readiness
-- Acceptance Criteria Quality
-- Scenario Coverage
-- Case Coverage Matrix
-- Given Readiness
-- When Readiness
-- Then Readiness
-- Visual Fidelity Readiness
-- Visual Fidelity Evidence Matrix
-- Non-Functional Requirement Readiness
-- Gate Status
-- Blocking Items
+This gate checks whether behavior requirements are projectable. It does not
+decide test level, fixtures, assertions, contracts, or Task Readiness.
 
-Check that each applicable user story has observable acceptance behavior, each acceptance criterion is verifiable, and primary, alternate, exception, boundary, permission, validation, and state_conflict paths are covered when applicable.
+## NFR Requirement Gate
 
-Build a Case Coverage Matrix with one row per story or capability case type. Use case status: Required|Not Applicable|Unknown. Cover positive, negative, boundary, permission, validation, and state_conflict case types. Each row must have a stable Case ID. Required rows must cite the source `spec.md` section. Scenario IDs and `case_coverage_blockers` are assigned during `/speckit.plan`. Not Applicable requires rationale. Unknown must appear in Blocking Items. Required case type without observable acceptance behavior blocks PASS.
+Write NFR readiness to `checklists/nfr.md`. Evaluate performance, security and
+privacy, reliability and recovery, accessibility, compliance and auditability,
+observability, compatibility, data lifecycle, and cost or operational
+constraints.
 
-Check Given readiness from `spec.md`: required roles, permissions, starting state, entity state, and data are explicit enough for later fixture setup.
+Each dimension is `Required`, `Not Applicable`, or `Unknown`. Required items
+need verifiable product-level criteria. Not Applicable needs a rationale.
+Unknown items affecting planning are product-decision blockers. Do not require
+technical designs or invent architecture.
 
-Check When readiness from `spec.md`: each trigger is an executable user action, request case, or system trigger.
+## Visual Requirement Gate
 
-Check Then readiness from `spec.md`: each outcome maps to feedback, business state, error semantics, or assertion intent.
+Write visual readiness and the only Visual Fidelity Evidence Matrix to
+`checklists/visual.md`.
 
-Check Visual Fidelity Readiness when `spec.md` contains `Visual & UI Specification`, visual requirements, visual SSOT refs, HTML SSOT refs, structured IR refs, external intake refs, provider evidence blockers, or provider-specific evidence requests. Also apply it when `spec.md` contains product-side visual requirements such as pixel-perfect, brand-critical, responsive visual, or UI visual acceptance requirements.
-Use the behavior-testability checklist template as the visual gate authority.
-Check Visual/UI Coverage from `spec.md`: `Visual & UI Specification` exists when a visual or UI surface applies; otherwise `spec.md` records a Not Applicable rationale. Every identified visual/UI requirement must use status `Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`.
-Require source traceability, external intake readiness status when cited, HTML SSOT refs, structured IR refs, evidence refs, provider blocker status, and clear visual requirements for state, responsive, accessibility, component mapping, and accepted exception coverage.
-Build a Visual Fidelity Evidence Matrix with one row per visual requirement. Record requirement status, dependency on provider evidence, visual SSOT refs, HTML SSOT refs, structured IR refs, other evidence refs, readiness input, blocker status, and accepted exception refs.
-The Visual Fidelity Evidence Matrix records visual planning readiness, traceability refs, provider blocker status, accepted exception refs, Gate Status, and Blocking Items; it must not define visual validation work, screenshot comparison, visual diff, baseline capture, or final visual review.
-Use one Visual Fidelity Evidence Matrix as the single visual readiness record; do not duplicate visual readiness decisions outside the matrix and Blocking Items.
-Read visual facts from `spec.md` and cited evidence refs; do not call provider tools, re-extract external intake evidence, parse HTML SSOT bundles, re-parse structured IR artifacts, rebuild provider matrices, or create another visual readiness path.
-Do not add historical visual rules or alternate visual decision paths.
-Unknown visual/UI coverage status must appear in Blocking Items and block PASS when it affects downstream behavior projection or design. Required visual/UI requirements without observable requirement text block PASS. `[BLOCKED: PROVIDER_EVIDENCE]` items remain provider evidence blockers and return to the external intake extension.
-Responsive visual requirements block PASS only when required source-backed state or viewport evidence is missing for a feature that depends on provider evidence.
-Screenshots support visual facts but do not create product semantics.
+Apply the gate when `spec.md` contains a Visual & UI Specification, visual
+requirements, visual/HTML/structured-IR SSOT refs, external intake refs,
+provider blockers, pixel-perfect/brand-critical requirements, responsive
+visual requirements, or UI visual acceptance requirements.
 
-Check Non-Functional Requirement Readiness from `spec.md`: applicable performance, security and privacy, reliability and recovery, accessibility, compliance and auditability, observability, compatibility, data lifecycle, and cost or operational constraints are explicitly declared in `spec.md` as `Required`, `Not Applicable`, or `Unknown`.
+Every visual item is `Required`, `Not Applicable`, `Unknown`, or
+`[BLOCKED: PROVIDER_EVIDENCE]`.
 
-For each NFR dimension, require either verifiable product-level criteria, a `Not Applicable` rationale, or an `Unknown` marker that identifies what must be clarified. Do not require technical designs such as SLAs, RTO/RPO formulas, cache layers, queues, deployment topology, or infrastructure choices unless the product requirement already states them.
+- Unknown product semantics become `[blocker:product-decision]`.
+- Missing provider proof remains `[blocker:provider-evidence] [return:intake]`.
+- Provider blockers must not be converted into clarify questions.
+- Required items need source traceability and observable requirement text.
+- The matrix records source refs, provider dependency, visual SSOT refs, HTML
+  SSOT refs, structured IR refs, other evidence refs, readiness input,
+  accepted exceptions, and blocker IDs.
+- Responsive visual requirements block PASS only when required source-backed
+  state or viewport evidence is missing for a feature that depends on provider
+  evidence.
 
-Treat these NFR readiness gaps as blocking items: Required but missing from `spec.md`; Required but not verifiable from product-level criteria; Unknown and affects downstream design. Do not block planning for NFR dimensions marked `Not Applicable` with a rationale or for dimensions with explicit no-special-requirement statements.
+Do not call provider tools, rebuild intake evidence, parse provider or HTML
+artifacts, define screenshot comparison, visual diff, baseline capture, or
+final visual review.
 
-Set `Gate Status: PASS` only when every applicable readiness item is checked and `Blocking Items: none`. Otherwise set `Gate Status: BLOCKED` and list each unchecked readiness item that prevents behavior projection or downstream planning.
+## Recompute and Reporting
 
-Unchecked readiness items that prevent behavior projection or downstream planning are blocking items. Do not proceed to `/speckit.plan`. Requirement ambiguity returns to `/speckit.clarify` or `/speckit.specify` to resolve missing requirements before planning. Provider evidence readiness blockers return to the external intake extension, not `/speckit.clarify`.
+Recompute generated sections using stable CHK/CASE/NFR/VIS IDs. Never append
+duplicate status blocks, stale blockers, or repeated matrix rows. Preserve
+unrelated manual notes.
+
+Report per-domain applicability/status, current spec revision, the in-memory
+Planning Readiness aggregate, product-decision blockers, and provider-evidence
+blockers separately.
 
 {CORE_TEMPLATE}
-
-## Behavior Checklist Reporting
-
-Before finishing, report the BDD, NFR, and Visual Fidelity readiness status and call out unchecked items that block planning.
