@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.0 - 2026-07-26
+
 - Separated requirement-stage Planning Readiness from plan-stage Behavior
   Testability without adding commands or a `planning-readiness.md` artifact.
 - Replaced the legacy combined behavior-testability checklist with
