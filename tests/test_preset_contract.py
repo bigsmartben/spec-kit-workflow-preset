@@ -619,7 +619,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("1.0", data["schema_version"])
         self.assertEqual("workflow-preset", data["preset"]["id"])
         self.assertEqual("Workflow Preset", data["preset"]["name"])
-        self.assertEqual("1.4.1", data["preset"]["version"])
+        self.assertEqual("2.0.0", data["preset"]["version"])
         self.assertEqual(
             "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration",
             data["preset"]["description"],
