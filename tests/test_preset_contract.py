@@ -42,6 +42,7 @@ PLAN_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.plan.md"
 TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
 IMPLEMENT_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.implement.md"
 CONSTITUTION_TEMPLATE_PATH = REPO_ROOT / "templates" / "constitution-template.md"
+ARCHITECTURE_TEMPLATE_PATH = REPO_ROOT / "templates" / "architecture-template.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
 CANONICAL_RESPONSIVE_VISUAL_RULE = (
     "Responsive visual requirements block PASS only when required source-backed "
@@ -620,7 +621,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("Workflow Preset", data["preset"]["name"])
         self.assertEqual("1.4.0", data["preset"]["version"])
         self.assertEqual(
-            "Behavior-first specification, design artifacts, and agent-native handoff orchestration",
+            "Constitution-managed architecture, behavior-first specification, design artifacts, and agent-native handoff orchestration",
             data["preset"]["description"],
         )
         self.assertEqual("bigsmartben", data["preset"]["author"])
@@ -631,12 +632,12 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("MIT", data["preset"]["license"])
         self.assertEqual(">=0.8.10.dev0", data["requires"]["speckit_version"])
         self.assertEqual(
-            ["behavior", "bdd", "planning", "implementation", "handoff"],
+            ["architecture", "constitution", "behavior", "bdd", "planning", "implementation", "handoff"],
             data["tags"],
         )
 
         provides = data["provides"]["templates"]
-        self.assertEqual(34, len(provides))
+        self.assertEqual(35, len(provides))
         entries = {entry["name"]: entry for entry in provides}
         self.assertNotIn("behavior-open-questions-template", entries)
         self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
@@ -661,6 +662,12 @@ class PresetContractTests(unittest.TestCase):
         self.assertEqual("constitution-template", constitution_template["replaces"])
         self.assertEqual("wrap", constitution_template["strategy"])
 
+        architecture_template = entries["architecture-template"]
+        self.assertEqual("template", architecture_template["type"])
+        self.assertEqual("templates/architecture-template.md", architecture_template["file"])
+        self.assertEqual("architecture-template", architecture_template["replaces"])
+        self.assertEqual("replace", architecture_template["strategy"])
+
         for command_name in ("speckit.plan", "speckit.tasks"):
             command = entries[command_name]
             self.assertEqual("command", command["type"])
@@ -669,7 +676,7 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual("wrap", command["strategy"])
 
         self.assertEqual(
-            "Add Phase 0 behavior projection, formal contracts, and BDD Plan closeout",
+            "Consume project Architecture through Phase 0 behavior projection, formal contracts, and BDD Plan closeout",
             entries["speckit.plan"]["description"],
         )
         self.assertEqual(
@@ -717,11 +724,11 @@ class PresetContractTests(unittest.TestCase):
             self.assertNotIn(implement_only_term, specify_command)
 
         self.assertEqual(
-            "Wrap core constitution updates with change scope granularity and architecture SSOT governance",
+            "Manage separate Constitution and Architecture artifacts under one project lifecycle",
             entries["speckit.constitution"]["description"],
         )
         self.assertEqual(
-            "Add change scope granularity and architecture SSOT governance to the constitution template",
+            "Add change scope granularity and Constitution-managed architecture governance",
             entries["constitution-template"]["description"],
         )
 
@@ -791,6 +798,14 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("validation decisions belong in `research.md`", command)
         self.assertIn("executable validation paths belong in `quickstart.md`", command)
         self.assertIn("final report must list generated artifacts", command)
+        self.assertIn("## Architecture-Guided Planning", command)
+        self.assertIn(".specify/memory/architecture.md", command)
+        self.assertIn("`research.md` MUST follow established technical decisions and evidence", command)
+        self.assertIn("`data-model.md` MUST preserve defined concepts", command)
+        self.assertIn("`contracts/` MUST preserve system boundaries", command)
+        self.assertIn("`plan.md` and `quickstart.md` MUST carry forward", command)
+        self.assertIn("return to the Constitution stage", command)
+        self.assertIn("Do not create a compliance matrix", command)
         self.assertIn("Plan Agent Topology", command)
         self.assertIn(
             "Follow cross-agent protocol profile: `speckit.plan.stage_local_planning`",
@@ -874,14 +889,13 @@ class PresetContractTests(unittest.TestCase):
             "Blocks constitution writes when a generated draft changes the fixed R/M/U/O mapping",
             readme,
         )
-        self.assertIn(
-            "Routes architecture decisions, domain facts, object design, flows, and interface contracts to architecture SSOT artifacts instead of embedding concrete implementation content in ratified constitution principles",
-            readme,
-        )
+        self.assertIn("single-file project Architecture lifecycle", readme)
+        self.assertIn("System Boundary -> Conceptual Model", readme)
 
     def test_constitution_change_scope_granularity_contract(self) -> None:
         command = CONSTITUTION_COMMAND_PATH.read_text(encoding="utf-8")
         template = CONSTITUTION_TEMPLATE_PATH.read_text(encoding="utf-8")
+        architecture = ARCHITECTURE_TEMPLATE_PATH.read_text(encoding="utf-8")
 
         exact_mapping = [
             "R: Repository / Workspace. Environment only; too broad for scoped changes.",
@@ -922,58 +936,49 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("CONSTITUTION_TEMPLATE_STATUS_UNCHECKED", command)
         self.assertIn("do not report it as missing", command)
         self.assertIn("do not treat that as the workflow-preset template being absent", command)
-        self.assertIn("Architecture SSOT Boundary", command)
-        self.assertIn("Architecture SSOT Compliance", command)
-        self.assertIn("Ratified constitution principles must be durable governance rules, not architecture fact storage", command)
-        self.assertIn(
-            "Architecture decisions, domain facts, object design, flows, and interface contracts belong in their architecture SSOT artifacts",
-            command,
-        )
-        self.assertIn("specs/<feature>/data-model.md", command)
-        self.assertIn("specs/<feature>/class-diagram.md", command)
-        self.assertIn("specs/<feature>/contracts/sequences.md", command)
-        self.assertIn("specs/<feature>/contracts/", command)
-        self.assertIn("specs/<feature>/research.md", command)
-        self.assertIn(
-            "MUST NOT capture, discover, extract, migrate, store, validate, or repair architecture facts",
-            command,
-        )
-        self.assertIn("do not embed them in ratified principles", command)
-        self.assertIn("name the responsible workflow-preset SSOT artifact type", command)
-        self.assertIn("Do not write concrete `specs/<feature>/...` paths", command)
-        self.assertIn("check those paths", command)
-        self.assertIn("create or update those artifacts", command)
-        self.assertIn("CONSTITUTION_ARCH_SSOT_GAP", command)
-        self.assertIn("copy concrete implementation facts", command)
-        self.assertIn("Planning outputs MUST comply with existing Architecture SSOT artifacts", command)
-        self.assertIn("MUST NOT contradict, relocate, weaken, or silently replace architecture SSOT content", command)
-        self.assertIn("requires planning outputs to comply with existing Architecture SSOT artifacts", command)
-        self.assertIn(
-            "routes architecture decisions, domain facts, object design, flows, and interface contracts to workflow-preset SSOT artifact types",
-            command,
-        )
-        self.assertNotIn("unless the current Spec Kit context already provides an existing feature path", command)
-        self.assertNotIn("required existing SSOT path is absent", command)
+        self.assertIn("Constitution Stage Input Agreement", command)
+        for mode in ("greenfield", "brownfield", "amendment"):
+            self.assertIn(mode, command)
+        self.assertIn("No conventional path is mandatory", command)
+        self.assertIn("candidate sources only until the user authorizes their role", command)
+        self.assertIn("Existing code is evidence", command)
+        self.assertIn("ARCH_LEGACY_FORMAT", command)
+        self.assertIn("Separate Artifact Ownership", command)
+        self.assertIn(".specify/memory/constitution.md", command)
+        self.assertIn(".specify/memory/architecture.md", command)
+        self.assertIn("write exactly one Architecture artifact", command)
+        self.assertIn("without 4+1", command)
+        self.assertIn("Technical validation is evidence registration only", command)
+        self.assertIn("Optional tables may be empty", command)
+        self.assertIn("Do not create PoC code", command)
+        self.assertIn("Architecture-Guided Planning", command)
+        self.assertIn("`/speckit.plan` MUST read", command)
+        self.assertIn("planning MUST stop and return to the Constitution stage", command)
         self.assertIn("The R/M/U/O letter mapping is fixed", template)
-        self.assertIn("Architecture SSOT Boundary", template)
-        self.assertIn("Architecture SSOT Compliance", template)
-        self.assertIn("Ratified constitution principles are durable governance rules, not architecture fact storage", template)
-        self.assertIn(
-            "Architecture decisions, domain facts, object design, flows, and interface contracts belong in their architecture SSOT artifacts",
-            template,
+        self.assertIn("Constitution And Architecture Boundary", template)
+        self.assertIn("Feature-local planning artifacts may refine Architecture", template)
+        self.assertIn("Architecture-Guided Planning", template)
+        self.assertIn("`research.md` MUST follow established technical decisions", template)
+        self.assertIn("`contracts/` MUST preserve system boundaries", template)
+
+        expected_sections = [
+            "Architecture Overview",
+            "System Boundary",
+            "Conceptual Model",
+            "Technical Decisions & Evidence",
+            "Planning Guardrails & Gaps",
+        ]
+        self.assertEqual(
+            expected_sections,
+            re.findall(r"^## (.+)$", architecture, flags=re.MULTILINE),
         )
-        self.assertIn("specs/<feature>/data-model.md", template)
-        self.assertIn("specs/<feature>/class-diagram.md", template)
-        self.assertIn("specs/<feature>/contracts/sequences.md", template)
-        self.assertIn("specs/<feature>/contracts/", template)
-        self.assertIn("specs/<feature>/research.md", template)
-        self.assertIn("may reference these SSOT artifact types", template)
-        self.assertIn(
-            "must not copy concrete implementation facts, temporary repository observations, or module responsibility inventories",
-            template,
-        )
-        self.assertIn("Planning outputs MUST comply with existing Architecture SSOT artifacts", template)
-        self.assertIn("Planning MUST NOT contradict, relocate, weaken, or silently replace architecture SSOT content", template)
+        self.assertIn("**Architecture Goal**", architecture)
+        self.assertIn("**Authorized Sources**", architecture)
+        self.assertIn("Does Not Own", architecture)
+        self.assertIn("Evidence Or Explicit Gap", architecture)
+        self.assertIn("MUST_VALIDATE", architecture)
+        self.assertIn("Optional tables may remain empty", architecture)
+        self.assertNotIn("4+1", architecture)
 
     def test_change_scope_granularity_stage_references(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
@@ -4384,13 +4389,13 @@ class PresetContractTests(unittest.TestCase):
             "commands own stage-local generation instructions",
             "structured JSON artifacts require schemas",
             "validators/",
-            "Do not put downstream prohibitions in upstream commands",
+            "An upstream stage may define the explicit consumption contract for its direct",
             "Source intake artifacts belong in an extension, not this preset",
             "External intake owns source capture",
             "rendered HTML SSOT bundles",
             "Behavior-first extension rule",
             "BDD and UIF artifacts need independent templates",
-            "`/speckit.constitution`: constitution governance and project principles only",
+            "`/speckit.constitution`: durable Constitution governance plus the separate",
             "`/speckit.checklist`: checklist artifacts and BDD/NFR/Visual Fidelity readiness gates only",
             "external intake artifact refs",
             "visual SSOT refs",
@@ -4417,7 +4422,7 @@ class PresetContractTests(unittest.TestCase):
             "Provider tools, provider execution, hooks, adapter scripts",
             "External design extraction is not a clarification responsibility",
             "NFR readiness belongs in `spec.md` product requirements",
-            "`/speckit.plan`: Phase 0 behavior projection, planning artifacts, and formal contracts",
+            "`/speckit.plan`: Architecture-guided planning, Phase 0 behavior projection",
             "`/speckit.tasks` owns implementation, non-visual acceptance, contract validation, data-side-effect validation, integration/e2e validation, and code review task definition in `tasks.md`",
             "`/speckit.implement` may execute those tasks and record receipt evidence",
             "must not invent validation strategy, visual validation work, lifecycle roles, requirements, contract updates, or wider scope during execution",

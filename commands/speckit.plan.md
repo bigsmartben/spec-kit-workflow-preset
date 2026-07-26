@@ -1,5 +1,5 @@
 ---
-description: Wrap core planning with Phase 0 behavior projection, formal contracts, and BDD Plan closeout.
+description: Wrap core planning with project Architecture consumption, Phase 0 behavior projection, formal contracts, and BDD Plan closeout.
 strategy: wrap
 ---
 
@@ -8,6 +8,28 @@ strategy: wrap
 Apply the constitution's Change Scope Granularity principle.
 
 During planning, lock the change scope to `M + U`: module/capability plus design object. Do not lock operation-level implementation details or concrete write paths.
+
+## Architecture-Guided Planning
+
+Before Phase 0 preflight or any planning write, read:
+
+```text
+.specify/memory/constitution.md
+.specify/memory/architecture.md
+```
+
+If `architecture.md` is missing, uses the retired 4+1 or nine-section planning-contract format, lacks an Architecture goal or authorized sources, or has no explicit system boundary with ownership and non-responsibility, stop with a report-only/no-write failure and return to `/speckit.constitution`.
+
+Consume applicable Architecture content through the normal planning artifacts:
+
+- `research.md` MUST follow established technical decisions and evidence. If a documented revisit condition is met, record the evidence that triggered it; do not silently replace the Architecture decision.
+- `data-model.md` MUST preserve defined concepts, ownership, relationships, lifecycle, and invariants.
+- `contracts/` MUST preserve system boundaries, responsibilities, interface ownership, and dependency direction.
+- `plan.md` and `quickstart.md` MUST carry forward applicable Architecture constraints, unresolved gaps, revisit conditions, and validation implications.
+
+An Architecture gap may shape or block planning, but must not be converted into an invented decision. If any planning artifact conflicts with or requires changing `.specify/memory/architecture.md`, stop planning and return to the Constitution stage. Do not repair or rewrite project Architecture from `/speckit.plan`.
+
+Planning artifacts demonstrate Architecture consumption in their normal content. Do not create a compliance matrix, consumption report, audit receipt, or separate traceability artifact.
 
 ## Plan Agent Topology
 

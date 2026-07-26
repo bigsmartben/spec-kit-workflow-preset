@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Moved project Architecture generation into `/speckit.constitution`, which now
+  manages separate `constitution.md` and single-file `architecture.md`
+  lifecycles for greenfield, brownfield, and amendment runs.
+- Added an explicit user-selected input agreement; UC, README, repository files,
+  and other conventional paths are no longer assumed prerequisites or evidence.
+- Removed 4+1 reasoning from the target Architecture shape and added the
+  boundary -> concept -> technical evidence -> planning guardrail chain.
+- Required `/speckit.plan` to project Architecture decisions, concepts,
+  boundaries, constraints, gaps, and validation implications into its normal
+  research, data model, contracts, plan, and quickstart outputs.
+
 ## 1.4.0 - 2026-07-26
 
 - Separated requirement-stage Planning Readiness from plan-stage Behavior
