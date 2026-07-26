@@ -11,7 +11,10 @@ Check that tasks preserve the planned `M + U` scope. Report missing, widened, or
 
 Follow cross-agent protocol profile: `speckit.analyze.read_only_parallel_review`.
 
-Analyze whether the feature artifacts close the `spec -> BDD/UIF intent -> contracts -> tasks` loop. This command checks planning consistency only; it does not inspect implementation code or infer interaction flows from built code.
+Analyze whether the feature artifacts close the
+`requirement gates -> BDD/UIF intent -> contracts -> behavior testability -> tasks`
+loop. This command checks planning consistency only; it does not inspect
+implementation code or infer interaction flows from built code.
 
 ## Analysis Performance Guardrails
 
@@ -35,8 +38,16 @@ Check:
 - UIF API calls exist in contracts/api/.
 - behavior contracts cover scenarios, fixtures, and assertions.
 - tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths.
-- case coverage is closed from checklist through implementation tasks.
-- Required case types in `checklists/behavior-testability.md` map to behavior draft scenarios, formal behavior contracts, tasks, and quickstart validation paths.
+- case coverage is closed from `checklists/behavior.md` through behavior drafts,
+  formal contracts, `behavior/behavior-testability.md`, and implementation
+  tasks.
+- Required case types in `checklists/behavior.md` map to behavior draft
+  scenarios, formal behavior contracts, Task Derivation Matrix rows, tasks,
+  and quickstart validation paths.
+- `behavior/behavior-testability.md` carries current spec/plan revisions and is
+  READY before tasks are considered complete.
+- every Required Case maps to a fixture → validation/test → implementation →
+  evidence task chain.
 - positive, negative, boundary, permission, validation, and state_conflict case types are either covered or have `N/A or blocker` evidence.
 - failure scenarios declare error code, failure feedback, and state invariant, rollback, or compensation assertion.
 - quickstart validation paths cover Required failure scenarios.

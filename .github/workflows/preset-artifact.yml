@@ -215,6 +215,10 @@ jobs:
               "commands/speckit.plan.md",
               "commands/speckit.tasks.md",
               "templates/plan-template.md",
+              "templates/requirements/behavior-gate.md",
+              "templates/requirements/nfr-gate.md",
+              "templates/requirements/visual-gate.md",
+              "templates/behavior/behavior-testability.md",
               "schemas/speckit.implement.handoff.v2.schema.json",
               "validators/speckit_implement_contract.py",
               "docs/extension-governance.md",
@@ -276,6 +280,8 @@ jobs:
           test -f .specify/presets/workflow-preset/preset.yml
           test -f .specify/presets/workflow-preset/templates/plan-template.md
           test -f .specify/presets/workflow-preset/templates/constitution-template.md
+          test -f .specify/presets/workflow-preset/templates/requirements/behavior-gate.md
+          test -f .specify/presets/workflow-preset/templates/behavior/behavior-testability.md
           grep -q "Change Scope Granularity" .specify/presets/workflow-preset/templates/constitution-template.md
           grep -q "R: Repository / Workspace" .specify/presets/workflow-preset/templates/constitution-template.md
           grep -q "M: Module / Capability" .specify/presets/workflow-preset/templates/constitution-template.md

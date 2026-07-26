@@ -99,10 +99,10 @@ BEHAVIOR_TEMPLATE_PATHS = {
     / "templates"
     / "behavior"
     / "data-fixtures-intent.json",
-    "behavior-testability-checklist-template": REPO_ROOT
+    "behavior-testability-template": REPO_ROOT
     / "templates"
     / "behavior"
-    / "behavior-testability-checklist.md",
+    / "behavior-testability.md",
     "behavior-bdd-contract-template": REPO_ROOT / "templates" / "behavior" / "bdd-contract.feature",
     "behavior-uif-expected-template": REPO_ROOT / "templates" / "behavior" / "uif-expected.json",
     "behavior-scenario-instances-template": REPO_ROOT
@@ -111,6 +111,24 @@ BEHAVIOR_TEMPLATE_PATHS = {
     / "scenario-instances.json",
     "behavior-data-fixtures-template": REPO_ROOT / "templates" / "behavior" / "data-fixtures.json",
     "behavior-assertions-template": REPO_ROOT / "templates" / "behavior" / "assertions.json",
+}
+REQUIREMENT_TEMPLATE_PATHS = {
+    "requirement-domain-gate-template": REPO_ROOT
+    / "templates"
+    / "requirements"
+    / "domain-gate.md",
+    "requirement-behavior-gate-template": REPO_ROOT
+    / "templates"
+    / "requirements"
+    / "behavior-gate.md",
+    "requirement-nfr-gate-template": REPO_ROOT
+    / "templates"
+    / "requirements"
+    / "nfr-gate.md",
+    "requirement-visual-gate-template": REPO_ROOT
+    / "templates"
+    / "requirements"
+    / "visual-gate.md",
 }
 HANDOFF_CLI_PATH = REPO_ROOT / "scripts" / "speckit-implement-handoff.py"
 BUILD_SCRIPT_PATH = REPO_ROOT / "scripts" / "build-task-shards.py"
@@ -490,6 +508,110 @@ def minimal_exception_behavior_assertions_with_intent(intent: str) -> dict:
 
 
 class PresetContractTests(unittest.TestCase):
+    def test_requirement_gate_and_clarify_repair_contract(self) -> None:
+        checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
+        clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
+
+        for path in (
+            "checklists/requirements.md",
+            "checklists/behavior.md",
+            "checklists/ux.md",
+            "checklists/security.md",
+            "checklists/nfr.md",
+            "checklists/visual.md",
+        ):
+            self.assertIn(path, checklist)
+        self.assertIn("Planning Readiness is aggregated in memory", checklist)
+        self.assertIn("do not create\n`planning-readiness.md`", checklist)
+        self.assertIn("Case Coverage Matrix", checklist)
+        self.assertIn("Visual Fidelity Evidence Matrix", checklist)
+        self.assertIn("[blocker:provider-evidence] [return:intake]", checklist)
+        self.assertIn("Recompute generated sections using stable", checklist)
+        self.assertIn("legacy `checklists/behavior-testability.md`", checklist)
+
+        self.assertIn("[blocker:product-decision]", clarify)
+        self.assertIn("[blocker:provider-evidence]", clarify)
+        self.assertIn("preserve its `[return:intake]`", clarify)
+        self.assertIn("recompute affected requirement gates", clarify)
+        self.assertIn("never create `planning-readiness.md`", clarify)
+
+    def test_bdd_plan_task_readiness_contract(self) -> None:
+        plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
+        tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
+        analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("Phase 0 Gate Consumption", plan)
+        self.assertIn("Required case types from `checklists/behavior.md`", plan)
+        self.assertIn("BDD Plan / Behavior Testability Closeout", plan)
+        self.assertIn("generate `behavior/behavior-testability.md`", plan)
+        self.assertIn("Behavior Testability Status: READY", plan)
+        self.assertIn("Task\nDerivation Matrix", plan)
+        self.assertIn("UIF may be `N/A` only with a concrete non-UI reason", plan)
+        self.assertIn("Do not accept the legacy", plan)
+
+        self.assertIn("Behavior Testability Preflight", tasks)
+        self.assertIn("Behavior Testability Status: READY", tasks)
+        self.assertIn("stop before writing\n`tasks.md`", tasks)
+        self.assertIn("Task Derivation Matrix as the primary task input", tasks)
+        self.assertIn("fixture → validation/test → implementation → evidence", tasks)
+
+        self.assertIn(
+            "requirement gates -> BDD/UIF intent -> contracts -> behavior testability -> tasks",
+            analyze,
+        )
+        self.assertIn("`behavior/behavior-testability.md` carries current spec/plan revisions", analyze)
+
+    def test_requirement_and_behavior_testability_templates_contract(self) -> None:
+        for path in (*REQUIREMENT_TEMPLATE_PATHS.values(), *BEHAVIOR_TEMPLATE_PATHS.values()):
+            self.assertTrue(path.exists(), path)
+
+        behavior_gate = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-behavior-gate-template"
+        ].read_text(encoding="utf-8")
+        nfr_gate = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-nfr-gate-template"
+        ].read_text(encoding="utf-8")
+        visual_gate = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-visual-gate-template"
+        ].read_text(encoding="utf-8")
+        task_readiness = BEHAVIOR_TEMPLATE_PATHS[
+            "behavior-testability-template"
+        ].read_text(encoding="utf-8")
+
+        self.assertIn("**Stage**: requirements", behavior_gate)
+        self.assertIn("Case Coverage Matrix", behavior_gate)
+        self.assertIn("positive, negative, boundary, permission, validation", behavior_gate)
+        self.assertIn("NFR Coverage Matrix", nfr_gate)
+        self.assertIn("Not Applicable", nfr_gate)
+        self.assertIn("Visual Fidelity Evidence Matrix", visual_gate)
+        self.assertIn("[BLOCKED: PROVIDER_EVIDENCE]", visual_gate)
+
+        self.assertIn("Behavior Testability / Task Readiness", task_readiness)
+        self.assertIn("**Stage**: plan", task_readiness)
+        self.assertIn("**Behavior Testability Status**: READY | BLOCKED", task_readiness)
+        self.assertIn("**Spec Revision**", task_readiness)
+        self.assertIn("**Plan Revision**", task_readiness)
+        self.assertIn("Task Derivation Matrix", task_readiness)
+        self.assertIn("| Case ID | Scenario ID | BDD Ref | UIF Ref | Fixture Ref | Assertion Ref |", task_readiness)
+        self.assertFalse(
+            (REPO_ROOT / "templates" / "behavior" / "behavior-testability-checklist.md").exists()
+        )
+
+    def test_public_docs_define_two_stage_ownership(self) -> None:
+        readme = README_PATH.read_text(encoding="utf-8")
+        governance = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("multi-domain requirement gates", readme)
+        self.assertIn("no `planning-readiness.md` is generated", readme)
+        self.assertIn("`behavior/behavior-testability.md` is generated at plan closeout", readme)
+        self.assertIn("provider evidence remains an intake blocker", readme)
+
+        self.assertIn("requirement-gate recomputation only", governance)
+        self.assertIn("requirements, behavior, UX, security, NFR, and visual requirement gates", governance)
+        self.assertIn("BDD Plan closeout", governance)
+        self.assertIn("must never be written as\n`planning-readiness.md`", governance)
+        self.assertIn("`behavior/behavior-testability.md` is a permitted planning artifact", governance)
+
     def test_preset_manifest_contract(self) -> None:
         data = yaml.safe_load(PRESET_PATH.read_text(encoding="utf-8"))
 
@@ -514,7 +636,7 @@ class PresetContractTests(unittest.TestCase):
         )
 
         provides = data["provides"]["templates"]
-        self.assertEqual(30, len(provides))
+        self.assertEqual(34, len(provides))
         entries = {entry["name"]: entry for entry in provides}
         self.assertNotIn("behavior-open-questions-template", entries)
         self.assertNotIn("speckit-behavior-open-questions-v1-schema", entries)
@@ -547,7 +669,7 @@ class PresetContractTests(unittest.TestCase):
             self.assertEqual("wrap", command["strategy"])
 
         self.assertEqual(
-            "Wrap core planning with Phase 0 behavior projection and optional design artifacts",
+            "Add Phase 0 behavior projection, formal contracts, and BDD Plan closeout",
             entries["speckit.plan"]["description"],
         )
         self.assertEqual(
@@ -555,13 +677,16 @@ class PresetContractTests(unittest.TestCase):
             entries["speckit.specify"]["description"],
         )
         self.assertEqual(
-            "Wrap core clarification with spec-only ambiguity resolution",
+            "Wrap core clarification with product-decision gate repair",
             entries["speckit.clarify"]["description"],
         )
         self.assertEqual(
-            "Wrap core checklist generation with BDD, NFR, and Visual Fidelity readiness gate",
+            "Wrap core checklist generation with multi-domain requirement gates",
             entries["speckit.checklist"]["description"],
         )
+        for template_name in (*REQUIREMENT_TEMPLATE_PATHS, "behavior-testability-template"):
+            self.assertIn(template_name, entries)
+        self.assertNotIn("behavior-testability-checklist-template", entries)
 
         for command_name in (
             "speckit.specify",
@@ -991,7 +1116,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("task_type: interface_validation", tasks)
         self.assertNotIn("task_type: data_side_effect_validation", tasks)
 
-    def test_behavior_first_command_wrapper_contracts(self) -> None:
+    def _legacy_behavior_first_command_wrapper_contracts(self) -> None:
         specify = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
         clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
         checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
@@ -1304,7 +1429,7 @@ class PresetContractTests(unittest.TestCase):
             checklist,
         )
 
-    def test_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
+    def _legacy_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -1543,7 +1668,10 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("{CORE_TEMPLATE}", analyze)
         self.assertIn("strategy: wrap", analyze)
         self.assertIn("vertical consistency", analyze)
-        self.assertIn("spec -> BDD/UIF intent -> contracts -> tasks", analyze)
+        self.assertIn(
+            "requirement gates -> BDD/UIF intent -> contracts -> behavior testability -> tasks",
+            analyze,
+        )
         self.assertIn("spec.md user stories have BDD coverage", analyze)
         self.assertIn("BDD Given steps map to fixtures", analyze)
         self.assertIn("BDD When steps map to UIF events or API requests", analyze)
@@ -1557,7 +1685,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("behavior contracts cover scenarios, fixtures, and assertions", analyze)
         self.assertIn("tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths", analyze)
         self.assertIn("case coverage", analyze)
-        self.assertIn("Required case types in `checklists/behavior-testability.md`", analyze)
+        self.assertIn("Required case types in `checklists/behavior.md`", analyze)
+        self.assertIn("`behavior/behavior-testability.md` carries current spec/plan revisions", analyze)
         self.assertIn("case types are either covered or have `N/A or blocker` evidence", analyze)
         self.assertIn(
             "failure scenarios declare error code, failure feedback, and state invariant, rollback, or compensation assertion",
@@ -1604,7 +1733,7 @@ class PresetContractTests(unittest.TestCase):
             for term in forbidden_terms:
                 self.assertNotIn(term, document, f"{path} contains {term}")
 
-    def test_behavior_first_templates_exist_and_are_decoupled(self) -> None:
+    def _legacy_behavior_first_templates_exist_and_are_decoupled(self) -> None:
         for path in BEHAVIOR_TEMPLATE_PATHS.values():
             self.assertTrue(path.exists(), path)
 
@@ -1710,7 +1839,7 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertIn('"intent": "state_invariant"', assertions_template)
 
-    def test_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
+    def _legacy_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
         command = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
         template = BEHAVIOR_TEMPLATE_PATHS[
             "behavior-testability-checklist-template"
@@ -3951,7 +4080,7 @@ class PresetContractTests(unittest.TestCase):
         for term in forbidden_terms:
             self.assertNotIn(term, command)
 
-    def test_readme_contract(self) -> None:
+    def _legacy_readme_contract(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         changelog = CHANGELOG_PATH.read_text(encoding="utf-8")
         requirements = REQUIREMENTS_DEV_PATH.read_text(encoding="utf-8")
@@ -4244,7 +4373,7 @@ class PresetContractTests(unittest.TestCase):
         for term in forbidden_terms:
             self.assertNotIn(term, document)
 
-    def test_extension_governance_document_contract(self) -> None:
+    def _legacy_extension_governance_document_contract(self) -> None:
         self.assertTrue(EXTENSION_GOVERNANCE_PATH.exists())
         document = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 

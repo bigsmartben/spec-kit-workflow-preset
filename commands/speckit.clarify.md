@@ -1,5 +1,5 @@
 ---
-description: Wrap core clarification with spec-only ambiguity resolution.
+description: Wrap core clarification with product-decision gate repair.
 strategy: wrap
 ---
 
@@ -8,6 +8,13 @@ strategy: wrap
 This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.
 
 Use `spec.md` as the clarification source. Ask and record clarification only for requirement ambiguity that affects product behavior, constraints, non-functional requirement assumptions, visual/UI requirement coverage status, acceptance criteria, user roles, permissions, entity states, data semantics, exceptions, validation rules, or boundaries.
+
+Also read unchecked blockers from all metadata-bearing
+`checklists/*.md` files with `Stage: requirements`,
+`Gate: planning-readiness`, and `Status: BLOCKED`.
+Prioritize `[blocker:product-decision]` items as the repair queue. Never ask a
+question for `[blocker:provider-evidence]`; preserve its `[return:intake]`
+route and keep Planning Readiness BLOCKED.
 
 Do not read or update behavior draft artifacts. Do not use behavior drafts as clarification inputs, and do not open a separate behavior-question channel. Product requirements stay in `spec.md`; update `spec.md` only after user-provided answers make the requirement clear.
 
@@ -49,13 +56,21 @@ Do not generate visual restoration checklists. Clarification fills requirement g
 
 Run validation after EACH write plus final pass. Confirm the accepted answer appears once in `spec.md`, Total asked questions is at most 5, the targeted ambiguity is removed or replaced, no contradictory earlier statement remains, and heading structure is preserved.
 
-Do not update checklist artifacts. After each `spec.md` write, report checklist impact as unresolved readiness context for `/speckit.checklist`.
+After each `spec.md` write, recompute affected requirement gates by stable
+CHK/CASE/NFR/VIS IDs. Verify unaffected gate sources before stamping every gate
+with the new spec SHA-256 revision. Replace generated status and blocker
+sections; do not append duplicate IDs or stale blockers. Aggregate Planning
+Readiness in memory and never create `planning-readiness.md`.
+
+Do not read or update the legacy `checklists/behavior-testability.md`.
 
 {CORE_TEMPLATE}
 
 ## Completion Report
 
-Before finishing, report answered questions, `spec.md` sections updated, and any unresolved requirement ambiguity that still blocks checklist readiness.
+Before finishing, report answered questions, `spec.md` sections updated,
+recomputed gate files, aggregate Planning Readiness, and unresolved
+product-decision versus provider-evidence blockers separately.
 
 ## Done When
 
@@ -63,4 +78,7 @@ Before finishing, report answered questions, `spec.md` sections updated, and any
 - [ ] Each accepted answer was written back to `spec.md`.
 - [ ] Any answered visual/UI coverage status was updated in `spec.md`.
 - [ ] Validation after each write found no duplicate or contradictory clarification.
+- [ ] Affected requirement gates were recomputed using stable IDs and current spec revision.
+- [ ] Provider-evidence blockers were preserved and routed to intake.
+- [ ] No Planning Readiness summary artifact was created.
 - [ ] Completion reported with sections touched and remaining blockers.
