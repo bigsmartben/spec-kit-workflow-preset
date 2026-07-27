@@ -59,9 +59,9 @@ provides:
     - type: "command"
       name: "speckit.constitution"
       file: "commands/speckit.constitution.md"
-      description: "Manage separate Constitution and Architecture artifacts under one project lifecycle"
+      description: "Manage SDD governance and repository technical Architecture with independent output gates"
       replaces: "speckit.constitution"
-      strategy: "wrap"
+      strategy: "replace"
 
     - type: "command"
       name: "speckit.analyze"

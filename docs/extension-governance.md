@@ -17,15 +17,45 @@ This document defines the ownership boundaries for `workflow-preset`.
 The preset enriches existing Spec Kit stages. It does not own execution
 orchestration or add a second implementation engine.
 
+## Authority And Gate Ownership
+
+| Concern | Single owner |
+|---|---|
+| SDD workflow governance | `.specify/memory/constitution.md` |
+| repository technical truth | `.specify/memory/architecture.md` |
+| one command's output quality | the producing command |
+| official workflow gates | Spec Kit Core, unchanged |
+| cross-command consistency | `/speckit.analyze`, read-only |
+
+Intake is external evidence acquisition, not an SDD stage. Constitution does
+not contain concrete repository Architecture. Architecture does not contain
+command procedures, gate definitions, product requirements, task derivation, or
+downstream conformance conclusions.
+
+`/speckit.constitution` is an enforceable replacement command so the authorized
+source agreement can suppress unapproved repository inference. It preserves
+user input, hooks, independent write scopes, validation, and completion
+reporting.
+
+The Constitution command owns two independent internal gates:
+
+- `CONSTITUTION_OUTPUT_READY` validates SDD governance only.
+- `ARCHITECTURE_OUTPUT_READY` validates the technical Architecture contract,
+  including intent-first Greenfield and repo-first Brownfield generation.
+
+Neither gate checks downstream artifacts. Constitution → Spec/Plan,
+Architecture → Plan, Spec → Plan, and Plan → Tasks consistency belong only to
+Analyze.
+
 | Stage | Owner | Durable output |
 |---|---|---|
-| `/speckit.constitution` | preset wrapper | Constitution and project Architecture |
+| `/speckit.constitution` | preset replacement | independently authorized Constitution and project Architecture outputs |
 | `/speckit.specify` | preset wrapper | requirement and UI/UX intent in `spec.md` |
 | `/speckit.clarify` | preset wrapper | clarified requirement decisions |
 | `/speckit.checklist` | preset wrapper | requirement-readiness gates |
 | `/speckit.plan` | preset wrapper | design, behavior contracts, and validation design |
 | `/speckit.tasks` | preset wrapper | executable checklist in `tasks.md` |
-| `/speckit.analyze` | preset wrapper | read-only consistency findings |
+| `/speckit.analyze` | preset wrapper | read-only cross-command consistency findings |
 | `/speckit.implement` | Spec Kit core | execution of `tasks.md` |
 
 `workflow-preset` MUST NOT declare, package, copy, or replace

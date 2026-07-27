@@ -602,8 +602,9 @@ class PresetContractTests(unittest.TestCase):
             "O: Operations",
         ]
 
+        self.assertNotIn("{CORE_TEMPLATE}", command)
+        self.assertIn("{CORE_TEMPLATE}", template)
         for document in (command, template):
-            self.assertIn("{CORE_TEMPLATE}", document)
             self.assertIn("Change Scope Granularity", document)
             self.assertIn("R/M/U/O", document)
             self.assertIn("Planning locks M + U", document)
@@ -612,61 +613,67 @@ class PresetContractTests(unittest.TestCase):
             for forbidden in forbidden_mapping_drift:
                 self.assertNotIn(forbidden, document)
 
-        self.assertIn("strategy: wrap", command)
+        self.assertIn("strategy: replace", command)
+        self.assertIn("## User Input", command)
+        self.assertIn("hooks.before_constitution", command)
+        self.assertIn("hooks.after_constitution", command)
         self.assertIn("Spec Kit planning and execution MUST use R/M/U/O scope granularity", template)
-        self.assertIn("This principle applies from planning onward", template)
-        self.assertIn("Requirement specification, clarification, and checklist readiness MUST NOT infer M/U/O boundaries", template)
-        self.assertIn("preserve the Change Scope Granularity principle", command)
-        self.assertIn("must not remove, weaken, or contradict", command)
-        self.assertIn("The R/M/U/O letter mapping is fixed and MUST remain exact", command)
-        self.assertIn("preserves the exact R/M/U/O letter mapping", command)
+        self.assertIn("Requirement commands MUST NOT infer M/U/O boundaries", template)
+        self.assertIn("The mapping MUST NOT be renamed or paraphrased", command)
         self.assertIn("CONSTITUTION_RMUO_MAPPING_DRIFT", command)
-        self.assertIn("CONSTITUTION_TEMPLATE_STATUS_UNCHECKED", command)
-        self.assertIn("do not report it as missing", command)
-        self.assertIn("do not treat that as the workflow-preset template being absent", command)
-        self.assertIn("Constitution Stage Input Agreement", command)
+        self.assertIn("Explicit Input Agreement", command)
         for mode in ("greenfield", "brownfield", "amendment"):
             self.assertIn(mode, command)
-        self.assertIn("No conventional path is mandatory", command)
-        self.assertIn("candidate sources only until the user authorizes their role", command)
-        self.assertIn("Existing code is evidence", command)
-        self.assertIn("ARCH_LEGACY_FORMAT", command)
-        self.assertIn("Separate Artifact Ownership", command)
+        self.assertIn("No conventional file is authoritative by default", command)
+        self.assertIn("candidate sources until", command)
+        self.assertIn("repo-first", command)
+        self.assertIn("intent-first", command)
+        self.assertIn("Independent Write Scopes", command)
         self.assertIn(".specify/memory/constitution.md", command)
         self.assertIn(".specify/memory/architecture.md", command)
-        self.assertIn("write exactly one Architecture artifact", command)
-        self.assertIn("without 4+1", command)
-        self.assertIn("Technical validation is evidence registration only", command)
-        self.assertIn("Optional tables may be empty", command)
-        self.assertIn("Do not create PoC code", command)
-        self.assertIn("Architecture-Guided Planning", command)
-        self.assertIn("`/speckit.plan` MUST read", command)
-        self.assertIn("planning MUST stop and return to the Constitution stage", command)
-        self.assertIn("The R/M/U/O letter mapping is fixed", template)
-        self.assertIn("Constitution And Architecture Boundary", template)
-        self.assertIn("Feature-local planning artifacts may refine Architecture", template)
-        self.assertIn("Architecture-Guided Planning", template)
-        self.assertIn("`research.md` MUST follow established technical decisions", template)
-        self.assertIn("`contracts/` MUST preserve system boundaries", template)
+        self.assertIn("CONSTITUTION_OUTPUT_READY", command)
+        self.assertIn("ARCHITECTURE_OUTPUT_READY", command)
+        self.assertIn("command-internal output gate", command)
+        self.assertIn("SDD Workflow Governance", template)
+        self.assertIn("Gate Ownership", template)
+        self.assertIn("Cross-Command Consistency Gate", template)
+        self.assertIn("Analyze exclusively", template)
+        self.assertIn("Intake is external evidence acquisition, not an SDD stage", template)
 
         expected_sections = [
             "Architecture Overview",
             "System Boundary",
             "Conceptual Model",
             "Technical Decisions & Evidence",
-            "Planning Guardrails & Gaps",
+            "Technical Constraints & Gaps",
         ]
         self.assertEqual(
             expected_sections,
             re.findall(r"^## (.+)$", architecture, flags=re.MULTILINE),
         )
         self.assertIn("**Architecture Goal**", architecture)
+        self.assertIn("**Architecture Revision**", architecture)
         self.assertIn("**Authorized Sources**", architecture)
         self.assertIn("Does Not Own", architecture)
-        self.assertIn("Evidence Or Explicit Gap", architecture)
-        self.assertIn("MUST_VALIDATE", architecture)
-        self.assertIn("Optional tables may remain empty", architecture)
-        self.assertNotIn("4+1", architecture)
+        for prefix in ("BND-", "CON-", "DEC-", "CST-", "GAP-"):
+            self.assertIn(prefix, architecture)
+        for state in (
+            "observed-current",
+            "inferred",
+            "approved-target",
+            "migration-gap",
+        ):
+            self.assertIn(state, architecture)
+        self.assertIn("Technical Consequence", architecture)
+        self.assertIn("Supersedes", architecture)
+        for forbidden in (
+            "Planning Guardrails",
+            "Planning Implication",
+            "Planning Impact",
+            "/speckit.plan",
+            "/speckit.tasks",
+        ):
+            self.assertNotIn(forbidden, architecture)
 
     def test_change_scope_granularity_stage_references(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")

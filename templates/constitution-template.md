@@ -9,30 +9,47 @@ Spec Kit planning and execution MUST use R/M/U/O scope granularity:
 - U: Unit / Design Object. Primary planning boundary.
 - O: Operation / Detail. Execution detail.
 
-The R/M/U/O letter mapping is fixed. Do not paraphrase, expand, rename, translate, or substitute these letters with other nouns.
+The mapping is fixed and MUST NOT be renamed, translated, or substituted.
+Planning locks M + U. Tasks binds U to concrete paths; implementation performs
+O-level changes. Requirement commands MUST NOT infer M/U/O boundaries.
 
-Planning locks M + U.
-Execution maps U -> concrete paths -> O-level changes.
-If U -> concrete paths cannot be determined, report a context gap. Do not widen scope to R or broad M.
+## SDD Workflow Governance
 
-This principle applies from planning onward. Requirement specification, clarification, and checklist readiness MUST NOT infer M/U/O boundaries.
+The Constitution is the sole governance SSOT for the SDD workflow:
 
-## Constitution And Architecture Boundary
+| Command | Owns | Durable write boundary |
+|---|---|---|
+| Constitution | workflow governance and repository Architecture generation contracts | `constitution.md`, independently authorized `architecture.md` |
+| Specify | WHAT/WHY requirements | `spec.md` |
+| Clarify | accepted product decisions | `spec.md` |
+| Checklist | requirement-writing quality questions | `checklists/<focus>.md` |
+| Plan | feature technical, UI/UX, and Test design | feature Plan artifacts |
+| Tasks | concrete path binding and ordered checklist work | `tasks.md` |
+| Analyze | read-only cross-command consistency | none |
+| Core Implement | execution of `tasks.md` | implementation surfaces named by Tasks |
 
-The Constitution stage maintains separate project-memory artifacts:
+Intake is external evidence acquisition, not an SDD stage. A command may consume
+an upstream artifact but MUST NOT rewrite it, emulate another command, or decide
+cross-command consistency.
 
-- `.specify/memory/constitution.md` contains durable governance principles.
-- `.specify/memory/architecture.md` contains project-level boundaries, concepts, technical direction, evidence, constraints, and gaps.
+## Gate Ownership
 
-Ratified Constitution principles MUST NOT copy concrete Architecture facts. Feature-local planning artifacts may refine Architecture for one feature, but MUST NOT silently replace project Architecture.
+| Gate category | Owner | Meaning |
+|---|---|---|
+| Command Internal Gate | producing command | its output satisfies its own contract |
+| Official Core Gate | Spec Kit Core | unchanged official workflow gate |
+| Cross-Command Consistency Gate | Analyze exclusively | artifacts from different commands agree and are current |
 
-## Architecture-Guided Planning
+Commands MUST NOT copy, broaden, reorder, or reinterpret official Core gates.
+Analyze is read-only and routes conflicts to the command that owns the affected
+artifact.
 
-`/speckit.plan` MUST read `.specify/memory/architecture.md` before producing planning artifacts.
+## Constitution and Architecture Authority
 
-- `research.md` MUST follow established technical decisions and evidence, unless an Architecture revisit condition is met.
-- `data-model.md` MUST preserve defined concepts, ownership, relationships, lifecycle, and invariants.
-- `contracts/` MUST preserve system boundaries, responsibilities, interface ownership, and dependency direction.
-- `plan.md` and `quickstart.md` MUST carry forward applicable Architecture constraints, gaps, and validation implications.
-
-If any planning artifact conflicts with or requires changing the Architecture, planning MUST stop and return to the Constitution stage.
+- `.specify/memory/constitution.md` contains only durable SDD governance.
+- `.specify/memory/architecture.md` contains only repository technical facts,
+  abstractions, decisions, evidence, constraints, risks, and gaps.
+- Constitution MUST NOT duplicate concrete Architecture facts.
+- Plan is repo-first and Architecture-constrained; it never amends Architecture.
+- Tasks maps completed Plan products; it never reinterprets Architecture.
+- Cross-artifact Architecture projection is verified only by Analyze.
