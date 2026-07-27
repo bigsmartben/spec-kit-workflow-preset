@@ -128,8 +128,9 @@ UI/UX Delivery Readiness is implementation readiness only. It may generate:
 - functional responsive, navigation, interaction, and accessibility work;
 - asset preparation, variants, binding, authorization refs, and fallback.
 
-Visual SSOT, HTML SSOT, structured IR, screenshot, or other source refs may
-guide implementation but do not create acceptance/verification tasks.
+Local `SRC-* + UI/VIS-*` mappings may guide component, state, responsive,
+accessibility, asset, variant, and fallback implementation. The external
+locator remains opaque and does not create acceptance/verification work.
 
 ### Forbidden task scope
 
@@ -140,6 +141,10 @@ Never generate:
 - visual restoration or final visual review;
 - pixel-level layout/style assertions;
 - screenshot-based evidence requirements;
+- source dereference, execution, authenticity/freshness/revision/publication
+  checks, or external-source validation;
+- provider-tool, source acquisition, external baseline certification, or
+  locator-availability tasks;
 - an automatic UI acceptance phase;
 - a Final Code Review scope that judges rendered fidelity.
 

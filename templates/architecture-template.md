@@ -10,7 +10,15 @@
 
 **Authorized Sources**:
 
-- [Stable source reference and authorized role.]
+| Source ref | Role | Opaque locator / identity | Authorized technical scope / facts | Affected Architecture IDs | Status / gap |
+|---|---|---|---|---|---|
+| SRC-ARCH-001 | technical-evidence | [Repository snapshot, supplied reference, or description.] | [Explicit technical evidence scope.] | [BND/CON/DEC/CST/GAP refs] | [retained / verified locally / GAP ref] |
+
+Allowed roles use the source-neutral Spec semantics: `requirement-input`,
+`visual-input`, `technical-evidence`, and `context-only`. Only
+`technical-evidence` supports observed or inferred technical records.
+Product-facing sources may establish approved target context but do not become
+technical decisions automatically. Locator identity stays opaque.
 
 **Excluded Sources**:
 

@@ -114,13 +114,13 @@ Specify, Clarify, and Checklist are independent:
 | Command | Writes | Does not own |
 |---|---|---|
 | Specify | one `spec.md` plus official feature bootstrap metadata | checklists, completeness/readiness, ID validation |
-| Clarify | accepted decisions in `spec.md` | checklist recomputation, provider intake, cross-artifact checks |
+| Clarify | accepted decisions in `spec.md` | checklist recomputation, source acquisition, cross-artifact checks |
 | Checklist | `checklists/<focus>.md` questions | answers, spec repair, readiness aggregation |
 
 The full-spectrum `spec-template` supplies optional carriers for functional,
 NFR, UX, UI, visual, security/privacy, data/integration, dependency, boundary,
-assumption, exclusion, source, unresolved-decision, provider-gap, and measurable
-outcome content. A carrier's presence is not a completeness claim.
+assumption, exclusion, source, unresolved-decision, source-blocker, and
+measurable outcome content. A carrier's presence is not a completeness claim.
 
 Specify and Clarify are replacement commands because active Core side effects
 would otherwise create or re-evaluate `checklists/requirements.md`. Their
@@ -137,6 +137,55 @@ Examples:
   environment and evidence expectations.
 - A persistence change becomes implementation and data-side-effect validation
   tasks, followed by the final review scope.
+
+## Source Reference Contract
+
+Authorized external material is an input to existing commands, not an SDD stage
+or runtime dependency. `spec.md` carries one canonical, source-neutral shape:
+
+```text
+SRC ref | role | opaque locator/description | revision/identity
+| authorized scope/facts | projected requirement refs | status/blocker
+```
+
+The allowed roles are exactly:
+
+| Role | Local authority |
+|---|---|
+| `requirement-input` | confirmed, feature-scoped WHAT/WHY facts |
+| `visual-input` | feature-scoped `UI-*` and `VIS-*` facts |
+| `technical-evidence` | citable evidence that does not become a product requirement |
+| `context-only` | informative context with no normative projection authority |
+
+Every used source has one role and a feature slice. A broad source without a
+safe slice remains blocked or needs clarification instead of being imported in
+full. Supplied URI/path/revision/digest/description values are opaque
+provenance; the preset does not infer adjacent scope or validate their external
+meaning, authenticity, freshness, publication state, availability, or
+fidelity.
+
+After authorized projection, `spec.md` is the feature-local WHAT/WHY SSOT.
+Clarify may make a user-accepted local decision current while retaining the
+originating `SRC-*` and clarification history; no external write-back or
+synchronization is required.
+
+Architecture reuses the four role meanings inside its existing explicit source
+agreement without merging Architecture and Specify. Only authorized
+`technical-evidence` supports observed or inferred technical records.
+Product-facing sources do not become technical decisions automatically.
+
+Plan reads only local Spec, Constitution, Architecture, and current repository
+facts. `SRC-*` locators are provenance, not read or execution targets.
+Applicable visual projection follows:
+
+```text
+SRC-* + UI/VIS-* -> ui-ux-design.md -> UIF source_refs + requirement_refs
+```
+
+Tasks uses that local mapping for implementation guidance only. Analyze checks
+local source existence, uniqueness, role compatibility, projection targets,
+orphans, contradictions, and X2-B/UIF mappings. Neither command acquires,
+dereferences, executes, compares, or certifies an external source.
 
 ## Final Code Review Gate
 
@@ -244,16 +293,17 @@ Validation decisions stay in `research.md`, executable paths stay in
 not restore `behavior/behavior-testability.md`, create a generic
 `planning-readiness.md`, or add a standalone `test-plan.md`.
 
-## External Intake Boundary
+## External Source Boundary
 
-External source capture, provider access, rendered HTML, structured IR,
-screenshots, authentication, and provider evidence generation belong to
-extensions. This preset only consumes confirmed refs already projected into
-requirements and readiness artifacts.
+External source capture, access, authentication, rendering, and evidence
+generation remain outside this preset. The preset does not require an upstream
+workflow, directory convention, provider, artifact format, publication state,
+import manifest, handoff package, adapter runtime, orchestration script, or
+provider-specific schema.
 
-Provider evidence gaps remain intake blockers. Product decision gaps return to
-clarification. Neither planning nor implementation may silently manufacture
-missing evidence.
+Missing source evidence remains a local `SRC-*` blocker. Product decision gaps
+return to clarification. Planning, Tasks, and Analyze do not acquire or repair
+either kind of gap, and Intake is not added as an SDD stage.
 
 ## Release And Integration Boundary
 

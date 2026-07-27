@@ -26,17 +26,22 @@ Every preset-owned command profile defines:
 
 - `stage`: requirement projection.
 - `owner_agent`: Specify Core Agent.
+- `input_scope`: current natural-language direction plus explicitly authorized,
+  feature-sliced sources recorded through one local `SRC-*` role.
 - `allowed_writes`: `spec.md` only.
-- `output_contract`: source-aware product, behavior, visual, and UI/UX
-  requirements.
+- `output_contract`: source-neutral rows plus local product, behavior, visual,
+  and UI/UX requirement projections or stable blockers.
+- `stop_conditions`: a broad source without a safe feature slice does not
+  authorize full import.
 - `fallback`: single-core execution.
 
 ### `speckit.plan.stage_local_planning`
 
 - `stage`: X0–X4 milestones nested in Core Plan.
 - `owner_agent`: Plan Core Agent.
-- `input_scope`: accepted Spec facts, current repository facts, applicable
-  Architecture refs, and assigned X1/X2/X3/X4 artifact families.
+- `input_scope`: local Spec facts/blockers, Constitution, current repository
+  facts, applicable Architecture refs, and assigned X1/X2/X3/X4 artifact
+  families. External `SRC-*` locators are not allowed reads.
 - `allowed_writes`: final planning artifacts owned by `/speckit.plan`.
 - `output_contract`: lane-qualified decisions, X2-A/X2-B/X2-C designs,
   `TC-*`, `VAL-*`, independent readiness products, blockers, and
@@ -59,16 +64,19 @@ Every preset-owned command profile defines:
   items, plus blockers and `context_gaps`.
 - `validation_gate`: source/evidence binding, dependency ordering, final review
   placement, and blocker aggregation.
-- `stop_conditions`: `PLAN_OUTPUT_INCOMPLETE`, unresolved Plan blocker, or
-  unresolved derivation context.
+- `stop_conditions`: `PLAN_OUTPUT_INCOMPLETE`, an unresolved Plan blocker,
+  unresolved derivation context, or an attempted source-acquisition,
+  locator-execution, external-state-validation, or visual-fidelity task derived
+  from a `SRC-*`.
 - `fallback`: the Tasks Core Agent processes one scope at a time.
 
 ### `speckit.analyze.read_only_parallel_review`
 
 - `stage`: cross-command consistency analysis.
 - `owner_agent`: Analyze Core Agent.
-- `input_scope`: Constitution/Architecture → Spec/Plan, Spec → Plan,
-  Architecture → X1/X2/X3, Plan → Tasks, and M + U preservation.
+- `input_scope`: local Source References → Plan/UIF, Constitution/Architecture
+  → Spec/Plan, Spec → Plan, Architecture → X1/X2/X3, Plan → Tasks, and M + U
+  preservation. External locators are never accessed.
 - `allowed_writes`: none.
 - `output_contract`: stable-code findings, blockers, warnings, closed-chain
   summary, and implementation readiness.

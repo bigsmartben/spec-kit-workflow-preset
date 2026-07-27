@@ -28,11 +28,13 @@ running `/speckit.specify`; do not create a specification here.
 Read and write only `FEATURE_SPEC` aside from official path/hook mechanics.
 Do not read blocked checklists as a queue. Do not create, recompute, answer,
 toggle, or mutate checklist files. Do not aggregate readiness, revise gates,
-validate IDs/numbering/references, create provider artifacts, or modify Plan,
+validate IDs/numbering/references, create external-source artifacts, or modify Plan,
 Tasks, Architecture, contracts, or tests.
 
-External provider-evidence gaps stay `[BLOCKED: PROVIDER_EVIDENCE]` and remain
-outside the product-decision question loop.
+External source-evidence blockers remain in their canonical `SRC-*` rows and
+stay outside the product-decision question loop. Do not dereference a locator,
+acquire missing evidence, validate external state, or require external
+write-back or synchronization.
 
 ## Cross-Domain Ambiguity Map
 
@@ -47,7 +49,7 @@ Build an in-memory map across:
 
 Prioritize candidates by `impact × uncertainty`. Do not use a UI-first fixed
 order. Exclude decisions already answered, low-impact stylistic preferences,
-provider intake gaps, and implementation choices better owned by Plan.
+source-evidence gaps, and implementation choices better owned by Plan.
 
 ## Question Loop
 
@@ -63,7 +65,14 @@ After each accepted answer:
 2. append exactly one `- Q: ... -> A: ...` entry;
 3. update the existing canonical section that owns the decision;
 4. replace the ambiguous statement rather than duplicating it;
-5. atomically save `spec.md`.
+5. preserve the originating `SRC-*` provenance and clarification history while
+   making the accepted local decision current;
+6. atomically save `spec.md`.
+
+The accepted answer is owned locally by `spec.md` and may supersede an
+ambiguous projected statement. Do not present the superseded statement as the
+current decision, erase its provenance, or require a change to the external
+source.
 
 ## Local Validation After Every Write
 
@@ -82,5 +91,5 @@ cross-artifact validation.
 ## Completion Report
 
 Report questions asked, decisions recorded, sections updated, remaining product
-ambiguities, provider-evidence gaps, and hook status. Recommend independently
+ambiguities, source-evidence blockers, and hook status. Recommend independently
 rerunning Checklist when requirement-writing quality should be reassessed.

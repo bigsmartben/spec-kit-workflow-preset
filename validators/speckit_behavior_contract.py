@@ -28,6 +28,29 @@ def _require_non_empty_list(item: dict[str, Any], *, key: str, context: str) -> 
 
 def _validate_expected_uif_contract(uif_contract: dict[str, Any]) -> None:
     uif_id = uif_contract.get("id", "<unknown>")
+    source_refs = uif_contract.get("source_refs")
+    if not isinstance(source_refs, list) or not source_refs:
+        raise ValueError(
+            f"expected UIF contract {uif_id} must include non-empty source_refs"
+        )
+    if any(not str(ref).startswith("SRC-") for ref in source_refs):
+        raise ValueError(
+            f"expected UIF contract {uif_id} has invalid source_refs"
+        )
+
+    requirement_refs = uif_contract.get("requirement_refs")
+    if not isinstance(requirement_refs, list) or not requirement_refs:
+        raise ValueError(
+            f"expected UIF contract {uif_id} must include non-empty requirement_refs"
+        )
+    if any(
+        not str(ref).startswith(("UI-", "VIS-"))
+        for ref in requirement_refs
+    ):
+        raise ValueError(
+            f"expected UIF contract {uif_id} has non-UI/VIS requirement_refs"
+        )
+
     steps = uif_contract.get("steps")
     if not isinstance(steps, list) or not steps:
         raise ValueError(f"expected UIF contract {uif_id} must include non-empty steps")

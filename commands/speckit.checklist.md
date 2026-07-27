@@ -25,6 +25,12 @@ dependencies, assumptions, exclusions, and success criteria. For focused scope,
 generate domain-aware questions without inventing a second specification
 schema.
 
+Source-focused questions may ask whether each `SRC-*` is clearly identified,
+feature-scoped, assigned one allowed role, and connected to observable local
+requirements or an explicit blocker. Checklist MUST NOT dereference a locator,
+acquire missing evidence, validate authenticity/freshness/publication state, or
+answer whether an external source is correct.
+
 Examples:
 
 ```markdown

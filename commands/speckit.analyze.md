@@ -25,7 +25,8 @@ Build one in-memory inventory before deep reading:
 
 - Constitution revision, SDD authority statements, exact R/M/U/O model;
 - Architecture Revision plus `BND-*`, `CON-*`, `DEC-*`, `CST-*`, `GAP-*`;
-- Spec `FR/NFR/UX/UI/VIS` and other stable refs;
+- Spec `SRC-*` rows with role, scope, projection, and blocker plus
+  `FR/NFR/UX/UI/VIS` and other stable refs;
 - X0–X4 gates, decisions, design/readiness products, `TC-*`, `VAL-*`;
 - Tasks IDs, concrete paths, dependencies, Test Condition refs, Final Code
   Review position.
@@ -34,6 +35,37 @@ Use stable IDs as the primary consistency surface. Read surrounding prose only
 when an ID, source, mapping, or blocker is missing/ambiguous. Stop expanding one
 branch after the first blocker that proves the downstream link cannot close.
 Separate blockers from warnings.
+
+## Audit Chain S — Local Source Reference Integrity
+
+Audit only the local Source Reference Contract and its local projections:
+
+- every referenced `SRC-*` exists exactly once in the Spec carrier;
+- every source has exactly one allowed role, opaque locator/description,
+  explicit authorized scope/facts, projection refs or a reason for none, and a
+  status/blocker;
+- every projected requirement ref exists locally and is compatible with the
+  role: `requirement-input` may project WHAT/WHY refs, `visual-input` only
+  `UI-*`/`VIS-*`, while `technical-evidence` and `context-only` authorize no
+  normative requirement;
+- a broad source without a safe feature slice remains blocked or needs
+  clarification instead of projecting unrelated facts;
+- orphan, contradictory, missing, role-invalid, and projection-invalid refs
+  produce stable findings;
+- every applicable `SRC-* + UI/VIS-*` pair reaches X2-B UI/UX Delivery records
+  and, when an interaction contract is required, UIF `source_refs` plus
+  `requirement_refs`.
+
+Use stable codes including `SRC_REF_MISSING`, `SRC_REF_DUPLICATE`,
+`SRC_FIELD_INVALID`, `SRC_ROLE_INVALID`, `SRC_ROLE_PROJECTION_INVALID`,
+`SRC_PROJECTED_REF_MISSING`, `SRC_FEATURE_SLICE_MISSING`, `SRC_ORPHAN`,
+`SRC_STATUS_CONTRADICTORY`, `SRC_UIUX_MAPPING_MISSING`, and
+`SRC_UIF_MAPPING_MISSING`.
+
+Do not open, run, inspect, compare, fetch, or otherwise dereference an external
+locator. Do not decide source authenticity, availability, revision/digest
+freshness, fidelity, or publication state. Analyze writes no persistent audit
+artifact and does not acquire missing evidence.
 
 ## Audit Chain A — Constitution To Spec / Plan
 
@@ -146,6 +178,7 @@ severity | stable code | source artifact + ID/location
 Recommended top-level summary:
 
 ```text
+Source References -> Local Projections: PASS | BLOCKED
 Constitution -> Spec/Plan: PASS | BLOCKED
 Architecture -> Plan Products: PASS | BLOCKED
 Spec -> Plan Products: PASS | BLOCKED

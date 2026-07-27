@@ -2,6 +2,8 @@
   "contract_type": "speckit.behavior.uif.expected.v1",
   "id": "UIF-001",
   "source": "ui-ux-design.md#uif-contracts",
+  "source_refs": ["SRC-001"],
+  "requirement_refs": ["UI-001", "VIS-001"],
   "type": "expected",
   "start_view": {
     "id": "VIEW-001",

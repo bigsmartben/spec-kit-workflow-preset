@@ -12,6 +12,7 @@ from jsonschema.exceptions import ValidationError
 from validators.speckit_analyze_contract import (
     audit_cross_command_consistency,
     audit_data_model_obligations,
+    audit_source_reference_contract,
 )
 from validators.speckit_behavior_contract import validate_behavior_contract_bundle
 from validators.speckit_test_contract import (
@@ -71,6 +72,8 @@ def minimal_uif() -> dict:
         "contract_type": "speckit.behavior.uif.expected.v1",
         "id": "UIF-001",
         "source": "ui-ux-design.md#uif-contracts",
+        "source_refs": ["SRC-003"],
+        "requirement_refs": ["UI-001", "VIS-001"],
         "type": "expected",
         "start_view": {"id": "VIEW-001", "name": "Order"},
         "steps": [
@@ -88,6 +91,70 @@ def minimal_uif() -> dict:
         "state_matrix_refs": ["UI-001#states"],
         "visual_proof_refs": [],
         "accepted_exception_refs": [],
+    }
+
+
+def source_contract_snapshot() -> dict:
+    return {
+        "spec": {
+            "requirement_refs": ["FR-001", "FR-002", "UI-001", "VIS-001"],
+            "sources": [
+                {
+                    "ref": "SRC-001",
+                    "role": "requirement-input",
+                    "locator_or_description": "current conversation direction",
+                    "authorized_scope": "refund submission behavior",
+                    "projected_refs": ["FR-001"],
+                    "status": "projected",
+                },
+                {
+                    "ref": "SRC-002",
+                    "role": "requirement-input",
+                    "locator_or_description": "opaque product document",
+                    "revision": "supplied-r7",
+                    "authorized_scope": "refund eligibility section",
+                    "feature_slice": "refund eligibility",
+                    "broad": True,
+                    "projected_refs": ["FR-002"],
+                    "status": "projected",
+                },
+                {
+                    "ref": "SRC-003",
+                    "role": "visual-input",
+                    "locator_or_description": "opaque executable visual reference",
+                    "authorized_scope": "refund error states",
+                    "projected_refs": ["UI-001", "VIS-001"],
+                    "status": "projected",
+                    "uif_required": True,
+                },
+                {
+                    "ref": "SRC-004",
+                    "role": "technical-evidence",
+                    "locator_or_description": "latency measurement report",
+                    "authorized_scope": "technical evidence citation only",
+                    "projected_refs": [],
+                    "status": "retained",
+                },
+                {
+                    "ref": "SRC-005",
+                    "role": "context-only",
+                    "locator_or_description": "competitor overview",
+                    "authorized_scope": "background only",
+                    "projected_refs": [],
+                    "status": "context-only",
+                },
+            ],
+        },
+        "plan": {
+            "ui_ux_mappings": [
+                {"source_ref": "SRC-003", "requirement_ref": "UI-001"},
+                {"source_ref": "SRC-003", "requirement_ref": "VIS-001"},
+            ],
+            "uif_mappings": [
+                {"source_ref": "SRC-003", "requirement_ref": "UI-001"},
+                {"source_ref": "SRC-003", "requirement_ref": "VIS-001"},
+            ],
+        },
     }
 
 
@@ -158,6 +225,29 @@ class ManifestAndGovernanceTests(unittest.TestCase):
         self.assertIn("X0–X4 Planning Artifact Boundaries", governance)
         self.assertIn("Tasks As A Pure Plan Mapper", governance)
         self.assertIn("Analyze Cross-Command Audit", governance)
+        self.assertIn("Source Reference Contract", governance)
+        self.assertIn(
+            "SRC-* + UI/VIS-* -> ui-ux-design.md -> UIF source_refs + requirement_refs",
+            governance,
+        )
+
+    def test_source_contract_adds_no_intake_or_transfer_runtime(self) -> None:
+        for path in (
+            ROOT / "templates" / "source-import-manifest.json",
+            ROOT / "schemas" / "speckit.source-import.v1.schema.json",
+            ROOT / "validators" / "speckit_source_adapter.py",
+            ROOT / "commands" / "speckit.intake.md",
+            ROOT / "scripts" / "source-dispatch.sh",
+        ):
+            self.assertFalse(path.exists(), path)
+
+        for document in (
+            read(GOVERNANCE),
+            read(COMMANDS / "speckit.specify.md"),
+            read(COMMANDS / "speckit.plan.md"),
+            read(COMMANDS / "speckit.analyze.md"),
+        ):
+            self.assertNotIn("## Intake", document)
 
 
 class ConstitutionAndArchitectureTests(unittest.TestCase):
@@ -175,6 +265,8 @@ class ConstitutionAndArchitectureTests(unittest.TestCase):
             "ARCHITECTURE_OUTPUT_READY",
             "intent-first",
             "repo-first",
+            "technical-evidence",
+            "locator remains opaque",
         ):
             self.assertIn(term, command)
 
@@ -246,13 +338,34 @@ class RequirementCommandTests(unittest.TestCase):
             "Exclusions",
             "Source References",
             "Unresolved Product Decisions",
-            "Provider Evidence Gaps",
+            "Source Evidence Blockers",
             "Clarifications",
         ):
             self.assertIn(heading, template)
         for prefix in ("FR-", "NFR-", "UX-", "UI-", "VIS-"):
             self.assertIn(prefix, template)
         self.assertIn("content carrier, not a completeness checklist", template)
+
+    def test_source_reference_template_has_one_source_neutral_shape(self) -> None:
+        template = read(TEMPLATES / "spec-template.md")
+        for column in (
+            "SRC ref",
+            "Role",
+            "Opaque locator / description",
+            "Revision / identity",
+            "Authorized scope / facts",
+            "Projected requirement refs",
+            "Status / blocker",
+        ):
+            self.assertIn(column, template)
+        for role in (
+            "requirement-input",
+            "visual-input",
+            "technical-evidence",
+            "context-only",
+        ):
+            self.assertIn(role, template)
+        self.assertIn("broad source without a\nsafe feature slice", template)
 
     def test_specify_has_no_core_checklist_side_effect(self) -> None:
         command = read(COMMANDS / "speckit.specify.md")
@@ -262,13 +375,30 @@ class RequirementCommandTests(unittest.TestCase):
             "hooks.after_specify",
             "SPECIFY_FEATURE_DIRECTORY",
             ".specify/feature.json",
+            "Authorized Source Input Contract",
             "Full-Spectrum Projection",
+            "feature-local WHAT/WHY SSOT",
             "Do not compute completeness",
         ):
             self.assertIn(term, command)
         self.assertIn("checklists/requirements.md", command)
         self.assertIn("MUST NOT create, read, evaluate, or modify", command)
         self.assertNotIn("{CORE_TEMPLATE}", command)
+
+    def test_source_commands_keep_external_actions_outside_preset(self) -> None:
+        specify = read(COMMANDS / "speckit.specify.md")
+        clarify = read(COMMANDS / "speckit.clarify.md")
+        checklist = read(COMMANDS / "speckit.checklist.md")
+        for term in (
+            "dereference or execute a locator",
+            "import manifest",
+            "provider-specific\nschema",
+            "Intake is not an SDD stage",
+        ):
+            self.assertIn(term, specify)
+        self.assertIn("external\nwrite-back or synchronization", clarify)
+        self.assertIn("preserve the originating `SRC-*` provenance", clarify)
+        self.assertIn("MUST NOT dereference a locator", checklist)
 
     def test_clarify_writes_only_spec_and_uses_cross_domain_priority(self) -> None:
         command = read(COMMANDS / "speckit.clarify.md")
@@ -351,6 +481,8 @@ class PlanContractTests(unittest.TestCase):
         self.assertIn("Rollback / compensation", sequence_template)
         self.assertIn("X4 UI/UX Delivery Readiness", ui_template)
         self.assertIn("Pixel delivery/review is owned here", ui_template)
+        self.assertIn("SRC + UI/VIS refs", ui_template)
+        self.assertIn("does not dereference", ui_template)
         self.assertIn("### VAL-001", quickstart)
         self.assertIn("Cleanup/reset", quickstart)
         self.assertIn("Every required `TC-*` has exactly one row", readiness)
@@ -407,9 +539,53 @@ class SchemaAndValidatorTests(unittest.TestCase):
             validate_test_readiness(payload, [])
 
     def test_expected_uif_reference_fields_match_schema(self) -> None:
-        Draft202012Validator(
+        validator = Draft202012Validator(
             load_json(SCHEMAS / "speckit.behavior.uif.expected.v1.schema.json")
-        ).validate(minimal_uif())
+        )
+        uif = minimal_uif()
+        validator.validate(uif)
+        validate_behavior_contract_bundle(
+            {
+                "scenarios": [
+                    {
+                        "id": "SCN-UI-001",
+                        "type": "positive",
+                        "test_condition_refs": ["TC-001"],
+                        "fixture_ids": ["FIX-001"],
+                        "uif_path_id": "UIF-001",
+                        "assertion_ids": ["AST-001"],
+                    }
+                ]
+            },
+            {"fixtures": [{"id": "FIX-001"}]},
+            minimal_assertions(),
+            [uif],
+            {"TC-001"},
+        )
+
+        missing_source_mapping = minimal_uif()
+        del missing_source_mapping["source_refs"]
+        with self.assertRaises(ValidationError):
+            validator.validate(missing_source_mapping)
+        with self.assertRaisesRegex(ValueError, "non-empty source_refs"):
+            validate_behavior_contract_bundle(
+                {
+                    "scenarios": [
+                        {
+                            "id": "SCN-UI-001",
+                            "type": "positive",
+                            "test_condition_refs": ["TC-001"],
+                            "fixture_ids": ["FIX-001"],
+                            "uif_path_id": "UIF-001",
+                            "assertion_ids": ["AST-001"],
+                        }
+                    ]
+                },
+                {"fixtures": [{"id": "FIX-001"}]},
+                minimal_assertions(),
+                [missing_source_mapping],
+                {"TC-001"},
+            )
 
     def test_scenario_bundle_supports_non_ui_and_fixture_free_acceptance(self) -> None:
         instances = {
@@ -495,6 +671,9 @@ class TasksAndAnalyzeTests(unittest.TestCase):
             "final visual review",
             "pixel-level layout/style assertions",
             "screenshot-based evidence",
+            "source dereference",
+            "external-source validation",
+            "provider-tool",
         ):
             self.assertIn(forbidden_task, command)
         self.assertIn("append the final phase after user-story tasks", command)
@@ -519,6 +698,84 @@ class TasksAndAnalyzeTests(unittest.TestCase):
             self.assertIn(term, command)
         self.assertIn("repo-first planning within Architecture constraints", command)
         self.assertIn("Do not classify Plan as Greenfield/Brownfield", command)
+
+    def test_source_shapes_converge_without_external_coupling(self) -> None:
+        self.assertEqual(
+            [],
+            audit_source_reference_contract(source_contract_snapshot()),
+        )
+
+    def test_source_audit_reports_role_slice_and_projection_failures(self) -> None:
+        snapshot = source_contract_snapshot()
+        snapshot["spec"]["sources"].extend(
+            [
+                {
+                    "ref": "SRC-006",
+                    "role": "provider-input",
+                    "locator_or_description": "provider-specific packet",
+                    "provider_node_id": "node-42",
+                    "authorized_scope": "refund feature",
+                    "projected_refs": [],
+                    "status": "retained",
+                },
+                {
+                    "ref": "SRC-007",
+                    "role": "context-only",
+                    "locator_or_description": "background note",
+                    "authorized_scope": "background only",
+                    "projected_refs": ["FR-001"],
+                    "status": "projected",
+                },
+                {
+                    "ref": "SRC-008",
+                    "role": "requirement-input",
+                    "locator_or_description": "broad roadmap",
+                    "authorized_scope": "entire roadmap",
+                    "broad": True,
+                    "projected_refs": [],
+                    "status": "projected",
+                },
+            ]
+        )
+        codes = {
+            finding["code"]
+            for finding in audit_source_reference_contract(snapshot)
+        }
+        self.assertTrue(
+            {
+                "SRC_ROLE_INVALID",
+                "SRC_FIELD_INVALID",
+                "SRC_ROLE_PROJECTION_INVALID",
+                "SRC_FEATURE_SLICE_MISSING",
+                "SRC_ORPHAN",
+            }.issubset(codes)
+        )
+
+    def test_source_audit_reports_local_integrity_and_x2b_uif_gaps(self) -> None:
+        snapshot = source_contract_snapshot()
+        snapshot["spec"]["sources"].append(
+            dict(snapshot["spec"]["sources"][0])
+        )
+        snapshot["spec"]["sources"][2]["projected_refs"].append("UI-404")
+        snapshot["spec"]["sources"][4]["status"] = "contradictory"
+        snapshot["referenced_source_refs"] = ["SRC-404"]
+        snapshot["plan"]["ui_ux_mappings"] = []
+        snapshot["plan"]["uif_mappings"] = []
+
+        codes = {
+            finding["code"]
+            for finding in audit_source_reference_contract(snapshot)
+        }
+        self.assertTrue(
+            {
+                "SRC_REF_MISSING",
+                "SRC_REF_DUPLICATE",
+                "SRC_PROJECTED_REF_MISSING",
+                "SRC_STATUS_CONTRADICTORY",
+                "SRC_UIUX_MAPPING_MISSING",
+                "SRC_UIF_MAPPING_MISSING",
+            }.issubset(codes)
+        )
 
     def test_audit_reports_deterministic_vertical_breaks(self) -> None:
         snapshot = {

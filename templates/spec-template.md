@@ -24,7 +24,7 @@ non-applicability is confirmed.
 
 ### Visual Requirements and Sources
 
-- **VIS-001**: [Observable visual requirement, confirmed source refs, viewport/state refs, or provider-evidence blocker.]
+- **VIS-001**: [Observable visual requirement, applicable SRC/UI refs, viewport/state refs, or source-evidence blocker.]
 
 ### Security and Privacy
 
@@ -48,17 +48,30 @@ non-applicability is confirmed.
 
 ## Source References
 
-| Ref | Authorized fact / role |
-|---|---|
-| SRC-001 | [Stable source and what it authorizes.] |
+This table is the feature-local Source Reference Contract. A source identity is
+opaque provenance: retain a supplied URI, path, revision, digest, conversation
+reference, or human description without interpreting or validating its external
+meaning or state.
+
+| SRC ref | Role | Opaque locator / description | Revision / identity | Authorized scope / facts | Projected requirement refs | Status / blocker |
+|---|---|---|---|---|---|---|
+| SRC-001 | requirement-input | [Conversation direction, document, reference, or description.] | [Optional supplied identity or `Not supplied`.] | [Current feature slice and authorized WHAT/WHY facts.] | [FR/NFR/UX/UI/VIS refs, or `None`.] | [projected / retained / NEEDS CLARIFICATION / BLOCKED with reason.] |
+
+Allowed roles are exactly `requirement-input`, `visual-input`,
+`technical-evidence`, and `context-only`. `context-only` and
+`technical-evidence` do not authorize normative `FR/NFR/UX/UI/VIS` projection.
+`visual-input` may project only `UI-*` and `VIS-*`. A broad source without a
+safe feature slice stays blocked or needs clarification; it is not imported in
+full.
 
 ## Unresolved Product Decisions
 
 - [NEEDS CLARIFICATION: high-impact product decision, or `None`.]
 
-## Provider Evidence Gaps
+## Source Evidence Blockers
 
-- [BLOCKED: PROVIDER_EVIDENCE] [Missing evidence and affected requirement, or `None`.]
+- [SRC ref + missing evidence + affected local refs, or `None`. The matching
+  Source References row remains the canonical status.]
 
 ## Clarifications
 

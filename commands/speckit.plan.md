@@ -25,9 +25,9 @@ phase or gate. Do not re-run Checklist or aggregate Planning Readiness.
 
 ## External Input Boundary
 
-Read `spec.md`, `.specify/memory/constitution.md`, the current repository, and
-`.specify/memory/architecture.md`. Planning has one strategy for every
-repository:
+Read only `spec.md`, `.specify/memory/constitution.md`,
+`.specify/memory/architecture.md`, and current repository facts. Planning has
+one strategy for every repository:
 
 ```text
 current repository facts
@@ -42,9 +42,13 @@ revision are provenance inputs. Plan never amends Architecture or declares
 cross-command conformance. If required design cannot fit Architecture, record a
 blocker routed to `/speckit.constitution`.
 
-Consume confirmed WHAT/WHY requirements and source refs. Do not rewrite Spec,
-invoke Clarify/Checklist, evaluate requirement completeness, or acquire provider
-evidence.
+Consume confirmed local WHAT/WHY requirements, local blockers, and Architecture
+records. `SRC-*` locators are opaque provenance, not automatic read or
+execution targets. Do not rewrite Spec, invoke Clarify/Checklist, acquire
+external evidence, dereference or execute a source locator, or validate source
+authenticity, revision, digest, freshness, publication state, or availability.
+Unavailable evidence remains the blocker already projected into Spec or
+Architecture.
 
 Apply Change Scope Granularity: lock planned `M + U`; `plan.md` may record
 repository/module directory topology required by Core, but no task IDs,
@@ -119,22 +123,26 @@ presented as a decision.
 When UI/UX or visual delivery applies, create `ui-ux-design.md` from its stable
 template. It owns surfaces, components, composition, state, navigation/events,
 viewports/responsive behavior, tokens/themes/variants, assets/fallbacks,
-accessibility implementation, accepted visual sources, pixel-delivery method,
-and UI/UX Delivery Readiness.
+accessibility implementation, opaque accepted-source provenance, local delivery
+method, and UI/UX Delivery Readiness.
 
 `contracts/uif/*.expected.json` is a UI/UX interaction contract: start view,
 events, routes, observable states/feedback, API call refs, and transitions. It
+maps applicable `source_refs` plus local `requirement_refs` (`UI-*`/`VIS-*`) and
 may carry `visual_item_refs`, `viewport_matrix_refs`, `state_matrix_refs`,
-`visual_proof_refs`, and `accepted_exception_refs` as declared schema fields.
-It does not own pixel comparison, styling, or API payload schemas.
+`visual_proof_refs`, and `accepted_exception_refs` as declared schema fields. It
+does not own pixel comparison, styling, or API payload schemas.
 
 Do not produce `behavior/uif.intent.json` as a mandatory parent or second SSOT.
 Formal UIF derives from accepted Spec refs plus `ui-ux-design.md`.
 
-`X2B_UIUX_READY` requires applicable UI/VIS refs to map to delivery records or a
-stable blocker, including states, responsive/accessibility behavior, asset
-fallbacks, and pixel delivery/review ownership when required. Pixel work stays
-in UI/UX, never Test Conditions.
+`X2B_UIUX_READY` requires each applicable `SRC-* + UI/VIS-*` pair to map to
+surface/component/state, viewport/responsive/accessibility, asset/variant/
+fallback, accepted-source/delivery-method, and UIF records or a stable local
+blocker. X2-B preserves opaque provenance but MUST NOT open, run, inspect,
+compare, or certify an external source or its fidelity/state as part of the
+local gate. Local pixel delivery ownership stays in UI/UX, never Test
+Conditions.
 
 ### X2-C Test & Acceptance
 
