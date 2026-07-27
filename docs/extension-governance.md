@@ -107,8 +107,9 @@ wrapper and produces only unanswered question-form checks.
 
 Examples:
 
-- A UI state in `spec.md` and `contracts/uif/` becomes a concrete UI
-  implementation task plus a UI acceptance task.
+- A UI state in `ui-ux-design.md` and `contracts/uif/` becomes concrete UI
+  implementation work. Functional tests exist only when Test Readiness contains
+  a Required Test Condition.
 - A real-system path in `quickstart.md` becomes an integration/e2e task with
   environment and evidence expectations.
 - A persistence change becomes implementation and data-side-effect validation
@@ -124,8 +125,8 @@ The phase must cover each applicable scope:
 
 - planned `M + U` boundary;
 - interface contracts;
-- behavior contracts;
-- UI state, viewport, and visual/IR consistency;
+- behavior and Test contracts;
+- UI component/state, responsive/accessibility behavior, and asset contracts;
 - data side effects;
 - sequence consistency;
 - asset bindings;
@@ -133,6 +134,36 @@ The phase must cover each applicable scope:
 
 Completion requires the review tasks themselves to pass. No separate worker
 result file or orchestration layer is required.
+
+UI review is code/design-contract review. Tasks and Final Code Review never
+create or evaluate visual acceptance, pixel fidelity, screenshot comparison,
+visual diff, baseline capture, visual restoration, or final rendered-visual
+review. Visual/IR/source refs may guide implementation but do not create a
+validation task.
+
+## Tasks As A Pure Plan Mapper
+
+`/speckit.tasks` starts from `PLAN_OUTPUT_READY`, not Spec or Checklist strategy.
+Its lifecycle is:
+
+```text
+T0 handoff preflight
+  -> T1 concrete path binding
+  -> T2 dependency graph
+  -> T3 story/capability mapping
+  -> T4 required functional validation/evidence
+  -> T5 Final Code Review (last mandatory phase)
+```
+
+Tasks owns exact paths, task IDs, dependency order, `[P]`, and checklist shape.
+It preserves Plan-selected design/test/UI decisions. Missing mappings produce
+`PLAN_OUTPUT_INCOMPLETE`; Tasks does not reconstruct them.
+
+A Required `TC-*` overrides Core's generic optional-test wording. UI,
+accessibility, responsive, and journey tests exist only when Test Readiness
+requires them. UI/UX Delivery Readiness otherwise maps only to component, state,
+interaction, accessibility, responsive, asset, variant, and fallback
+implementation work.
 
 ## Structured Artifact Rules
 

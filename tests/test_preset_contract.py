@@ -375,11 +375,21 @@ class PresetContractTests(unittest.TestCase):
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         self.assertIn("Final Code Review", tasks)
         self.assertIn("append the final phase after user-story tasks", tasks)
-        self.assertIn(
-            "`boundary`, `interface_contract`, `visual`, `data_side_effect`, "
-            "`behavior_contract`, `sequence_consistency`, and `asset_binding`",
-            tasks,
-        )
+        self.assertIn("no phase may follow it", tasks)
+        for scope in (
+            "boundary",
+            "design object",
+            "interface contract",
+            "behavior/test contract",
+            "data side effect",
+            "sequence consistency",
+            "UI component/state contract",
+            "asset binding",
+            "evidence completeness",
+        ):
+            self.assertIn(scope, tasks)
+        self.assertIn("MUST NOT", tasks)
+        self.assertIn("rendered visual fidelity", tasks)
         for forbidden in (
             "speckit.implement.handoff",
             "speckit.implement.receipt",
@@ -799,8 +809,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("Architecture SSOT Compliance", plan)
         self.assertNotIn("PLANNING_ARCH_SSOT_CONFLICT", plan)
 
-        self.assertIn("Preserve the planned `M + U` scope", tasks)
-        self.assertIn("Do not generate execution metadata or write-path fields.", tasks)
+        self.assertIn("Preserve the planned\n`M + U` scope", tasks)
+        self.assertIn("Exact paths are a Tasks output", tasks)
 
         self.assertIn("Check that tasks preserve the planned `M + U` scope.", analyze)
         self.assertIn("Report missing, widened, or ambiguous scope boundaries as blockers.", analyze)
@@ -822,7 +832,61 @@ class PresetContractTests(unittest.TestCase):
             ):
                 self.assertNotIn(forbidden, command, f"{path} contains {forbidden}")
 
-    def test_tasks_command_wrapper_contract(self) -> None:
+    def test_tasks_pure_plan_mapper_contract(self) -> None:
+        tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("{CORE_TEMPLATE}", tasks)
+        self.assertIn("strategy: wrap", tasks)
+        for stage in (
+            "T0 — Plan Handoff Preflight",
+            "T1 — Concrete Path Binding",
+            "T2 — Dependency Graph",
+            "T3 — Story / Capability Derivation",
+            "T4 — Functional Validation And Evidence",
+            "T5 — Final Code Review",
+        ):
+            self.assertIn(stage, tasks)
+        for artifact in (
+            "PLAN_OUTPUT_READY",
+            "Design Object Derivation Index",
+            "UI/UX Delivery Readiness",
+            "contracts/test/test-conditions.json",
+            "quickstart.md VAL-*",
+            "test-readiness.md",
+        ):
+            self.assertIn(artifact, tasks)
+        self.assertIn("PLAN_OUTPUT_INCOMPLETE", tasks)
+        self.assertIn("Spec/Checklist as direct\nstrategy inputs", tasks)
+        self.assertIn("Tasks MUST NOT drop", tasks)
+        self.assertIn("tests are optional", tasks)
+        self.assertIn("Exact paths are a Tasks output", tasks)
+        self.assertIn("never impose a fixed", tasks)
+        self.assertIn("Do not emit a task because a file merely exists", tasks)
+        self.assertIn("fixture/environment -> test skeleton or Red", tasks)
+        self.assertIn("only from Required Test Conditions", tasks)
+
+        for forbidden_task in (
+            "visual_acceptance",
+            "pixel_fidelity_review",
+            "screenshot comparison",
+            "visual diff",
+            "baseline capture",
+            "visual restoration",
+            "final visual review",
+            "pixel-level layout/style assertions",
+            "screenshot-based evidence",
+        ):
+            self.assertIn(forbidden_task, tasks)
+        self.assertIn("Never generate", tasks)
+        self.assertIn("does not execute it", tasks)
+
+        final_review_index = tasks.index("## T5 — Final Code Review")
+        core_index = tasks.index("{CORE_TEMPLATE}")
+        self.assertLess(final_review_index, core_index)
+        self.assertIn("no phase may follow it", tasks)
+        self.assertFalse((REPO_ROOT / "commands" / "speckit.implement.md").exists())
+
+    def legacy_tasks_command_wrapper_contract(self) -> None:
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
 
         self.assertIn("{CORE_TEMPLATE}", tasks)

@@ -129,7 +129,7 @@ provides:
     - type: "command"
       name: "speckit.tasks"
       file: "commands/speckit.tasks.md"
-      description: "Require READY behavior testability and derive complete task chains"
+      description: "Map PLAN_OUTPUT_READY records to concrete paths, dependencies, tests, and final review"
       replaces: "speckit.tasks"
       strategy: "wrap"
 
