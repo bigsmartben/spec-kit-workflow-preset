@@ -47,6 +47,29 @@ Neither gate checks downstream artifacts. Constitution → Spec/Plan,
 Architecture → Plan, Spec → Plan, and Plan → Tasks consistency belong only to
 Analyze.
 
+## Analyze Cross-Command Audit
+
+Analyze is the only owner of cross-command consistency:
+
+```text
+Constitution -> Spec / Plan
+Architecture -> research / data-model / contracts / plan / quickstart
+Spec -> X0 / X1 / X2 / X3 / X4
+Plan readiness products -> Tasks
+Constitution M + U -> Plan / Tasks
+```
+
+It inventories once, uses stable IDs first, stops a branch at the first
+conclusive blocker, separates blockers from warnings, and writes no artifact.
+It audits one repo-first, Architecture-constrained Plan strategy for every
+repository; Greenfield/Brownfield remain Constitution-only Architecture
+generation modes.
+
+The concrete #24 idempotency, provider binding/lock, retry context, provider
+switching recovery, and `ready`/`completed` lifecycle cases are Analyze
+fixtures. They are required only when applicable Architecture/Spec refs demand
+them, and they do not become a Plan-local conformance gate.
+
 | Stage | Owner | Durable output |
 |---|---|---|
 | `/speckit.constitution` | preset replacement | independently authorized Constitution and project Architecture outputs |

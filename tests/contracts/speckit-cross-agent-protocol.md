@@ -65,10 +65,13 @@ Every preset-owned command profile defines:
 
 ### `speckit.analyze.read_only_parallel_review`
 
-- `stage`: vertical consistency analysis.
+- `stage`: cross-command consistency analysis.
 - `owner_agent`: Analyze Core Agent.
+- `input_scope`: Constitution/Architecture → Spec/Plan, Spec → Plan,
+  Architecture → X1/X2/X3, Plan → Tasks, and M + U preservation.
 - `allowed_writes`: none.
-- `output_contract`: findings, blockers, warnings, and closed-chain summary.
+- `output_contract`: stable-code findings, blockers, warnings, closed-chain
+  summary, and implementation readiness.
 - `fallback`: sequential read-only review.
 
 ## Permission Boundary

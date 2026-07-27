@@ -18,6 +18,10 @@ from validators.speckit_test_contract import (
     validate_test_conditions,
     validate_test_readiness,
 )
+from validators.speckit_analyze_contract import (
+    audit_cross_command_consistency,
+    audit_data_model_obligations,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -812,8 +816,8 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Preserve the planned\n`M + U` scope", tasks)
         self.assertIn("Exact paths are a Tasks output", tasks)
 
-        self.assertIn("Check that tasks preserve the planned `M + U` scope.", analyze)
-        self.assertIn("Report missing, widened, or ambiguous scope boundaries as blockers.", analyze)
+        self.assertIn("preserve the exact planned `M + U` boundary", analyze)
+        self.assertIn("M + U Preservation: PASS | BLOCKED", analyze)
 
         self.assertFalse((REPO_ROOT / "commands" / "speckit.implement.md").exists())
 
@@ -1546,7 +1550,137 @@ class PresetContractTests(unittest.TestCase):
             self.assertNotIn(forbidden, plan)
             self.assertNotIn(forbidden, bdd_contract_template)
 
-    def test_analyze_command_owns_vertical_consistency_contract(self) -> None:
+    def test_analyze_owns_read_only_cross_command_consistency(self) -> None:
+        analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("{CORE_TEMPLATE}", analyze)
+        self.assertIn("strategy: wrap", analyze)
+        self.assertIn("Analyze exclusively owns Cross-Command Consistency Gates", analyze)
+        self.assertIn("MUST NOT modify or repair any artifact", analyze)
+        self.assertIn("One-Pass Inventory", analyze)
+        self.assertIn("Use stable IDs as the primary consistency surface", analyze)
+        self.assertIn("first blocker", analyze)
+        self.assertIn("repo-first planning within Architecture constraints", analyze)
+        self.assertIn("Do not classify Plan as Greenfield/Brownfield", analyze)
+        for chain in (
+            "Constitution To Spec / Plan",
+            "Architecture To Plan Products",
+            "Spec To X0/X1/X2/X3/X4",
+            "Plan To Tasks",
+        ):
+            self.assertIn(chain, analyze)
+        for prefix in ("BND-*", "CON-*", "DEC-*", "CST-*", "GAP-*"):
+            self.assertIn(prefix, analyze)
+        for code in (
+            "ARCH_DATA_MODEL_IDEMPOTENCY_MISSING",
+            "ARCH_PROVIDER_BINDING_MISSING",
+            "ARCH_PROVIDER_LOCK_MISSING",
+            "ARCH_RETRY_CONTEXT_MISSING",
+            "ARCH_RECOVERY_DECISION_MISSING",
+            "ARCH_LIFECYCLE_PROJECTION_MISSING",
+        ):
+            self.assertIn(code, analyze)
+        self.assertIn("Implementation Readiness: PASS | BLOCKED", analyze)
+        self.assertIn("prevents proceeding to Core Implement", analyze)
+        self.assertIn("Confirm no files were written", analyze)
+
+    def test_cross_command_audit_finds_stale_and_missing_projections(self) -> None:
+        snapshot = {
+            "architecture": {
+                "revision": "ARCH-REV-2",
+                "decisions": ["DEC-001"],
+                "concepts": ["CON-001"],
+                "boundaries": ["BND-001"],
+                "constraints": ["CST-001"],
+                "gaps": ["GAP-001"],
+            },
+            "plan": {
+                "architecture_revision": "ARCH-REV-1",
+                "research_refs": [],
+                "data_model_refs": [],
+                "contract_refs": [],
+                "plan_constraint_refs": [],
+                "blocker_refs": [],
+                "design_objects": ["PaymentCoordinator"],
+                "required_test_conditions": ["TC-001"],
+                "mu_scope": "checkout/PaymentCoordinator",
+            },
+            "tasks": {
+                "design_object_refs": [],
+                "test_condition_refs": [],
+                "mu_scope": "repository/*",
+            },
+        }
+        findings = audit_cross_command_consistency(snapshot)
+        codes = [finding["code"] for finding in findings]
+        self.assertEqual(
+            [
+                "ARCH_REVISION_STALE",
+                "ARCH_DECISION_OMITTED",
+                "ARCH_CONCEPT_OMITTED",
+                "ARCH_BOUNDARY_OMITTED",
+                "ARCH_CONSTRAINT_OMITTED",
+                "ARCH_GAP_OMITTED",
+                "PLAN_TASK_MAPPING_MISSING",
+                "PLAN_REQUIRED_TEST_TASK_MISSING",
+                "MU_SCOPE_WIDENED",
+            ],
+            codes,
+        )
+        self.assertTrue(all(finding["severity"] == "BLOCKER" for finding in findings))
+
+    def test_issue_24_data_model_obligations_have_stable_findings(self) -> None:
+        required = {
+            "idempotency_key",
+            "provider_task_binding",
+            "provider_lock",
+            "retry_context",
+            "recovery_decision",
+            "readiness_lifecycle",
+        }
+        findings = audit_data_model_obligations(required, {"provider_lock"})
+        self.assertEqual(
+            {
+                "ARCH_DATA_MODEL_IDEMPOTENCY_MISSING",
+                "ARCH_PROVIDER_BINDING_MISSING",
+                "ARCH_RETRY_CONTEXT_MISSING",
+                "ARCH_RECOVERY_DECISION_MISSING",
+                "ARCH_LIFECYCLE_PROJECTION_MISSING",
+            },
+            {finding["code"] for finding in findings},
+        )
+        self.assertTrue(all(finding["target"] == "data-model.md" for finding in findings))
+
+    def test_cross_command_audit_passes_closed_chain(self) -> None:
+        snapshot = {
+            "architecture": {
+                "revision": "ARCH-REV-2",
+                "decisions": ["DEC-001"],
+                "concepts": ["CON-001"],
+                "boundaries": ["BND-001"],
+                "constraints": ["CST-001"],
+                "gaps": ["GAP-001"],
+            },
+            "plan": {
+                "architecture_revision": "ARCH-REV-2",
+                "research_refs": ["DEC-001"],
+                "data_model_refs": ["CON-001"],
+                "contract_refs": ["BND-001"],
+                "plan_constraint_refs": ["CST-001"],
+                "blocker_refs": ["GAP-001"],
+                "design_objects": ["PaymentCoordinator"],
+                "required_test_conditions": ["TC-001"],
+                "mu_scope": "checkout/PaymentCoordinator",
+            },
+            "tasks": {
+                "design_object_refs": ["PaymentCoordinator"],
+                "test_condition_refs": ["TC-001"],
+                "mu_scope": "checkout/PaymentCoordinator",
+            },
+        }
+        self.assertEqual([], audit_cross_command_consistency(snapshot))
+
+    def legacy_analyze_command_owns_vertical_consistency_contract(self) -> None:
         analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
 
         self.assertIn("{CORE_TEMPLATE}", analyze)

@@ -1,61 +1,166 @@
 ---
-description: Wrap core analysis with behavior-first vertical consistency checks.
+description: Read-only cross-command consistency audit across Constitution, Architecture, Spec, Plan, and Tasks.
 strategy: wrap
 ---
 
-## Change Scope Granularity
-
-Check that tasks preserve the planned `M + U` scope. Report missing, widened, or ambiguous scope boundaries as blockers.
-
-## Behavior Vertical Consistency
-
 Follow cross-agent protocol profile: `speckit.analyze.read_only_parallel_review`.
 
-Analyze whether the feature artifacts close the
-`requirement gates -> BDD/UIF intent -> contracts -> behavior testability -> tasks`
-loop. This command checks planning consistency only; it does not inspect
-implementation code or infer interaction flows from built code.
+## Exclusive Ownership And Read-Only Boundary
 
-## Analysis Performance Guardrails
+Analyze exclusively owns Cross-Command Consistency Gates. Producing commands own
+their own output quality; official Core gates remain unchanged.
 
-Keep analysis bounded to the existing planning artifacts.
+Analyze may read available Constitution, Architecture, repository facts, Spec,
+Plan outputs, and Tasks. It MUST NOT modify or repair any artifact, generate a
+receipt/compliance matrix/audit file, invoke another command, inspect
+post-implementation code as proof of design, or promote a finding into a new
+Plan/Tasks gate.
 
-- Build a one-pass artifact inventory before deep reading. Record which expected files and directories exist, then short-circuit missing artifact branches as source artifact -> target artifact blockers.
-- Use stable IDs as the primary consistency surface: `CASE-`, `SCN-`, `UIF-`, `FIX-`, `AST-`, and `BLK-`. Compare ID sets and declared method/path references before prose-level interpretation.
-- Read `tasks.md` and `quickstart.md` once for ID, contract path, API method/path, and validation path evidence. Do not repeatedly scan them per scenario when a single evidence map can answer coverage.
-- Read surrounding prose only when a required ID, source section, or blocker explanation is missing or ambiguous.
-- Stop expanding a branch after the first blocker that proves the downstream link cannot be closed. Report the blocker with the source artifact and target artifact instead of continuing speculative checks.
-- Do not create new analysis artifacts, workflow runners, or external-tool requirements.
+Run against artifacts currently available. Missing later-stage artifacts limit
+the relevant audit rather than authorizing invention.
+
+## One-Pass Inventory
+
+Build one in-memory inventory before deep reading:
+
+- Constitution revision, SDD authority statements, exact R/M/U/O model;
+- Architecture Revision plus `BND-*`, `CON-*`, `DEC-*`, `CST-*`, `GAP-*`;
+- Spec `FR/NFR/UX/UI/VIS` and other stable refs;
+- X0–X4 gates, decisions, design/readiness products, `TC-*`, `VAL-*`;
+- Tasks IDs, concrete paths, dependencies, Test Condition refs, Final Code
+  Review position.
+
+Use stable IDs as the primary consistency surface. Read surrounding prose only
+when an ID, source, mapping, or blocker is missing/ambiguous. Stop expanding one
+branch after the first blocker that proves the downstream link cannot close.
+Separate blockers from warnings.
+
+## Audit Chain A — Constitution To Spec / Plan
+
+Check cross-artifact effects only:
+
+- Spec/Plan do not claim Constitution or Architecture authority;
+- Plan/Tasks preserve the exact planned `M + U` boundary and do not widen to R;
+- command outputs do not introduce Intake as an SDD stage;
+- Plan does not create a cross-command Architecture Conformance Gate;
+- Tasks does not perform upstream consistency repair;
+- downstream authority does not contradict Constitution's command ownership.
+
+Do not re-run `CONSTITUTION_OUTPUT_READY`.
+
+## Audit Chain B — Architecture To Plan Products
+
+For every repository, audit one strategy:
+
+```text
+repo-first planning within Architecture constraints
+```
+
+Do not classify Plan as Greenfield/Brownfield. Check that current repository
+facts ground planned modules/paths/dependencies, planned creation is explicit,
+and Plan does not silently amend Architecture.
 
 Check:
 
-- spec.md user stories have BDD coverage.
-- BDD Given steps map to fixtures.
-- BDD When steps map to UIF events or API requests.
-- BDD Then steps map to feedback or behavior assertions.
-- behavior/uif.intent.json is formalized into contracts/uif/*.expected.json.
-- behavior drafts exist but formal contracts are missing, without a matching `N/A or blocker` explanation tied to the source draft and missing planning input.
-- UIF API calls exist in contracts/api/.
-- behavior contracts cover scenarios, fixtures, and assertions.
-- tasks.md covers BDD, UIF, API, fixtures, and quickstart validation paths.
-- case coverage is closed from `checklists/behavior.md` through behavior drafts,
-  formal contracts, `behavior/behavior-testability.md`, and implementation
-  tasks.
-- Required case types in `checklists/behavior.md` map to behavior draft
-  scenarios, formal behavior contracts, Task Derivation Matrix rows, tasks,
-  and quickstart validation paths.
-- `behavior/behavior-testability.md` carries current spec/plan revisions and is
-  READY before tasks are considered complete.
-- every Required Case maps to a fixture → validation/test → implementation →
-  evidence task chain.
-- positive, negative, boundary, permission, validation, and state_conflict case types are either covered or have `N/A or blocker` evidence.
-- failure scenarios declare error code, failure feedback, and state invariant, rollback, or compensation assertion.
-- quickstart validation paths cover Required failure scenarios.
+| Architecture source | Required downstream projection |
+|---|---|
+| `DEC-*` | `research.md` decision and affected X2/X3 refs |
+| `CON-*` | `data-model.md` meaning, ownership, lifecycle, invariants |
+| `BND-*` | interface contracts and dependency direction |
+| `CST-*` | applicable `plan.md`, design, and `quickstart.md` constraints |
+| `GAP-*` | stable blocker/prerequisite without fake evidence |
+| Architecture Revision | current refs in `plan.md` and readiness products |
 
-Report missing, inconsistent, or stale links by source artifact and target artifact. Keep findings actionable and separate blockers from warnings.
+Report omitted IDs, contradictions, stale revision, repository-grounding gaps,
+unauthorized authority promotion, or an Architecture change that should return
+to `/speckit.constitution`. Do not run a Plan-internal Architecture gate.
+
+### #24 concrete data-model projection
+
+When applicable Architecture/Spec refs require them, verify the domain/design
+chain explicitly represents:
+
+- idempotency record/key composition and create uniqueness;
+- provider task binding to clip/shot/render plan;
+- provider configuration/version lock;
+- retry/force-retry retention of entitlement, SKU, language, render plan,
+  provider lock, and attempt history;
+- provider switching as an explicit recovery decision, not ordinary retry;
+- lifecycle separation among entitlement readiness, provider completion, and
+  client availability (`ready` versus `completed`).
+
+Use source → target blocker codes such as
+`ARCH_DATA_MODEL_IDEMPOTENCY_MISSING`,
+`ARCH_PROVIDER_BINDING_MISSING`, `ARCH_PROVIDER_LOCK_MISSING`,
+`ARCH_RETRY_CONTEXT_MISSING`, `ARCH_RECOVERY_DECISION_MISSING`, and
+`ARCH_LIFECYCLE_PROJECTION_MISSING`. These are Analyze findings, not business
+fields mandated for unrelated features.
+
+## Audit Chain C — Spec To X0/X1/X2/X3/X4
+
+Check applicable Spec refs project without contradiction:
+
+- goals/exclusions and requirement refs into X0;
+- product constraints into X1 decisions;
+- domain/interface requirements into X2-A;
+- UX/UI/VIS into UI/UX Design and Delivery Readiness;
+- functional/NFR/security/accessibility/recovery/data-side-effect acceptance
+  into `TC-*` and Test Readiness;
+- Test Conditions needing execution into `VAL-*`;
+- blockers retain their actual owning lane.
+
+BDD/fixtures/assertions are required only when the parent Test Condition selects
+that technique. Pixel delivery/readiness stays in UI/UX and is absent from Test
+Conditions/Test Readiness.
+
+## Audit Chain D — Plan To Tasks
+
+Check every populated Plan record maps to concrete Tasks work or an explicit
+blocker:
+
+- Design Object rows → implementation paths;
+- interface/sequence refs → contract/orchestration dependencies;
+- UI/UX Delivery rows → component/state/responsive/accessibility/asset
+  implementation only;
+- Required `TC-*` → required fixture/test/validation/evidence tasks;
+- `VAL-*` → runnable environment/integration/e2e/evidence work;
+- Plan blockers → blocked task scope, never complete-looking work;
+- Final Code Review covers applicable Plan sources and is the last phase.
+
+Detect Tasks-side strategy invention and missing Plan-to-Tasks mappings.
+Required Test Conditions must not be dropped by Core optional-test prose.
+
+Assert #37's downstream visual boundary: no screenshot comparison, visual diff,
+baseline, restoration, pixel assertion, visual acceptance, or rendered-fidelity
+review task. Visual refs may guide UI implementation only.
+
+## Finding Format And Implementation Readiness
+
+For each finding output:
+
+```text
+severity | stable code | source artifact + ID/location
+| target artifact + expected mapping | evidence | owning command / next action
+```
+
+Recommended top-level summary:
+
+```text
+Constitution -> Spec/Plan: PASS | BLOCKED
+Architecture -> Plan Products: PASS | BLOCKED
+Spec -> Plan Products: PASS | BLOCKED
+Plan -> Tasks: PASS | BLOCKED
+M + U Preservation: PASS | BLOCKED
+Implementation Readiness: PASS | BLOCKED
+```
+
+`Implementation Readiness: BLOCKED` prevents proceeding to Core Implement. A
+PASS means the available cross-command chains close; it does not replace any
+producing command's output gate or prove implementation results.
 
 {CORE_TEMPLATE}
 
-## Behavior Analysis Reporting
+## Preset Completion Addition
 
-Before finishing, report whether the vertical consistency chain is closed and list blockers that prevent implementation from continuing.
+Report the inventory, chain summaries, blockers, warnings, and implementation
+readiness. Confirm no files were written.

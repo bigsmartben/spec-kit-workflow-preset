@@ -115,7 +115,7 @@ provides:
     - type: "command"
       name: "speckit.analyze"
       file: "commands/speckit.analyze.md"
-      description: "Trace requirement gates through BDD Plan and task derivation"
+      description: "Audit Constitution, Architecture, Spec, Plan, and Tasks cross-command consistency"
       replaces: "speckit.analyze"
       strategy: "wrap"
 
