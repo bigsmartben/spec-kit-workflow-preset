@@ -1,29 +1,13 @@
-# [DOMAIN] Requirement Gate
+# [DOMAIN] Requirements Writing Checklist: [FEATURE]
 
-**Purpose**: Validate [DOMAIN] requirement quality before planning
-**Stage**: requirements
-**Domain**: [DOMAIN_ID]
-**Gate**: planning-readiness
-**Applicability**: APPLICABLE | NOT_APPLICABLE
-**Status**: PASS | BLOCKED
-**Spec Revision**: sha256:[SPEC_CONTENT_HASH]
-**Applicability Reason**: [Required when NOT_APPLICABLE]
+**Purpose**: Question the quality of `[DOMAIN]` requirement writing.
 
-## Requirement Completeness
+**Spec**: [spec.md]
 
-- [ ] CHK-[DOMAIN]-001 [blocker:product-decision] [spec:SECTION] Is the applicable [DOMAIN] behavior completely specified?
+- [ ] CHK-[DOMAIN]-001 Is the domain's applicable scope explicit? [Completeness]
+- [ ] CHK-[DOMAIN]-002 Are actors, states, failures, and boundaries unambiguous? [Clarity]
+- [ ] CHK-[DOMAIN]-003 Are observable outcomes measurable without implementation detail? [Measurability]
+- [ ] CHK-[DOMAIN]-004 Are assumptions, dependencies, exclusions, and edge cases stated? [Coverage]
 
-## Requirement Clarity
-
-- [ ] CHK-[DOMAIN]-002 [blocker:product-decision] [spec:SECTION] Are ambiguous [DOMAIN] terms quantified or bounded?
-
-## Requirement Traceability
-
-- [ ] CHK-[DOMAIN]-003 [spec:SECTION] Does each applicable requirement cite its source section?
-
-## Blocking Items
-
-- none
-
-<!-- Recompute generated items by stable CHK ID. Do not append duplicate status
-     sections, stale blockers, or duplicate IDs. Preserve unrelated manual notes. -->
+Items are unanswered quality questions. Use a spec citation or `[Gap]`; do not
+compute PASS/BLOCKED or repair `spec.md`.

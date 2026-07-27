@@ -251,14 +251,23 @@ jobs:
           required_entries = {
               "preset.yml",
               "requirements-dev.txt",
+              "commands/speckit.specify.md",
+              "commands/speckit.clarify.md",
+              "commands/speckit.analyze.md",
               "commands/speckit.plan.md",
               "commands/speckit.tasks.md",
               "templates/plan-template.md",
+              "templates/quickstart-template.md",
+              "templates/test-readiness-template.md",
+              "templates/test/test-conditions.json",
+              "templates/ui-ux-design-template.md",
               "templates/requirements/behavior-gate.md",
               "templates/requirements/nfr-gate.md",
               "templates/requirements/visual-gate.md",
-              "templates/behavior/behavior-testability.md",
+              "schemas/speckit.test.conditions.v1.schema.json",
+              "validators/speckit_analyze_contract.py",
               "validators/speckit_behavior_contract.py",
+              "validators/speckit_test_contract.py",
               "docs/extension-governance.md",
               "tests/test_preset_contract.py",
               "tests/contracts/speckit-cross-agent-protocol.md",
@@ -353,7 +362,6 @@ jobs:
           test -f .claude/skills/speckit-implement/SKILL.md
           core_implement_sha="$(sha256sum .claude/skills/speckit-implement/SKILL.md | awk '{print $1}')"
           specify preset add --dev "$GITHUB_WORKSPACE"
-          specify integration upgrade claude
           specify preset info workflow-preset
           specify preset resolve plan-template | tee "$resolve_out"
           grep -q "workflow-preset" "$resolve_out"
@@ -363,7 +371,21 @@ jobs:
           test -f .specify/presets/workflow-preset/templates/plan-template.md
           test -f .specify/presets/workflow-preset/templates/constitution-template.md
           test -f .specify/presets/workflow-preset/templates/requirements/behavior-gate.md
-          test -f .specify/presets/workflow-preset/templates/behavior/behavior-testability.md
+          test -f .specify/presets/workflow-preset/templates/quickstart-template.md
+          test -f .specify/presets/workflow-preset/templates/test-readiness-template.md
+          test -f .specify/presets/workflow-preset/templates/test/test-conditions.json
+          test -f .specify/presets/workflow-preset/schemas/speckit.test.conditions.v1.schema.json
+          test -f .specify/presets/workflow-preset/validators/speckit_analyze_contract.py
+          test -f .specify/presets/workflow-preset/validators/speckit_test_contract.py
+          test ! -e .specify/presets/workflow-preset/templates/behavior/behavior-testability.md
+          test ! -e .specify/presets/workflow-preset/schemas/speckit.behavior.uif.intent.v1.schema.json
+          test ! -e .specify/presets/workflow-preset/schemas/speckit.behavior.data-fixtures.intent.v1.schema.json
+          grep -q "Full-Spectrum Projection" .claude/skills/speckit-specify/SKILL.md
+          ! grep -q "Create Spec Quality Checklist" .claude/skills/speckit-specify/SKILL.md
+          grep -q "Cross-Domain Ambiguity Map" .claude/skills/speckit-clarify/SKILL.md
+          grep -q "X0 — Feature Plan Control" .claude/skills/speckit-plan/SKILL.md
+          grep -q "PLAN_OUTPUT_READY" .claude/skills/speckit-tasks/SKILL.md
+          grep -q "Cross-Command Consistency Gates" .claude/skills/speckit-analyze/SKILL.md
           grep -q "Change Scope Granularity" .specify/presets/workflow-preset/templates/constitution-template.md
           grep -q "R: Repository / Workspace" .specify/presets/workflow-preset/templates/constitution-template.md
           grep -q "M: Module / Capability" .specify/presets/workflow-preset/templates/constitution-template.md

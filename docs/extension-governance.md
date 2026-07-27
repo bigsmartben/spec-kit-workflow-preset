@@ -17,15 +17,68 @@ This document defines the ownership boundaries for `workflow-preset`.
 The preset enriches existing Spec Kit stages. It does not own execution
 orchestration or add a second implementation engine.
 
+## Authority And Gate Ownership
+
+| Concern | Single owner |
+|---|---|
+| SDD workflow governance | `.specify/memory/constitution.md` |
+| repository technical truth | `.specify/memory/architecture.md` |
+| one command's output quality | the producing command |
+| official workflow gates | Spec Kit Core, unchanged |
+| cross-command consistency | `/speckit.analyze`, read-only |
+
+Intake is external evidence acquisition, not an SDD stage. Constitution does
+not contain concrete repository Architecture. Architecture does not contain
+command procedures, gate definitions, product requirements, task derivation, or
+downstream conformance conclusions.
+
+`/speckit.constitution` is an enforceable replacement command so the authorized
+source agreement can suppress unapproved repository inference. It preserves
+user input, hooks, independent write scopes, validation, and completion
+reporting.
+
+The Constitution command owns two independent internal gates:
+
+- `CONSTITUTION_OUTPUT_READY` validates SDD governance only.
+- `ARCHITECTURE_OUTPUT_READY` validates the technical Architecture contract,
+  including intent-first Greenfield and repo-first Brownfield generation.
+
+Neither gate checks downstream artifacts. Constitution → Spec/Plan,
+Architecture → Plan, Spec → Plan, and Plan → Tasks consistency belong only to
+Analyze.
+
+## Analyze Cross-Command Audit
+
+Analyze is the only owner of cross-command consistency:
+
+```text
+Constitution -> Spec / Plan
+Architecture -> research / data-model / contracts / plan / quickstart
+Spec -> X0 / X1 / X2 / X3 / X4
+Plan readiness products -> Tasks
+Constitution M + U -> Plan / Tasks
+```
+
+It inventories once, uses stable IDs first, stops a branch at the first
+conclusive blocker, separates blockers from warnings, and writes no artifact.
+It audits one repo-first, Architecture-constrained Plan strategy for every
+repository; Greenfield/Brownfield remain Constitution-only Architecture
+generation modes.
+
+The concrete #24 idempotency, provider binding/lock, retry context, provider
+switching recovery, and `ready`/`completed` lifecycle cases are Analyze
+fixtures. They are required only when applicable Architecture/Spec refs demand
+them, and they do not become a Plan-local conformance gate.
+
 | Stage | Owner | Durable output |
 |---|---|---|
-| `/speckit.constitution` | preset wrapper | Constitution and project Architecture |
-| `/speckit.specify` | preset wrapper | requirement and UI/UX intent in `spec.md` |
-| `/speckit.clarify` | preset wrapper | clarified requirement decisions |
-| `/speckit.checklist` | preset wrapper | requirement-readiness gates |
+| `/speckit.constitution` | preset replacement | independently authorized Constitution and project Architecture outputs |
+| `/speckit.specify` | preset replacement | full-spectrum WHAT/WHY content in `spec.md` |
+| `/speckit.clarify` | preset replacement | accepted product decisions in `spec.md` |
+| `/speckit.checklist` | preset wrapper | unanswered requirement-writing questions |
 | `/speckit.plan` | preset wrapper | design, behavior contracts, and validation design |
 | `/speckit.tasks` | preset wrapper | executable checklist in `tasks.md` |
-| `/speckit.analyze` | preset wrapper | read-only consistency findings |
+| `/speckit.analyze` | preset wrapper | read-only cross-command consistency findings |
 | `/speckit.implement` | Spec Kit core | execution of `tasks.md` |
 
 `workflow-preset` MUST NOT declare, package, copy, or replace
@@ -42,8 +95,11 @@ protocol, manual execution queue, or implementation validator.
 The workflow is a producer-to-consumer pipeline:
 
 ```text
-spec.md + requirement gates
-    -> plan artifacts + BDD/UIF/validation design
+spec.md + optional independent requirement-writing checklists
+    -> X0 plan control
+    -> X1 shared decisions
+    -> X2-A domain/object/interface + X2-B UI/UX + X2-C Test contracts
+    -> X3 VAL paths + X4 independent readiness
     -> tasks.md implementation and validation checklist
     -> core /speckit.implement execution
 ```
@@ -51,10 +107,32 @@ spec.md + requirement gates
 Tasks maps upstream artifacts into checklist items. It must not create another
 planning system or execution protocol.
 
+## Requirement Command Independence
+
+Specify, Clarify, and Checklist are independent:
+
+| Command | Writes | Does not own |
+|---|---|---|
+| Specify | one `spec.md` plus official feature bootstrap metadata | checklists, completeness/readiness, ID validation |
+| Clarify | accepted decisions in `spec.md` | checklist recomputation, provider intake, cross-artifact checks |
+| Checklist | `checklists/<focus>.md` questions | answers, spec repair, readiness aggregation |
+
+The full-spectrum `spec-template` supplies optional carriers for functional,
+NFR, UX, UI, visual, security/privacy, data/integration, dependency, boundary,
+assumption, exclusion, source, unresolved-decision, provider-gap, and measurable
+outcome content. A carrier's presence is not a completeness claim.
+
+Specify and Clarify are replacement commands because active Core side effects
+would otherwise create or re-evaluate `checklists/requirements.md`. Their
+replacement contracts preserve user input, feature/path resolution, extension
+hooks, local write safety, and completion reporting. Checklist remains a Core
+wrapper and produces only unanswered question-form checks.
+
 Examples:
 
-- A UI state in `spec.md` and `contracts/uif/` becomes a concrete UI
-  implementation task plus a UI acceptance task.
+- A UI state in `ui-ux-design.md` and `contracts/uif/` becomes concrete UI
+  implementation work. Functional tests exist only when Test Readiness contains
+  a Required Test Condition.
 - A real-system path in `quickstart.md` becomes an integration/e2e task with
   environment and evidence expectations.
 - A persistence change becomes implementation and data-side-effect validation
@@ -70,8 +148,8 @@ The phase must cover each applicable scope:
 
 - planned `M + U` boundary;
 - interface contracts;
-- behavior contracts;
-- UI state, viewport, and visual/IR consistency;
+- behavior and Test contracts;
+- UI component/state, responsive/accessibility behavior, and asset contracts;
 - data side effects;
 - sequence consistency;
 - asset bindings;
@@ -79,6 +157,36 @@ The phase must cover each applicable scope:
 
 Completion requires the review tasks themselves to pass. No separate worker
 result file or orchestration layer is required.
+
+UI review is code/design-contract review. Tasks and Final Code Review never
+create or evaluate visual acceptance, pixel fidelity, screenshot comparison,
+visual diff, baseline capture, visual restoration, or final rendered-visual
+review. Visual/IR/source refs may guide implementation but do not create a
+validation task.
+
+## Tasks As A Pure Plan Mapper
+
+`/speckit.tasks` starts from `PLAN_OUTPUT_READY`, not Spec or Checklist strategy.
+Its lifecycle is:
+
+```text
+T0 handoff preflight
+  -> T1 concrete path binding
+  -> T2 dependency graph
+  -> T3 story/capability mapping
+  -> T4 required functional validation/evidence
+  -> T5 Final Code Review (last mandatory phase)
+```
+
+Tasks owns exact paths, task IDs, dependency order, `[P]`, and checklist shape.
+It preserves Plan-selected design/test/UI decisions. Missing mappings produce
+`PLAN_OUTPUT_INCOMPLETE`; Tasks does not reconstruct them.
+
+A Required `TC-*` overrides Core's generic optional-test wording. UI,
+accessibility, responsive, and journey tests exist only when Test Readiness
+requires them. UI/UX Delivery Readiness otherwise maps only to component, state,
+interaction, accessibility, responsive, asset, variant, and fallback
+implementation work.
 
 ## Structured Artifact Rules
 
@@ -101,21 +209,40 @@ Shared stage-local behavior is documented in
 their own stage profile. Commands must not use `tests/` or `docs/` paths as
 runtime sources.
 
-## Planning Artifact Boundaries
+## X0–X4 Planning Artifact Boundaries
 
 Keep `/speckit.plan` and `/speckit.tasks` as core-template wrappers unless an
 intentional contract change says otherwise.
 
-Optional contextual design artifacts include:
+The X labels are preset-internal milestones nested inside unchanged Core Plan
+setup, Phase 0, Phase 1, post-design Constitution Check, hooks, and completion:
 
-- `class-diagram.md`
-- `contracts/sequences.md`
+| Milestone/lane | Owning artifact |
+|---|---|
+| X0 Feature Plan Control | `plan.md` |
+| X1 Research & Decisions | `research.md` |
+| X2-A Domain/Object/Interface | `data-model.md`, contextual `class-diagram.md`, interface contracts, contextual `contracts/sequences.md` |
+| X2-B UI/UX Delivery | `ui-ux-design.md`, `contracts/uif/` |
+| X2-C Test & Acceptance | `contracts/test/test-conditions.json`, optional technique children |
+| X3 Validation Paths | `quickstart.md` `VAL-*` paths |
+| X4 Design Readiness | `plan.md` derivation index |
+| X4 UI/UX Delivery Readiness | `ui-ux-design.md` |
+| X4 Test Readiness | `test-readiness.md` |
+
+X2-A, X2-B, and X2-C are parallel and mutually constraining. BDD is an optional
+Test technique, not the parent of planning. Test Conditions may cover
+functional, accessibility, security, performance, reliability, recovery,
+compatibility, and data-side-effect concerns across unit/component/contract/
+integration/system/e2e levels.
+
+Pixel-fidelity delivery and review belong only to UI/UX Delivery Readiness.
+Pixel, screenshot, diff, baseline, restoration, and rendered-visual-review work
+is rejected from Test Conditions and Test Readiness.
 
 Validation decisions stay in `research.md`, executable paths stay in
-`quickstart.md`, and BDD Plan closeout maps them into
-`behavior/behavior-testability.md`. `/speckit.tasks` derives unit, contract,
-integration, UI acceptance, real-system e2e, and review tasks from that mapping.
-Do not add a standalone `test-plan.md`.
+`quickstart.md`, and `test-readiness.md` is the single Test/Tasks handoff. Do
+not restore `behavior/behavior-testability.md`, create a generic
+`planning-readiness.md`, or add a standalone `test-plan.md`.
 
 ## External Intake Boundary
 

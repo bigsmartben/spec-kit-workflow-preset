@@ -1,124 +1,187 @@
 ---
-description: Wrap core constitution updates with change scope granularity and Constitution-managed architecture governance.
-strategy: wrap
+description: Manage SDD governance and repository technical Architecture as separate project-memory contracts.
+strategy: replace
 ---
 
-## Constitution Stage Input Agreement
+## User Input
 
-Before writing either project-memory artifact, establish an explicit input agreement with the user:
+```text
+$ARGUMENTS
+```
 
-- project mode: `greenfield`, `brownfield`, or `amendment`;
-- the goal of this Constitution-stage run;
-- which user-selected sources are authoritative and the role of each source;
-- which candidate sources are excluded;
-- whether repository inspection is authorized and its exact scope;
-- whether this run may update Constitution, Architecture, or both.
+You MUST consider the user input before proceeding.
 
-Conversation input, UC/PRD/product documents, an existing Constitution or Architecture, repository evidence, and external constraints are all possible sources. No conventional path is mandatory. In particular, `uc.md`, `inception/product/uc.md`, `.specify/memory/uc.md`, README files, source code, tests, configuration, and directory names are candidate sources only until the user authorizes their role.
+## Pre-Execution Hooks
 
-If the agreement is absent, ambiguous, or insufficient for the requested update, stop and confirm it with the user before writing. Do not silently discover an input and promote it to authority.
+Read `.specify/extensions.yml` when it exists and run enabled, unconditional
+`hooks.before_constitution` entries. Mandatory hooks MUST be invoked and awaited;
+conditional hooks remain the HookExecutor's responsibility. Invalid or absent
+hook configuration is skipped without changing this command's ownership.
 
-## Project Mode
+## Explicit Input Agreement
 
-Apply the source rules for the agreed mode:
+Before writing, confirm and retain an in-memory agreement containing:
 
-- `greenfield`: derive prospective governance and Architecture from confirmed intent and selected project/product sources. Do not infer target Architecture from scaffolding.
-- `brownfield`: inspect only the authorized repository scope. Keep observed current state, approved governance, target Architecture, and migration or unresolved gaps distinct. Existing code is evidence, not automatically a ratified principle or target decision.
-- `amendment`: update the existing Constitution and/or Architecture baseline within the agreed scope. Preserve unaffected content and record the reason for each material Architecture change.
+- Architecture generation mode: `greenfield`, `brownfield`, or `amendment`;
+- run goal;
+- every authorized source and its role;
+- excluded candidate sources;
+- repository inspection authorization and exact scope;
+- write scope: Constitution only, Architecture only, or both.
 
-If an existing `.specify/memory/architecture.md` uses the retired 4+1 or nine-section planning-contract format, report `ARCH_LEGACY_FORMAT`. Rewrite it only when the input agreement authorizes an Architecture update; never silently migrate it.
+No conventional file is authoritative by default. Conversation input, product
+documents, an existing Constitution or Architecture, repository code, tests,
+configuration, documentation, and directory names are candidate sources until
+the user authorizes their role. Core-style repository inference MUST NOT expand
+the agreement. If the agreement is missing or ambiguous, stop before writing.
 
-## Change Scope Granularity
+## Independent Write Scopes
 
-Always preserve the Change Scope Granularity principle in `.specify/memory/constitution.md`.
-
-Constitution updates must not remove, weaken, or contradict the principle's R/M/U/O model, boundary timing, or context-gap rule. Keep the principle normative, including `Planning locks M + U`.
-
-The R/M/U/O letter mapping is fixed and MUST remain exact:
-
-- R: Repository / Workspace. Environment only; too broad for scoped changes.
-- M: Module / Capability. Hard outer boundary.
-- U: Unit / Design Object. Primary planning boundary.
-- O: Operation / Detail. Execution detail.
-
-Do not paraphrase, expand, rename, translate, or substitute these letters with other nouns such as Requirement, Model, User/API Interface, or Operations.
-
-If a drafted constitution changes this mapping, discard the draft and report blocker code `CONSTITUTION_RMUO_MAPPING_DRIFT` instead of writing `.specify/memory/constitution.md`.
-
-When producing the Sync Impact Report, report template or command file status only after checking the actual path. If a path cannot be checked, report `CONSTITUTION_TEMPLATE_STATUS_UNCHECKED`; do not report it as missing.
-If the root `.specify/templates/constitution-template.md` is still the core placeholder, do not treat that as the workflow-preset template being absent. Resolve or check `.specify/presets/workflow-preset/templates/constitution-template.md` before reporting preset template status.
-
-## Separate Artifact Ownership
-
-The Constitution stage manages two independent project-memory files:
+This command owns two independent files:
 
 ```text
 .specify/memory/constitution.md
 .specify/memory/architecture.md
 ```
 
-- `constitution.md` stores durable governance principles.
-- `architecture.md` stores project-level boundaries, concepts, technical direction, constraints, evidence, revisit conditions, and unresolved gaps.
-- Architecture facts must not be embedded in ratified Constitution principles.
-- Feature-local `research.md`, `data-model.md`, `contracts/`, `plan.md`, and `quickstart.md` consume and refine the project Architecture for one feature; they do not replace it.
+- Constitution-only changes MUST NOT modify Architecture.
+- Architecture-only changes MUST NOT modify Constitution.
+- Combined changes validate and report each output independently.
+- Never create a second Architecture artifact, conformance receipt, audit file,
+  compliance matrix, implementation manifest, or task artifact.
 
-## Architecture Lifecycle
+Resolve the active `constitution-template` through the preset resolution stack.
+Resolve the workflow-preset `architecture-template` only when Architecture is in
+the authorized write scope. Preserve unaffected content during amendments.
 
-When the input agreement authorizes an Architecture update, load the workflow-preset `architecture-template.md` and write exactly one Architecture artifact: `.specify/memory/architecture.md`.
+## Constitution Contract
 
-Use one sequential reasoning chain, without 4+1:
+Constitution is the sole SSOT (single source of truth) for SDD workflow
+governance. It owns:
+
+- command responsibilities and artifact authority;
+- allowed read/write/block boundaries;
+- the distinction among Command Internal Gates, official Core Gates, and
+  Cross-Command Consistency Gates;
+- conflict routing to the command that owns the affected artifact;
+- Architecture's role as repository technical SSOT;
+- the rule that Plan, Tasks, and Core Implement respect Architecture;
+- Analyze's exclusive ownership of cross-command consistency.
+
+Constitution MUST NOT contain concrete frameworks, databases, services, modules,
+directory facts, dependency directions, CI details, product requirements,
+feature-local mappings, task details, or Intake as an SDD stage.
+
+Always preserve the exact Change Scope Granularity model:
+
+- R: Repository / Workspace. Environment only; too broad for scoped changes.
+- M: Module / Capability. Hard outer boundary.
+- U: Unit / Design Object. Primary planning boundary.
+- O: Operation / Detail. Execution detail.
+
+The mapping MUST NOT be renamed or paraphrased. Preserve `Planning locks M + U`.
+If it drifts, do not write Constitution; report
+`CONSTITUTION_RMUO_MAPPING_DRIFT`.
+
+### `CONSTITUTION_OUTPUT_READY`
+
+PASS only when the Constitution:
+
+- contains SDD Workflow Governance and Gate Ownership;
+- preserves the exact R/M/U/O mapping;
+- assigns command output quality to the producing command;
+- leaves official Core gates unchanged;
+- assigns cross-command consistency exclusively to Analyze;
+- contains no concrete repository Architecture or Intake stage.
+
+This is a command-internal output gate. It does not evaluate downstream
+artifacts.
+
+## Architecture Contract
+
+Architecture is the repository technical SSOT. It contains only:
+
+- revision identity and authorized evidence scope;
+- technical boundaries and dependency direction (`BND-*`);
+- stable technical concepts, relationships, lifecycle, and invariants (`CON-*`);
+- technical decisions, status, evidence, consequence, revisit condition, and
+  supersession (`DEC-*`);
+- technical constraints and risks (`CST-*`);
+- unresolved technical gaps and triggers (`GAP-*`).
+
+It MUST NOT contain command names, SDD gate definitions, planning consumption
+instructions, task derivation, compliance matrices, product requirements, or
+implementation operations.
+
+### Mode-specific generation
+
+`greenfield` is intent-first. Derive target Architecture only from confirmed
+intent and authorized constraints. Empty scaffolding and directory names do not
+establish target technical choices; unresolved choices remain candidates or
+`GAP-*`.
+
+`brownfield` is repo-first:
 
 ```text
-System Boundary
-  -> Conceptual Model
-  -> Technical Decisions & Evidence
-  -> Planning Guardrails & Gaps
+authorized repository snapshot
+  -> repository technical facts
+  -> stable boundaries and concepts
+  -> established decisions
+  -> contradictions and technical gaps
+  -> repository Architecture SSOT
 ```
 
-Render exactly these five top-level sections:
+Every core abstraction needs repository evidence or an explicit gap. Distinguish
+`observed-current`, `inferred`, `approved-target`, and `migration-gap`. External
+direction may define a target change but cannot overwrite observed facts
+silently.
 
-1. `Architecture Overview`
-2. `System Boundary`
-3. `Conceptual Model`
-4. `Technical Decisions & Evidence`
-5. `Planning Guardrails & Gaps`
+`amendment` starts from the current Architecture, preserves unaffected records,
+and records reason, effect, supersession, and revision change for every material
+update.
 
-Technical validation is evidence registration only. Record a candidate, conclusion, available evidence, and an explicit evidence gap or revisit condition when validation is still required. Do not create PoC code, application source, tests, migrations, build changes, deployment changes, secondary Architecture models, view files, or receipts.
+### `ARCHITECTURE_OUTPUT_READY`
 
-An Architecture update is ready only when it:
+PASS only when:
 
-- states the Architecture goal, authorized sources, and at least one explicit boundary with ownership and non-responsibility;
-- defines applicable core concepts with stable meaning, ownership, relationships, lifecycle, and invariants;
-- records established technical decisions with scope, consequence, evidence, and revisit conditions;
-- gives every item marked `MUST_VALIDATE` a conclusion plus evidence or an explicit validation gap;
-- states applicable planning constraints and unresolved gaps without requiring downstream inference;
-- contains no invented product requirement, implementation plan, task breakdown, or unresolved ambiguity presented as fact.
+- Architecture Revision and source scope are explicit;
+- all records use the correct stable ID and defined status;
+- Greenfield is intent-first or Brownfield is repo-first, as agreed;
+- evidence is precise enough to distinguish fact, inference, approved target,
+  and gap;
+- decisions include consequence, revisit condition, and supersession;
+- no SDD governance, product requirement, task, or downstream conformance
+  conclusion is present.
 
-Optional tables may be empty when they are genuinely not applicable. Do not manufacture extension points, decisions, or open questions to fill the template.
+This is a command-internal output gate. It does not check whether Plan or Tasks
+has consumed Architecture correctly.
 
-When the agreement excludes an Architecture update, do not modify `architecture.md`. Report whether the existing file is missing, legacy, ready, or blocked so the user understands whether `/speckit.plan` can proceed.
+## Update Procedure
 
-## Architecture-Guided Planning
+1. Establish the explicit input agreement.
+2. Read only authorized sources.
+3. Load only artifacts in the authorized write scope plus their resolved
+   templates.
+4. Draft Constitution and Architecture independently.
+5. Preserve template headings and existing ratification metadata where
+   applicable.
+6. Run `CONSTITUTION_OUTPUT_READY` and/or `ARCHITECTURE_OUTPUT_READY`.
+7. Write only outputs whose internal gate passes. Use atomic replacement.
+8. Never repair or analyze downstream Spec, Plan, Tasks, or implementation.
 
-Always preserve the Architecture-Guided Planning principle in `.specify/memory/constitution.md`.
+## Post-Execution Hooks
 
-`/speckit.plan` MUST read `.specify/memory/architecture.md` before producing planning artifacts.
+After successful authorized writes, run enabled, unconditional
+`hooks.after_constitution` entries before the completion report. Mandatory hooks
+MUST be invoked and awaited. A failed mandatory hook is reported as a blocker.
 
-- `research.md` MUST follow established technical decisions and evidence, unless an Architecture revisit condition is met.
-- `data-model.md` MUST preserve defined concepts, ownership, relationships, lifecycle, and invariants.
-- `contracts/` MUST preserve system boundaries, responsibilities, interface ownership, and dependency direction.
-- `plan.md` and `quickstart.md` MUST carry forward applicable Architecture constraints, gaps, and validation implications.
+## Completion Report
 
-If any planning artifact conflicts with or requires changing the Architecture, planning MUST stop and return to the Constitution stage.
+Report:
 
-{CORE_TEMPLATE}
-
-## Constitution Stage Reporting
-
-Before finishing, report:
-
-- the agreed project mode, goal, authorized and excluded sources, repository-inspection scope, and update scope;
-- whether `constitution.md` preserves Change Scope Granularity, `Planning locks M + U`, and preserves the exact R/M/U/O letter mapping;
-- whether Constitution facts and Architecture facts remain in their separate files;
-- whether `architecture.md` was created, updated, preserved, missing, legacy, ready, or blocked;
-- unresolved governance or Architecture gaps without presenting them as ratified facts.
+- mode, goal, authorized/excluded sources, inspection scope, and write scope;
+- each artifact path and whether it was created, updated, preserved, or blocked;
+- `CONSTITUTION_OUTPUT_READY` and `ARCHITECTURE_OUTPUT_READY` independently;
+- Architecture Revision when applicable;
+- unresolved governance or technical gaps without promoting them to facts;
+- whether mandatory post-hooks completed.

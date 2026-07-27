@@ -1,51 +1,65 @@
 # Project Architecture: [PROJECT]
 
-**Architecture Goal**: [State the project-level architecture outcome this artifact guides.]
+**Architecture Goal**: [Repository-level technical outcome.]
 
-**Project Mode**: [greenfield | brownfield | amendment]
+**Architecture Revision**: [ARCH-REV-YYYYMMDD-N]
 
-**Last Updated**: [DATE]
+**Generation Mode**: [greenfield | brownfield | amendment]
+
+**Repository Revision / Snapshot**: [Commit, tag, snapshot ID, or N/A with reason.]
 
 **Authorized Sources**:
 
-- [Source and its agreed role]
+- [Stable source reference and authorized role.]
 
 **Excluded Sources**:
 
-- [Source or `None`]
+- [Source or `None`.]
 
 ## Architecture Overview
 
-[Summarize the target architecture, the current-to-target distinction when applicable, and the reasoning scope. Do not include an implementation plan.]
+[Summarize current technical state, approved target, and migration delta when
+applicable. Do not include product requirements, SDD procedures, or tasks.]
 
 ## System Boundary
 
-| Boundary | Owns | Does Not Own | External Relationship / Dependency Direction | Source |
-|----------|------|--------------|----------------------------------------------|--------|
-| [At least one explicit boundary] | [Responsibility] | [Explicit non-responsibility] | [Inbound/outbound relationship] | [Authorized source] |
+| ID | State | Owns | Does Not Own | Dependency Direction | Evidence | Evidence Status |
+|---|---|---|---|---|---|---|
+| BND-001 | observed-current | [Responsibility] | [Non-responsibility] | [Inbound/outbound] | [Revision + path/source] | verified |
+
+Allowed `State` values: `observed-current`, `inferred`, `approved-target`,
+`migration-gap`. An inferred record is never treated as an approved target.
 
 ## Conceptual Model
 
-| Concept | Stable Meaning | Owner | Relationships | Lifecycle | Invariants | Source |
-|---------|----------------|-------|---------------|-----------|------------|--------|
+| ID | State | Stable Meaning | Owner | Relationships | Lifecycle | Invariants | Evidence |
+|---|---|---|---|---|---|---|---|
+| CON-001 | observed-current | [Meaning] | [Boundary ID] | [Related IDs] | [States/transitions] | [Invariant] | [Revision + path/source] |
 
 ## Technical Decisions & Evidence
 
-| Decision / Candidate | Scope | Conclusion | Consequence | Evidence Or Explicit Gap | Revisit Condition | Validation |
-|----------------------|-------|------------|-------------|--------------------------|-------------------|------------|
+| ID | State | Scope | Decision / Candidate | Technical Consequence | Evidence | Evidence Status | Revisit Condition | Supersedes |
+|---|---|---|---|---|---|---|---|---|
+| DEC-001 | approved-target | [BND/CON refs] | [Conclusion] | [Technical effect] | [Stable ref] | verified | [Trigger] | [DEC ID or None] |
 
-Use `MUST_VALIDATE` in the Validation column only when planning depends on evidence that is not yet sufficient. Such a row requires a current conclusion and either available evidence or an explicit validation gap.
+Allowed `Evidence Status` values: `verified`, `partial`, `unverified`,
+`contradictory`. A decision with insufficient evidence remains a candidate or
+has a `GAP-*`; it is not silently ratified.
 
-## Planning Guardrails & Gaps
+## Technical Constraints & Gaps
 
-### Constraints
+### Technical Constraints
 
-| Constraint | Applies To | Planning Implication | Source |
-|------------|------------|----------------------|--------|
+| ID | State | Applies To | Constraint | Technical Consequence | Evidence | Revisit Condition |
+|---|---|---|---|---|---|---|
+| CST-001 | approved-target | [BND/CON/DEC refs] | [Constraint] | [Technical effect] | [Stable ref] | [Trigger] |
 
-### Unresolved Gaps
+### Unresolved Technical Gaps
 
-| Gap | Planning Impact | Resolution Owner / Trigger | Source |
-|-----|-----------------|----------------------------|--------|
+| ID | State | Gap | Technical Risk | Resolution Owner / Trigger | Evidence | Supersedes |
+|---|---|---|---|---|---|---|
+| GAP-001 | migration-gap | [Unknown or contradiction] | [Risk] | [Owner/trigger] | [Stable ref] | [GAP ID or None] |
 
-Optional tables may remain empty when they are not applicable. Do not add placeholder facts or invented records.
+Optional tables may be empty only with a concrete `Not Applicable` reason.
+Do not add placeholder facts, command names, downstream gate instructions,
+feature task paths, or implementation operations.

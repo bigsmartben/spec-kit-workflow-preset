@@ -33,15 +33,16 @@ Every preset-owned command profile defines:
 
 ### `speckit.plan.stage_local_planning`
 
-- `stage`: Phase 0 behavior projection and Phase 1 planning.
+- `stage`: X0–X4 milestones nested in Core Plan.
 - `owner_agent`: Plan Core Agent.
-- `input_scope`: checklist-approved requirements and assigned planning artifact
-  families.
+- `input_scope`: accepted Spec facts, current repository facts, applicable
+  Architecture refs, and assigned X1/X2/X3/X4 artifact families.
 - `allowed_writes`: final planning artifacts owned by `/speckit.plan`.
-- `output_contract`: behavior drafts, formal contracts, design drafts,
-  validation design, blockers, and `context_gaps`.
-- `validation_gate`: checklist PASS, matching behavior schemas, and planning
-  blocker aggregation.
+- `output_contract`: lane-qualified decisions, X2-A/X2-B/X2-C designs,
+  `TC-*`, `VAL-*`, independent readiness products, blockers, and
+  `context_gaps`.
+- `validation_gate`: `PLAN_OUTPUT_READY` over Plan outputs and internal refs
+  only.
 - `fallback`: the Plan Core Agent processes one assigned scope at a time and
   preserves final-write ownership.
 
@@ -49,24 +50,28 @@ Every preset-owned command profile defines:
 
 - `stage`: upstream-artifact-to-checklist mapping.
 - `owner_agent`: Tasks Core Agent.
-- `input_scope`: user stories, behavior and interface contracts, research
-  decisions, quickstart paths, UI/visual readiness, and review scopes.
+- `input_scope`: `PLAN_OUTPUT_READY`, Design Object, UI/UX Delivery, Test
+  Readiness, contracts, and `VAL-*` paths.
 - `allowed_reads`: only the scoped inputs declared for each derivation unit.
 - `allowed_writes`: `tasks.md` only.
-- `output_contract`: ordered implementation, validation, integration/e2e, and
-  Final Code Review checklist items, plus blockers and `context_gaps`.
+- `output_contract`: concrete path bindings, dependency-ordered implementation,
+  required functional validation/evidence, and last-phase Final Code Review
+  items, plus blockers and `context_gaps`.
 - `validation_gate`: source/evidence binding, dependency ordering, final review
   placement, and blocker aggregation.
-- `stop_conditions`: missing required case coverage, missing provider evidence,
-  or unresolved derivation context.
+- `stop_conditions`: `PLAN_OUTPUT_INCOMPLETE`, unresolved Plan blocker, or
+  unresolved derivation context.
 - `fallback`: the Tasks Core Agent processes one scope at a time.
 
 ### `speckit.analyze.read_only_parallel_review`
 
-- `stage`: vertical consistency analysis.
+- `stage`: cross-command consistency analysis.
 - `owner_agent`: Analyze Core Agent.
+- `input_scope`: Constitution/Architecture → Spec/Plan, Spec → Plan,
+  Architecture → X1/X2/X3, Plan → Tasks, and M + U preservation.
 - `allowed_writes`: none.
-- `output_contract`: findings, blockers, warnings, and closed-chain summary.
+- `output_contract`: stable-code findings, blockers, warnings, closed-chain
+  summary, and implementation readiness.
 - `fallback`: sequential read-only review.
 
 ## Permission Boundary
