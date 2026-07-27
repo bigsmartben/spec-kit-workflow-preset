@@ -2,22 +2,34 @@
 
 ## Unreleased
 
+## 3.1.0 - 2026-07-27
+
 - Split SDD governance from repository Architecture and added independent
   output-ready gates for both Constitution-managed artifacts.
 - Made Specify and Clarify independent, full-spectrum requirement commands;
   Checklist remains a question-form requirement quality gate.
+- Added one source-neutral `SRC-*` contract for natural-language direction,
+  requirement documents, executable visual references, technical evidence, and
+  context-only material without requiring an upstream provider or workflow.
+- Made `spec.md` the feature-local WHAT/WHY SSOT after authorized projection;
+  external source identity remains opaque provenance and is never an automatic
+  read, execution, freshness, fidelity, or publication-state target.
 - Nested X0–X4 design and test milestones inside the unchanged Core Plan
   lifecycle, with parallel domain/interface, UI/UX, and test/acceptance lanes.
 - Added canonical Test Conditions, executable `VAL-*` paths, and a single
   `test-readiness.md` handoff; BDD, scenario, fixture, and assertion contracts
   are optional technique children.
+- Added `SRC-* + UI/VIS-*` projection through UI/UX Delivery and UIF
+  `source_refs`/`requirement_refs` without creating an external dependency.
 - Made Tasks a pure T0–T5 mapper from `PLAN_OUTPUT_READY`, with required test
   conditions overriding the Core optional-test default and Final Code Review
   remaining last.
 - Added deterministic, read-only Analyze checks for Architecture → Plan,
-  Plan → Tasks, M + U scope, and data-model obligations.
+  Plan → Tasks, M + U scope, data-model obligations, and local source-reference
+  integrity/projection.
 - Removed obsolete intent and behavior-testability artifacts and prohibited
-  pixel/screenshot/diff/baseline/restoration/rendered-review task generation.
+  pixel/screenshot/diff/baseline/restoration/rendered-review, external-source
+  validation, and provider-tool task generation.
 
 ## 3.0.0 - 2026-07-26
 
