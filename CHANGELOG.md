@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 3.1.1 - 2026-07-27
+
+- Hardened Plan bundle validation so blocked Test Readiness rows and blocked
+  Test Conditions prevent false `PLAN_OUTPUT_READY: READY` conclusions.
+- Preserved independently verified X2-C outputs during blocked continuation and
+  kept blocked X2-B delivery distinct from N/A.
+- Allowed pure domain/internal-object X2-A design without an unnecessary
+  interface contract.
+- Added representative Plan bundle fixtures, release packaging assertions, and
+  local preset installation coverage for the corrected boundaries.
+
 ## 3.1.0 - 2026-07-27
 
 - Split SDD governance from repository Architecture and added independent
