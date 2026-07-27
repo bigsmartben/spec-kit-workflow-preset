@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Split SDD governance from repository Architecture and added independent
+  output-ready gates for both Constitution-managed artifacts.
+- Made Specify and Clarify independent, full-spectrum requirement commands;
+  Checklist remains a question-form requirement quality gate.
+- Nested X0–X4 design and test milestones inside the unchanged Core Plan
+  lifecycle, with parallel domain/interface, UI/UX, and test/acceptance lanes.
+- Added canonical Test Conditions, executable `VAL-*` paths, and a single
+  `test-readiness.md` handoff; BDD, scenario, fixture, and assertion contracts
+  are optional technique children.
+- Made Tasks a pure T0–T5 mapper from `PLAN_OUTPUT_READY`, with required test
+  conditions overriding the Core optional-test default and Final Code Review
+  remaining last.
+- Added deterministic, read-only Analyze checks for Architecture → Plan,
+  Plan → Tasks, M + U scope, and data-model obligations.
+- Removed obsolete intent and behavior-testability artifacts and prohibited
+  pixel/screenshot/diff/baseline/restoration/rendered-review task generation.
+
 ## 3.0.0 - 2026-07-26
 
 - Removed the preset-owned `speckit.implement` replacement and its manifest,

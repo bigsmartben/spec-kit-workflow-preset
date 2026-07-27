@@ -136,7 +136,7 @@ provides:
     - type: "template"
       name: "behavior-bdd-draft-template"
       file: "templates/behavior/bdd-draft.feature"
-      description: "Template for Phase 0 BDD drafts"
+      description: "Optional BDD technique draft derived from canonical Test Conditions"
       replaces: "behavior-bdd-draft-template"
       strategy: "replace"
 
@@ -171,7 +171,7 @@ provides:
     - type: "template"
       name: "requirement-visual-gate-template"
       file: "templates/requirements/visual-gate.md"
-      description: "Template for visual requirement and provider-evidence readiness"
+      description: "Question-form check for visual requirement and provider-evidence quality"
       replaces: "requirement-visual-gate-template"
       strategy: "replace"
 
