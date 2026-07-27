@@ -1,121 +1,62 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "speckit.behavior.scenario-instances.v1.schema.json",
-  "title": "Spec Kit Behavior Scenario Instances",
+  "title": "Optional Scenario-Based Acceptance Instances",
   "type": "object",
   "additionalProperties": false,
   "required": ["contract_type", "scenarios"],
   "properties": {
-    "contract_type": {
-      "const": "speckit.behavior.scenario_instances.v1"
-    },
-    "case_coverage_blockers": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "case_id", "case_type", "source", "reason", "downstream_contract_path"],
-        "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "case_id": {"type": "string", "minLength": 1},
-          "case_type": {
-            "enum": ["positive", "negative", "boundary", "permission", "validation", "state_conflict"]
-          },
-          "source": {"type": "string", "minLength": 1},
-          "reason": {"type": "string", "minLength": 1},
-          "downstream_contract_path": {"type": "string", "minLength": 1}
-        }
-      }
-    },
+    "contract_type": {"const": "speckit.behavior.scenario_instances.v1"},
     "scenarios": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "type": {"not": {"const": "positive"}}
-              },
-              "required": ["type"]
-            },
-            "then": {
-              "properties": {
-                "request_case": {
-                  "required": ["id", "case_kind", "outcome", "trigger"]
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "request_case": {
-                  "properties": {
-                    "outcome": {"const": "failure"}
-                  },
-                  "required": ["outcome"]
-                }
-              },
-              "required": ["request_case"]
-            },
-            "then": {
-              "properties": {
-                "expected_response": {
-                  "required": ["error_code"]
-                },
-                "expected_feedback": {
-                  "required": ["type", "message"]
-                }
-              }
-            }
-          },
-          {
-            "if": {"properties": {"type": {"const": "negative"}}, "required": ["type"]},
-            "then": {"properties": {"request_case": {"properties": {"case_kind": {"const": "negative"}, "outcome": {"const": "failure"}}}}}
-          },
-          {
-            "if": {"properties": {"type": {"const": "boundary"}}, "required": ["type"]},
-            "then": {"properties": {"request_case": {"properties": {"case_kind": {"const": "boundary"}}}}}
-          },
-          {
-            "if": {"properties": {"type": {"const": "permission"}}, "required": ["type"]},
-            "then": {"properties": {"request_case": {"properties": {"case_kind": {"const": "permission"}, "outcome": {"const": "failure"}}}}}
-          },
-          {
-            "if": {"properties": {"type": {"const": "validation"}}, "required": ["type"]},
-            "then": {"properties": {"request_case": {"properties": {"case_kind": {"const": "validation"}, "outcome": {"const": "failure"}}}}}
-          },
-          {
-            "if": {"properties": {"type": {"const": "state_conflict"}}, "required": ["type"]},
-            "then": {"properties": {"request_case": {"properties": {"case_kind": {"const": "state_conflict"}, "outcome": {"const": "failure"}}}}}
-          }
-        ],
         "required": [
           "id",
           "title",
           "type",
-          "uif_path_id",
-          "fixture_ids",
+          "test_condition_refs",
           "request_case",
           "expected_response",
-          "expected_feedback",
           "assertion_ids"
         ],
+        "allOf": [
+          {
+            "oneOf": [
+              {"required": ["uif_path_id"]},
+              {"required": ["non_ui_rationale"]}
+            ]
+          },
+          {
+            "oneOf": [
+              {"required": ["fixture_ids"]},
+              {"required": ["no_fixture_rationale"]}
+            ]
+          }
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
+          "id": {"type": "string", "pattern": "^SCN-[A-Z0-9][A-Z0-9-]*$"},
           "title": {"type": "string", "minLength": 1},
           "type": {
             "enum": ["positive", "negative", "boundary", "permission", "validation", "state_conflict"]
           },
+          "test_condition_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^TC-[A-Z0-9][A-Z0-9-]*$"}
+          },
           "uif_path_id": {"type": "string", "minLength": 1},
+          "non_ui_rationale": {"type": "string", "minLength": 1},
           "fixture_ids": {
             "type": "array",
             "minItems": 1,
+            "uniqueItems": true,
             "items": {"type": "string", "minLength": 1}
           },
+          "no_fixture_rationale": {"type": "string", "minLength": 1},
           "request_case": {
             "type": "object",
             "additionalProperties": true,
@@ -131,24 +72,17 @@
           },
           "expected_response": {
             "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "business_code": {"type": "string", "minLength": 1},
-              "status": {"type": ["integer", "string"]},
-              "error_code": {"type": "string", "minLength": 1}
-            }
+            "additionalProperties": true
           },
           "expected_feedback": {
             "type": "object",
             "additionalProperties": true,
-            "properties": {
-              "type": {"type": "string", "minLength": 1},
-              "message": {"type": "string", "minLength": 1}
-            }
+            "minProperties": 1
           },
           "assertion_ids": {
             "type": "array",
             "minItems": 1,
+            "uniqueItems": true,
             "items": {"type": "string", "minLength": 1}
           }
         }

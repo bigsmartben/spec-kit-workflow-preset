@@ -23,13 +23,17 @@ This repository is a Spec Kit community preset named `workflow-preset`.
   protocol, execution manifest, worker result protocol, Python orchestration,
   workflow shell dispatch, integration adapter scripts, or script-based worker
   dispatch.
-- Planning design artifacts are optional and contextual:
-  - `class-diagram.md`
-  - `contracts/sequences.md`
-- Validation decisions stay in `research.md` and executable paths in
-  `quickstart.md`; plan closeout maps them into
-  `behavior/behavior-testability.md`, and `/speckit.tasks` derives concrete
-  tasks. Do not add standalone `test-plan.md`.
+- Planning uses X0–X4 internal milestones inside the unchanged Core Plan
+  lifecycle. X2-A Domain/Object/Interface, X2-B UI/UX Delivery, and X2-C Test &
+  Acceptance are parallel lanes.
+- `class-diagram.md` and `contracts/sequences.md` are contextual X2-A artifacts
+  with explicit triggers or N/A reasons.
+- `ui-ux-design.md` is the X2-B delivery/readiness carrier.
+- `contracts/test/test-conditions.json` is the X2-C parent Test contract; BDD,
+  scenario, fixture, and assertion artifacts are optional technique children.
+- Validation decisions stay in `research.md`, executable `VAL-*` paths stay in
+  `quickstart.md`, and `test-readiness.md` is the single Test/Tasks handoff.
+  Do not restore `behavior/behavior-testability.md` or add `test-plan.md`.
 - Do not move product requirements out of `spec.md`, domain model details out of `data-model.md`, interface schemas out of `contracts/`, or validation run guidance out of `quickstart.md`.
 
 ## Integration Boundary

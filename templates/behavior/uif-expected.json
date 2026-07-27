@@ -1,7 +1,7 @@
 {
   "contract_type": "speckit.behavior.uif.expected.v1",
   "id": "UIF-001",
-  "source": "behavior/uif.intent.json",
+  "source": "ui-ux-design.md#uif-contracts",
   "type": "expected",
   "start_view": {
     "id": "VIEW-001",
@@ -20,5 +20,10 @@
       "type": "message",
       "message": "<expected feedback>"
     }
-  ]
+  ],
+  "visual_item_refs": ["VIS-001"],
+  "viewport_matrix_refs": ["UI-001#viewports"],
+  "state_matrix_refs": ["UI-001#states"],
+  "visual_proof_refs": [],
+  "accepted_exception_refs": []
 }

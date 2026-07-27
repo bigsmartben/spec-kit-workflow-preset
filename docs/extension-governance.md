@@ -73,7 +73,10 @@ The workflow is a producer-to-consumer pipeline:
 
 ```text
 spec.md + optional independent requirement-writing checklists
-    -> plan artifacts + BDD/UIF/validation design
+    -> X0 plan control
+    -> X1 shared decisions
+    -> X2-A domain/object/interface + X2-B UI/UX + X2-C Test contracts
+    -> X3 VAL paths + X4 independent readiness
     -> tasks.md implementation and validation checklist
     -> core /speckit.implement execution
 ```
@@ -152,21 +155,40 @@ Shared stage-local behavior is documented in
 their own stage profile. Commands must not use `tests/` or `docs/` paths as
 runtime sources.
 
-## Planning Artifact Boundaries
+## X0–X4 Planning Artifact Boundaries
 
 Keep `/speckit.plan` and `/speckit.tasks` as core-template wrappers unless an
 intentional contract change says otherwise.
 
-Optional contextual design artifacts include:
+The X labels are preset-internal milestones nested inside unchanged Core Plan
+setup, Phase 0, Phase 1, post-design Constitution Check, hooks, and completion:
 
-- `class-diagram.md`
-- `contracts/sequences.md`
+| Milestone/lane | Owning artifact |
+|---|---|
+| X0 Feature Plan Control | `plan.md` |
+| X1 Research & Decisions | `research.md` |
+| X2-A Domain/Object/Interface | `data-model.md`, contextual `class-diagram.md`, interface contracts, contextual `contracts/sequences.md` |
+| X2-B UI/UX Delivery | `ui-ux-design.md`, `contracts/uif/` |
+| X2-C Test & Acceptance | `contracts/test/test-conditions.json`, optional technique children |
+| X3 Validation Paths | `quickstart.md` `VAL-*` paths |
+| X4 Design Readiness | `plan.md` derivation index |
+| X4 UI/UX Delivery Readiness | `ui-ux-design.md` |
+| X4 Test Readiness | `test-readiness.md` |
+
+X2-A, X2-B, and X2-C are parallel and mutually constraining. BDD is an optional
+Test technique, not the parent of planning. Test Conditions may cover
+functional, accessibility, security, performance, reliability, recovery,
+compatibility, and data-side-effect concerns across unit/component/contract/
+integration/system/e2e levels.
+
+Pixel-fidelity delivery and review belong only to UI/UX Delivery Readiness.
+Pixel, screenshot, diff, baseline, restoration, and rendered-visual-review work
+is rejected from Test Conditions and Test Readiness.
 
 Validation decisions stay in `research.md`, executable paths stay in
-`quickstart.md`, and BDD Plan closeout maps them into
-`behavior/behavior-testability.md`. `/speckit.tasks` derives unit, contract,
-integration, UI acceptance, real-system e2e, and review tasks from that mapping.
-Do not add a standalone `test-plan.md`.
+`quickstart.md`, and `test-readiness.md` is the single Test/Tasks handoff. Do
+not restore `behavior/behavior-testability.md`, create a generic
+`planning-readiness.md`, or add a standalone `test-plan.md`.
 
 ## External Intake Boundary
 

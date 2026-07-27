@@ -1,242 +1,207 @@
 ---
-description: Wrap core planning with project Architecture consumption, Phase 0 behavior projection, formal contracts, and BDD Plan closeout.
+description: Wrap Core Plan with X0–X4 feature control, parallel design lanes, and test-first acceptance contracts.
 strategy: wrap
 ---
 
-## Change Scope Granularity
-
-Apply the constitution's Change Scope Granularity principle.
-
-During planning, lock the change scope to `M + U`: module/capability plus design object. Do not lock operation-level implementation details or concrete write paths.
-
-## Architecture-Guided Planning
-
-Before Phase 0 preflight or any planning write, read:
-
-```text
-.specify/memory/constitution.md
-.specify/memory/architecture.md
-```
-
-If `architecture.md` is missing, uses the retired 4+1 or nine-section planning-contract format, lacks an Architecture goal or authorized sources, or has no explicit system boundary with ownership and non-responsibility, stop with a report-only/no-write failure and return to `/speckit.constitution`.
-
-Consume applicable Architecture content through the normal planning artifacts:
-
-- `research.md` MUST follow established technical decisions and evidence. If a documented revisit condition is met, record the evidence that triggered it; do not silently replace the Architecture decision.
-- `data-model.md` MUST preserve defined concepts, ownership, relationships, lifecycle, and invariants.
-- `contracts/` MUST preserve system boundaries, responsibilities, interface ownership, and dependency direction.
-- `plan.md` and `quickstart.md` MUST carry forward applicable Architecture constraints, unresolved gaps, revisit conditions, and validation implications.
-
-An Architecture gap may shape or block planning, but must not be converted into an invented decision. If any planning artifact conflicts with or requires changing `.specify/memory/architecture.md`, stop planning and return to the Constitution stage. Do not repair or rewrite project Architecture from `/speckit.plan`.
-
-Planning artifacts demonstrate Architecture consumption in their normal content. Do not create a compliance matrix, consumption report, audit receipt, or separate traceability artifact.
-
-## Plan Agent Topology
-
 Follow cross-agent protocol profile: `speckit.plan.stage_local_planning`.
 
-Plan Core Agent owns requirement-gate consumption, stage-local delegation,
-conflict resolution, BDD Plan closeout, and final writes to planning artifacts.
-Delegated agents return bounded drafts, source refs, blockers, and
-`context_gaps`; Plan Core Agent consumes those outputs rather than subagent conversation history.
+## Core Compatibility
 
-Use only planning-local roles: Behavior Projection Agent, Formal Contract Agent, Design Artifact Agent, Validation Planning Agent, and Visual Planning Agent. Each payload declares assigned scope, allowed reads, allowed sections, and output contract. If runtime subagents are unavailable, Plan Core Agent processes one assigned scope at a time with the same boundaries and final-write ownership.
+The X labels are preset-internal milestones nested inside the official Core
+Plan lifecycle:
 
-## Design Artifact Policy
+```text
+Core setup + plan-template materialization -> X0
+Core Phase 0 Outline & Research           -> X1
+Core Phase 1 Design & Contracts           -> X2 and X3
+Core post-design Constitution re-check    -> unchanged
+Preset closeout before completion report  -> X4
+```
 
-Core planning remains authoritative. Optional design artifacts carry structured details that do not belong in `plan.md`.
+Preserve Core user input, setup scripts, Technical Context, Constitution Check,
+pre/post hooks, Phase 0, Phase 1, and completion behavior in their official
+order. Do not add, remove, rename, reorder, duplicate, or reinterpret a Core
+phase or gate. Do not re-run Checklist or aggregate Planning Readiness.
 
-Generate design artifacts only when the feature requires internal object design or cross-boundary sequence constraints:
+## External Input Boundary
 
-- `class-diagram.md`: internal implementation object structure.
-- `contracts/sequences.md`: service-call, command, event, and integration sequencing.
+Read `spec.md`, `.specify/memory/constitution.md`, the current repository, and
+`.specify/memory/architecture.md`. Planning has one strategy for every
+repository:
 
-For simple features, keep artifacts concise. `N/A` sections require a concrete rationale, for example "No service boundary exists for this static documentation change." Do not create large placeholder files.
+```text
+current repository facts
+  -> applicable Architecture constraints
+  -> repository-grounded technical design
+  -> Plan outputs
+```
 
-Keep `plan.md` as summary/navigation. It must link generated design artifacts and must not embed complete class diagrams or complete sequence diagrams.
+Treat empty/minimal repositories as observed fact. Do not invent an existing
+module, path, dependency, or implementation surface. Architecture IDs and
+revision are provenance inputs. Plan never amends Architecture or declares
+cross-command conformance. If required design cannot fit Architecture, record a
+blocker routed to `/speckit.constitution`.
 
-Store service sequences only at `contracts/sequences.md`, even when there are no other contract files. Do not create a root-level `sequences.md`.
+Consume confirmed WHAT/WHY requirements and source refs. Do not rewrite Spec,
+invoke Clarify/Checklist, evaluate requirement completeness, or acquire provider
+evidence.
 
-Validation strategy is not a standalone planning document. Planning-time
-validation decisions belong in `research.md`; executable validation paths belong in `quickstart.md`; BDD Plan closeout maps those decisions into
-`behavior/behavior-testability.md`; concrete tasks belong in `tasks.md`.
+Apply Change Scope Granularity: lock planned `M + U`; `plan.md` may record
+repository/module directory topology required by Core, but no task IDs,
+per-task paths, operation-level changes, or implementation order.
 
-## Phase 0 Gate Consumption
+## X0 — Feature Plan Control
 
-Use the core plan command's read-only Planning Readiness preflight before any
-planning write. This wrapper consumes:
+Run after Core setup has materialized `plan.md`, before detailed research.
+Populate the control sections supplied by `plan-template`:
 
-- `checklists/requirements.md`
-- `checklists/behavior.md`
-- `checklists/ux.md`
-- `checklists/security.md`
-- `checklists/nfr.md`
-- `checklists/visual.md`
+- feature goal and exclusions;
+- repository-grounded planned `M + U`;
+- Spec and applicable Architecture revision/ID refs;
+- X2-A, X2-B, X2-C applicability (`Required`, `Not Applicable: <reason>`, or
+  `Blocked: <ID>`);
+- declared independent artifact outputs and internal gates;
+- cross-lane dependencies;
+- navigation without broken placeholder links.
 
-All standard domains must be evaluated, metadata must match the current spec
-revision, and every applicable gate must PASS. Do not accept the legacy
-`checklists/behavior-testability.md` as evidence. Missing, BLOCKED, malformed,
-or stale gates produce the core report-only/no-write failure. Return product
-decisions to `/speckit.clarify` and provider evidence to intake.
+`X0_CONTROL_READY` passes only when goal/scope, lane applicability, outputs,
+dependencies, Core Technical Context, and Constitution Check are explicit and
+no detailed design/test artifact is duplicated into `plan.md`.
 
-## Phase 0 Behavior Projection
+## X1 — Research & Decisions
 
-After Phase 0 preflight passes and before core research or design work, project the accepted `spec.md` requirements into behavior drafts:
+Within Core Phase 0, use `research.md` as a shared decision record. Every
+material decision has:
 
-- `behavior/bdd.draft.feature`: readable BDD draft scenarios.
-- `behavior/behavior-scenarios.draft.json`: structured draft scenario IDs, Given inputs, When actions, Then outcomes, and source.
-- `behavior/uif.intent.json`: interaction intent extracted from accepted requirements.
-- `behavior/data-fixtures.intent.json`: data setup intent required by draft scenarios.
+```text
+Decision ID | source/constraint refs | decision | rationale | alternatives
+| affected outputs | status
+```
 
-Required case types from `checklists/behavior.md` must project into
-`behavior/behavior-scenarios.draft.json`. Do not continue with only positive
-scenarios when Required case types exist. If a Required case type cannot be
-projected without inventing requirements, stop without partial behavior writes
-and return to `/speckit.checklist` or `/speckit.clarify`.
+Use `DEC-TECH-*`, `DEC-DATA-*`, `DEC-IF-*`, `DEC-UI-*`, and `DEC-TEST-*`.
+Record applicable decisions for technical topology/runtime, data
+consistency/migration/retry/rollback, interface ownership/compatibility, UI/UX
+state/responsive/token/asset/accessibility delivery, and Test risk/level/type/
+technique/fixture/environment/oracle/evidence.
 
-Phase 0 behavior projection is a projection step, not a new requirement-discovery step:
+`research.md` records decisions, not complete designs, Test Conditions, tasks,
+results, or cross-command audits. `X1_DECISIONS_READY` requires Core technical
+unknowns and active-lane decisions to be decided, routed upstream, or retained
+as stable runtime prerequisites. “Use E2E/BDD” alone is incomplete.
 
-- Do not discover new requirement problems.
-- Do not ask clarification questions.
-- Do not modify `spec.md`.
-- Do not generate formal contracts.
-- Do not decide test level, fixture strategy, external-system strategy, interface design, or validation commands.
+## X2 — Parallel Design & Contracts
 
-Structured JSON draft artifacts must follow their matching `schemas/speckit.behavior.*.schema.json` contracts.
+X2-A, X2-B, and X2-C are parallel and mutually constraining. A lane returns a
+bounded gap to the owning lane; it never silently owns another lane's schema.
 
-If Phase 0 cannot generate behavior drafts from a `spec.md` that passed checklist, stop with a report-only/no-write failure. Do not create or update partial behavior artifacts. The remedy is to return to `/speckit.checklist` or `/speckit.clarify`; do not invent missing requirements during planning.
+### X2-A Domain / Object / Interface / Sequence
 
-## Additional Phase 1 Design Outputs
+- `data-model.md` owns domain concepts, fields, relationships, lifecycle,
+  invariants, validation, ownership, and persistence semantics. Test fixtures,
+  scenario instances, UIF paths, feedback views, assertions, DTO schemas, and
+  task paths are not domain entities unless genuinely part of the product.
+- `class-diagram.md` follows the stable template and owns implementation object
+  responsibilities and relationships. Trigger it for multiple cooperating
+  objects, dependency direction, patterns, or ownership that `plan.md` cannot
+  express; otherwise record a specific N/A reason.
+- interface contracts own externally observable protocol, input/output,
+  errors, compatibility/versioning, and state effects.
+- `contracts/sequences.md` owns cross-boundary order, async callbacks, retry,
+  rollback, compensation, and failure propagation when order is observable;
+  otherwise record a specific N/A reason.
 
-During Phase 1, after Phase 0 behavior projection and core research have resolved planning unknowns and while producing design/contracts, create or update these artifacts only when their trigger conditions are met:
+`X2A_DESIGN_READY` requires every triggered artifact populated or explicitly
+N/A, non-overlapping ownership, resolved internal refs, and no placeholder
+presented as a decision.
 
-1. `class-diagram.md`
-   - Capture key classes, interfaces, abstract types, services, repositories, adapters, factories, strategies, controllers, and coordinators.
-   - Explain each core type's responsibility and the relationships that constrain implementation: inheritance, composition, aggregation, dependency, and references.
-   - Format must be Mermaid, PlantUML, or structured table; selected format must expose type responsibilities and relationships.
-   - Do not define API request/response fields, domain business fields, test cases, task IDs, private helpers, or method-level implementation details.
+### X2-B UI/UX Delivery
 
-2. `contracts/sequences.md`
-   - Capture the observable flow of API requests, commands, events, callbacks, async workers, external systems, retries, compensation, rollback, and failure branches.
-   - Include participants, service boundaries, main success paths, important alternate paths, and failure handling that affects implementation or testing.
-   - Format must be Mermaid sequence diagram or structured text; selected format must expose participants, boundaries, success paths, and failure paths.
-   - Do not define field schemas, internal class inheritance, test matrices, or user-facing run instructions.
+When UI/UX or visual delivery applies, create `ui-ux-design.md` from its stable
+template. It owns surfaces, components, composition, state, navigation/events,
+viewports/responsive behavior, tokens/themes/variants, assets/fallbacks,
+accessibility implementation, accepted visual sources, pixel-delivery method,
+and UI/UX Delivery Readiness.
 
-When `plan.md` has a design artifact/navigation section, include links to:
+`contracts/uif/*.expected.json` is a UI/UX interaction contract: start view,
+events, routes, observable states/feedback, API call refs, and transitions. It
+may carry `visual_item_refs`, `viewport_matrix_refs`, `state_matrix_refs`,
+`visual_proof_refs`, and `accepted_exception_refs` as declared schema fields.
+It does not own pixel comparison, styling, or API payload schemas.
 
-- Internal object design: `./class-diagram.md`
-- Service sequences: `./contracts/sequences.md`
-- Behavior draft: `./behavior/bdd.draft.feature`
-- BDD contracts: `./contracts/bdd/`
-- Expected UIF contracts: `./contracts/uif/`
-- Behavior contracts: `./contracts/behavior/`
-- Data model: `./data-model.md`
-- Interface contracts: `./contracts/`
-- Validation path: `./quickstart.md`
-- Behavior testability: `./behavior/behavior-testability.md`
+Do not produce `behavior/uif.intent.json` as a mandatory parent or second SSOT.
+Formal UIF derives from accepted Spec refs plus `ui-ux-design.md`.
 
-When visual requirements are in scope, keep `plan.md` navigation linked to visual fidelity scope, source refs, visual SSOT refs, HTML SSOT refs, structured IR refs, screenshot refs, visual proof refs, and other external evidence refs already accepted by `spec.md` and the readiness checklist.
+`X2B_UIUX_READY` requires applicable UI/VIS refs to map to delivery records or a
+stable blocker, including states, responsive/accessibility behavior, asset
+fallbacks, and pixel delivery/review ownership when required. Pixel work stays
+in UI/UX, never Test Conditions.
 
-## Visual Planning Responsibilities
+### X2-C Test & Acceptance
 
-When visual requirements are in scope, planning must keep
-`checklists/visual.md` and its Visual Fidelity Evidence Matrix as the upstream
-readiness record and split visual carry-forward across the existing planning
-outputs.
+Create `contracts/test/test-conditions.json` from its schema/template. One
+`TC-*` represents one required condition and records source, risk/priority,
+level, type, technique, execution mode, fixture decision, environment,
+oracle, evidence, related design/UIF/interface refs, X3 path/blocker, and status.
 
-Use the Visual Fidelity Evidence Matrix `Requirement Status` as the visual planning input filter. Carry forward only visual rows with status `Required` or an accepted exception rule. Rows with status `Unknown` or `[BLOCKED: PROVIDER_EVIDENCE]` must already have blocked checklist PASS; if encountered during planning, stop with a report-only/no-write upstream gate failure and return to `/speckit.checklist`, `/speckit.clarify`, or the external intake extension as appropriate. Do not project `Not Applicable` rows into visual planning outputs.
+BDD drafts/contracts and structured behavior scenario/fixture/assertion
+artifacts are optional children only when selected techniques require them:
 
-- `research.md`: carry forward visual and IR planning inputs for each relevant Visual Item ID or visual SSOT ref. Record source refs, HTML SSOT refs, structured IR refs, readiness status, accepted exception refs, unresolved blocker refs, external evidence refs, related quickstart path, and related UIF or behavior contract path. Do not define visual validation strategy, screenshot comparison, visual diff, baseline capture, or final visual review work; do not copy the Visual Fidelity Evidence Matrix into `research.md`, create new visual requirements, call provider tools, rebuild external intake evidence, or rebuild provider evidence matrices.
-- `contracts/uif/` and `contracts/behavior/`: formalize accepted visual interaction and state constraints only when they affect observable behavior. Expected UIF contracts may carry visual_item_refs, viewport_matrix_refs, state_matrix_refs, visual_proof_refs, and accepted_exception_refs. Behavior contracts may reference visual assertion IDs or blockers when a visual state cannot be formalized without inventing requirements. Interface contracts in `contracts/` may model only API or data fields needed to support UI states, assets, or feedback; they must not contain layout rules or screenshot proof decisions.
-- `contracts/sequences.md`: add UI interaction sequence, visual state handoff points, responsive branch trigger refs, and visual proof references only when visual states affect cross-boundary order, async callbacks, retries, rollback, compensation, or error propagation. Keep visual style, tokens, layout breakpoints, screenshot matrices, and validation commands out of `contracts/sequences.md`.
+- BDD/scenario artifacts must reference their parent `TC-*`;
+- non-UI scenarios omit `uif_path_id` with `non_ui_rationale`;
+- fixture-free scenarios omit fixture refs with `no_fixture_rationale`;
+- non-UI/non-message oracles do not require feedback;
+- formal fixtures exist only when a Test Condition requires reusable setup;
+- assertions may express state, error, invariant, threshold, accessibility,
+  security, reliability, recovery, or data-side-effect outcomes.
 
-## Behavior-First Planning Inputs
+Reject pixel-perfect comparison, screenshot diff, baseline capture, pixel-level
+layout/style assertions, visual restoration, and final pixel review from Test
+Conditions or Test Readiness.
 
-Use the Phase 0 behavior projection drafts as planning inputs:
+`X2C_TEST_DESIGN_READY` requires all TC dimensions and internal refs, every
+technique-triggered child or stable blocker, and zero pixel-level Test entries.
 
-- `behavior/bdd.draft.feature`
-- `behavior/behavior-scenarios.draft.json`
-- `behavior/uif.intent.json`
-- `behavior/data-fixtures.intent.json`
+## X3 — Integration & Validation Paths
 
-Phase 1 outputs must cite applicable draft scenario IDs or record `N/A or blocker`.
+Within Core Phase 1, populate `quickstart.md` using stable `VAL-*` records:
 
-During Phase 1, if behavior drafts exist and the requirement gates have passed,
-you must formalize them into formal behavior contracts:
+```text
+VAL ID | covered TC/design/contract refs | purpose and level/type
+| prerequisites/environment/mode | actor/journey | fixture/data
+| systems/boundaries | ordered actions | oracle | evidence | cleanup | blocker
+```
 
-- `contracts/bdd/`: acceptance-level BDD contracts.
-- `contracts/uif/`: Expected UIF contracts.
-- `contracts/behavior/`: scenario instance, fixture, and assertion contracts.
+Unit/component/contract conditions may share a command path when their oracle
+and evidence remain identifiable. Integration/system/e2e and real-system
+conditions require explicit journey/environment paths. Do not embed suites,
+implementation bodies, migrations, task IDs/order, or fabricated results.
 
-Required case types from `checklists/behavior.md` must formalize into
-`contracts/behavior/scenario-instances.json`. Do not continue with only positive
-scenarios when Required case types exist. Map each Required Case ID to a
-Scenario ID or `case_coverage_blockers` entry. When a Required case type cannot
-be formalized, write `case_coverage_blockers` in
-`contracts/behavior/scenario-instances.json` and record `N/A or blocker` with
-the Case ID, missing planning input, and downstream contract path.
+`X3_VALIDATION_PATHS_READY` requires each condition needing a runnable path to
+map to a complete `VAL-*` or stable runtime blocker.
 
-When formalizing BDD Draft into `contracts/bdd/*.feature`:
+## X4 — Independent Closeout
 
-- Preserve scenario intent and business outcome from the draft.
-- Convert ambiguous Given steps into formal fixture, actor, state, permission, or start-view conditions.
-- Convert When steps into formal user events, request cases, or system triggers aligned with UIF/API contracts.
-- Convert Then steps into formal feedback, response, business state, or assertion expectations.
-- If a step cannot be formalized without inventing information, record `N/A or blocker` instead of guessing.
-- Do not introduce independent traceability mechanisms for BDD formalization.
+After Core design and its post-design Constitution re-check:
 
-If behavior drafts exist but cannot be formalized, write `N/A or blocker` in the affected planning artifact with the source draft path, the missing planning input, and the downstream contract path that could not be produced. Do not silently skip behavior draft formalization.
+1. Finalize `plan.md` Design Object Derivation Index:
+   `source refs | Architecture provenance | M | U/design object | data-model |
+   class | interface/sequence | blocker`.
+2. Finalize UI/UX Delivery Readiness in `ui-ux-design.md` or explicit N/A.
+3. Create `test-readiness.md` as the only Test/Tasks readiness SSOT, one row per
+   required `TC-*`. Do not create/retain authoritative
+   `behavior/behavior-testability.md`, `planning-readiness.md`, or
+   `test-plan.md`.
+4. Summarize gate status and lane-owned blockers in `plan.md`.
 
-BDD draft reasoning must feed the normal planning outputs:
-
-- `research.md`: record the selected test level, fixture strategy, mock/external-system strategy, and error-branch validation decisions for each behavior scenario type that affects implementation.
-- `data-model.md`: model formal behavior entities referenced by behavior contracts, including `BehaviorScenarioInstance`, `DataFixture`, `UIFPath`, `FeedbackView`, and `BehaviorAssertion`.
-- `contracts/`: align interface contracts with BDD When steps, Expected UIF `api_call` steps, and behavior assertions.
-- `quickstart.md`: include validation paths that exercise the formal BDD/UIF/behavior contracts.
-
-Keep `plan.md` as summary/navigation for these formal behavior contracts. Product requirements stay in `spec.md`, domain details stay in `data-model.md`, interface schemas stay in `contracts/`, and validation run guidance stays in `quickstart.md`.
-
-## BDD Plan / Behavior Testability Closeout
-
-After Phase 1 contracts, `research.md`, and `quickstart.md` are complete,
-generate `behavior/behavior-testability.md` from the
-`behavior-testability-template`.
-
-Compute and record the current spec and plan SHA-256 revisions. Build one Task
-Derivation Matrix row for every Required Case from `checklists/behavior.md`.
-Each row maps:
-
-`Case ID → Scenario ID → BDD ref → UIF ref → fixture ref → assertion ref →
-validation level → research decision → quickstart path → visual/NFR refs`.
-
-- UIF may be `N/A` only with a concrete non-UI reason.
-- Visual or NFR may be N/A only by referencing the corresponding requirement
-  gate and rationale.
-- Validation level is `unit`, `contract`, `integration`, or `e2e`.
-- Every missing mapping gets a stable blocker ID.
-- `Behavior Testability Status: READY` requires every Required Case to have a
-  complete derivation row and no blocking items.
-- Otherwise set `Behavior Testability Status: BLOCKED`.
-
-Recompute generated sections by stable Case ID. Do not append duplicate Gate
-Status blocks, retain resolved blockers, copy the legacy
-`checklists/behavior-testability.md`, re-check requirement prose, call provider
-intake, or ask product clarification.
+`PLAN_OUTPUT_READY` equals X0 + X1 + applicable X2 gates + applicable X3 +
+complete Design/UI/UX/Test readiness + resolved Plan-internal refs + no
+placeholder presented as a decision. It validates Plan outputs only.
 
 {CORE_TEMPLATE}
 
-## Design Artifact Reporting
+## Preset Completion Addition
 
-Before finishing, the final report must list generated artifacts and state whether each is populated or intentionally minimal:
-
-- `class-diagram.md`: populated, intentionally minimal, or not applicable with reason.
-- `contracts/sequences.md`: populated, intentionally minimal, or not applicable with reason.
-
-Also report where validation decisions were recorded:
-
-- `research.md`: selected test level, fixture strategy, mock/external-system strategy, and error-branch validation decisions required by behavior contracts.
-- `quickstart.md`: executable validation paths for the planned behavior contracts.
-- `behavior/behavior-testability.md`: READY or BLOCKED, with Required Case
-  coverage and blocker IDs.
-
-Report unresolved design gaps separately from downstream tasks. Do not mark the planning run complete if a design artifact contains unresolved `NEEDS CLARIFICATION` items that block task generation.
+Report each X0–X4 gate, active/N/A lanes, artifacts created or omitted with
+reasons, readiness products, Architecture revision refs, runtime prerequisites,
+lane-owned blockers, and `PLAN_OUTPUT_READY`. Do not report Tasks, execution
+results, or cross-command consistency.

@@ -18,7 +18,20 @@
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "target": {"type": "string", "minLength": 1},
-          "operator": {"enum": ["equals", "not_equals", "contains", "exists", "matches"]},
+          "operator": {
+            "enum": [
+              "equals",
+              "not_equals",
+              "contains",
+              "exists",
+              "matches",
+              "less_than",
+              "less_than_or_equal",
+              "greater_than",
+              "greater_than_or_equal",
+              "passes_audit"
+            ]
+          },
           "expected": {},
           "intent": {
             "enum": [
@@ -27,7 +40,13 @@
               "failure_feedback",
               "state_invariant",
               "rollback",
-              "compensation"
+              "compensation",
+              "threshold",
+              "accessibility_audit",
+              "security_audit",
+              "reliability",
+              "recovery",
+              "data_side_effect"
             ]
           }
         }

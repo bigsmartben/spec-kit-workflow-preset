@@ -9,7 +9,9 @@
         "entity.field": "value"
       },
       "constraints": [],
-      "setup_strategy": "factory"
+      "setup_strategy": "factory",
+      "reset_strategy": "transaction_rollback",
+      "environment_refs": ["ENV-LOCAL"]
     }
   ]
 }

@@ -1,0 +1,25 @@
+{
+  "contract_type": "speckit.test.conditions.v1",
+  "feature": "<feature>",
+  "conditions": [
+    {
+      "id": "TC-001",
+      "source_refs": ["FR-001"],
+      "risk_or_priority": "high",
+      "levels": ["contract"],
+      "types": ["functional"],
+      "techniques": ["contract_testing"],
+      "execution_mode": "sandbox",
+      "fixture_refs": ["FIX-001"],
+      "environment_refs": ["ENV-SANDBOX"],
+      "oracle": {
+        "kind": "response",
+        "expected": "HTTP 200 with accepted contract"
+      },
+      "evidence_requirement": "captured command output",
+      "related_refs": ["contracts/api/example.yaml"],
+      "quickstart_ref": "VAL-001",
+      "status": "required"
+    }
+  ]
+}

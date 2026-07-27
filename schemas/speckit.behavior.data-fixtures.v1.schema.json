@@ -14,7 +14,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "entities", "required_states", "constraints", "setup_strategy"],
+        "required": ["id", "name", "entities", "required_states", "constraints", "setup_strategy", "reset_strategy", "environment_refs"],
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "name": {"type": "string", "minLength": 1},
@@ -30,7 +30,13 @@
             "type": "array",
             "items": {"type": "string"}
           },
-          "setup_strategy": {"type": "string", "minLength": 1}
+          "setup_strategy": {"type": "string", "minLength": 1},
+          "reset_strategy": {"type": "string", "minLength": 1},
+          "environment_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          }
         }
       }
     }

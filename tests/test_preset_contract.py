@@ -14,6 +14,10 @@ from validators.speckit_behavior_contract import (
     validate_behavior_contract_bundle,
     validate_behavior_draft_contract,
 )
+from validators.speckit_test_contract import (
+    validate_test_conditions,
+    validate_test_readiness,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -57,12 +61,6 @@ BEHAVIOR_SCHEMA_PATHS = {
     "speckit.behavior.scenarios.draft.v1": REPO_ROOT
     / "schemas"
     / "speckit.behavior.scenarios.draft.v1.schema.json",
-    "speckit.behavior.uif.intent.v1": REPO_ROOT
-    / "schemas"
-    / "speckit.behavior.uif.intent.v1.schema.json",
-    "speckit.behavior.data_fixtures.intent.v1": REPO_ROOT
-    / "schemas"
-    / "speckit.behavior.data-fixtures.intent.v1.schema.json",
     "speckit.behavior.uif.expected.v1": REPO_ROOT
     / "schemas"
     / "speckit.behavior.uif.expected.v1.schema.json",
@@ -82,15 +80,6 @@ BEHAVIOR_TEMPLATE_PATHS = {
     / "templates"
     / "behavior"
     / "behavior-scenarios-draft.json",
-    "behavior-uif-intent-template": REPO_ROOT / "templates" / "behavior" / "uif-intent.json",
-    "behavior-data-fixtures-intent-template": REPO_ROOT
-    / "templates"
-    / "behavior"
-    / "data-fixtures-intent.json",
-    "behavior-testability-template": REPO_ROOT
-    / "templates"
-    / "behavior"
-    / "behavior-testability.md",
     "behavior-bdd-contract-template": REPO_ROOT / "templates" / "behavior" / "bdd-contract.feature",
     "behavior-uif-expected-template": REPO_ROOT / "templates" / "behavior" / "uif-expected.json",
     "behavior-scenario-instances-template": REPO_ROOT
@@ -100,6 +89,17 @@ BEHAVIOR_TEMPLATE_PATHS = {
     "behavior-data-fixtures-template": REPO_ROOT / "templates" / "behavior" / "data-fixtures.json",
     "behavior-assertions-template": REPO_ROOT / "templates" / "behavior" / "assertions.json",
 }
+TEST_CONDITIONS_SCHEMA_PATH = (
+    REPO_ROOT / "schemas" / "speckit.test.conditions.v1.schema.json"
+)
+TEST_CONDITIONS_TEMPLATE_PATH = (
+    REPO_ROOT / "templates" / "test" / "test-conditions.json"
+)
+TEST_READINESS_TEMPLATE_PATH = REPO_ROOT / "templates" / "test-readiness-template.md"
+UI_UX_TEMPLATE_PATH = REPO_ROOT / "templates" / "ui-ux-design-template.md"
+QUICKSTART_TEMPLATE_PATH = REPO_ROOT / "templates" / "quickstart-template.md"
+CLASS_DIAGRAM_TEMPLATE_PATH = REPO_ROOT / "templates" / "class-diagram-template.md"
+SEQUENCES_TEMPLATE_PATH = REPO_ROOT / "templates" / "sequences-template.md"
 REQUIREMENT_TEMPLATE_PATHS = {
     "requirement-domain-gate-template": REPO_ROOT
     / "templates"
@@ -217,6 +217,7 @@ def minimal_behavior_scenario_instances() -> dict:
                 "id": "SCN-001",
                 "title": "Submit refund",
                 "type": "positive",
+                "test_condition_refs": ["TC-001"],
                 "uif_path_id": "UIF-001",
                 "fixture_ids": ["FIX-BUYER"],
                 "request_case": {"id": "REQ-001", "reason": "QUALITY_ISSUE"},
@@ -294,6 +295,8 @@ def minimal_behavior_data_fixtures() -> dict:
                 "required_states": {"user.role": "buyer"},
                 "constraints": [],
                 "setup_strategy": "factory",
+                "reset_strategy": "transaction_rollback",
+                "environment_refs": ["ENV-LOCAL"],
             }
         ],
     }
@@ -308,6 +311,31 @@ def minimal_behavior_assertions() -> dict:
                 "target": "refund.status",
                 "operator": "equals",
                 "expected": "PENDING",
+            }
+        ],
+    }
+
+
+def minimal_test_conditions(*, technique: str = "contract_testing") -> dict:
+    return {
+        "contract_type": "speckit.test.conditions.v1",
+        "feature": "refund-application",
+        "conditions": [
+            {
+                "id": "TC-001",
+                "source_refs": ["FR-001"],
+                "risk_or_priority": "high",
+                "levels": ["contract"],
+                "types": ["functional"],
+                "techniques": [technique],
+                "execution_mode": "sandbox",
+                "fixture_refs": ["FIX-BUYER"],
+                "environment_refs": ["ENV-SANDBOX"],
+                "oracle": {"kind": "response", "expected": "SUCCESS"},
+                "evidence_requirement": "captured command output",
+                "related_refs": ["contracts/api/refund.yaml"],
+                "quickstart_ref": "VAL-001",
+                "status": "required",
             }
         ],
     }
@@ -331,8 +359,8 @@ class PresetContractTests(unittest.TestCase):
         template_entries = [entry for entry in entries if entry["type"] == "template"]
 
         self.assertEqual(7, len(command_entries))
-        self.assertEqual(25, len(template_entries))
-        self.assertEqual(32, len(entries))
+        self.assertEqual(27, len(template_entries))
+        self.assertEqual(34, len(entries))
         self.assertNotIn(
             "speckit.implement",
             {entry["name"] for entry in command_entries},
@@ -405,7 +433,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("Do not create, recompute, answer", clarify)
         self.assertNotIn("{CORE_TEMPLATE}", clarify)
 
-    def test_bdd_plan_task_readiness_contract(self) -> None:
+    def legacy_bdd_plan_task_readiness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
@@ -469,7 +497,103 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("unanswered question-form checks", governance)
 
 
-    def test_plan_command_wrapper_contract(self) -> None:
+    def test_x0_x4_plan_contract_and_artifact_ownership(self) -> None:
+        command = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
+        template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("{CORE_TEMPLATE}", command)
+        self.assertIn("strategy: wrap", command)
+        core_markers = (
+            "Core setup + plan-template materialization -> X0",
+            "Core Phase 0 Outline & Research",
+            "Core Phase 1 Design & Contracts",
+            "Core post-design Constitution re-check",
+            "Preset closeout before completion report",
+        )
+        for marker in core_markers:
+            self.assertIn(marker, command)
+        for stage in ("X0", "X1", "X2", "X3", "X4"):
+            self.assertIn(stage, command)
+        for gate in (
+            "X0_CONTROL_READY",
+            "X1_DECISIONS_READY",
+            "X2A_DESIGN_READY",
+            "X2B_UIUX_READY",
+            "X2C_TEST_DESIGN_READY",
+            "X3_VALIDATION_PATHS_READY",
+            "PLAN_OUTPUT_READY",
+        ):
+            self.assertIn(gate, command)
+            self.assertIn(gate, template)
+
+        self.assertIn("parallel and mutually constraining", command)
+        self.assertIn("Test fixtures", command)
+        self.assertIn("are not domain entities", command)
+        self.assertIn("ui-ux-design.md", command)
+        self.assertIn("contracts/test/test-conditions.json", command)
+        self.assertIn("test-readiness.md", command)
+        self.assertIn("VAL-*", command)
+        self.assertIn("Do not re-run Checklist", command)
+        self.assertIn("Plan never amends Architecture", command)
+        self.assertIn("validates Plan outputs only", command)
+
+        self.assertIn("Active Lane Matrix", template)
+        self.assertIn("Cross-Lane Dependency Register", template)
+        self.assertIn("Artifact Navigation", template)
+        self.assertIn("Design Object Derivation Index", template)
+        self.assertIn("UI/UX Delivery Readiness", template)
+        self.assertIn("Test Readiness", template)
+        self.assertIn("Repository Topology", template)
+        self.assertIn("No task IDs, exact per-task paths", template)
+
+        for path in (
+            CLASS_DIAGRAM_TEMPLATE_PATH,
+            SEQUENCES_TEMPLATE_PATH,
+            UI_UX_TEMPLATE_PATH,
+            QUICKSTART_TEMPLATE_PATH,
+            TEST_CONDITIONS_TEMPLATE_PATH,
+            TEST_READINESS_TEMPLATE_PATH,
+            TEST_CONDITIONS_SCHEMA_PATH,
+        ):
+            self.assertTrue(path.exists(), path)
+
+        data_ownership = command[
+            command.index("### X2-A"):command.index("### X2-B")
+        ]
+        for forbidden in (
+            "BehaviorScenarioInstance",
+            "DataFixture",
+            "UIFPath",
+            "FeedbackView",
+            "BehaviorAssertion",
+        ):
+            self.assertNotIn(forbidden, data_ownership)
+
+    def test_plan_artifact_templates_keep_non_overlapping_ownership(self) -> None:
+        class_template = CLASS_DIAGRAM_TEMPLATE_PATH.read_text(encoding="utf-8")
+        sequences = SEQUENCES_TEMPLATE_PATH.read_text(encoding="utf-8")
+        ui_ux = UI_UX_TEMPLATE_PATH.read_text(encoding="utf-8")
+        quickstart = QUICKSTART_TEMPLATE_PATH.read_text(encoding="utf-8")
+        readiness = TEST_READINESS_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("Object / Interface", class_template)
+        self.assertIn("Do not copy complete domain fields", class_template)
+        self.assertIn("Cross-Boundary Sequences", sequences)
+        self.assertIn("Rollback / compensation", sequences)
+        self.assertIn("X4 UI/UX Delivery Readiness", ui_ux)
+        self.assertIn("Pixel delivery/review is owned here", ui_ux)
+        self.assertIn("### VAL-001", quickstart)
+        self.assertIn("Cleanup/reset", quickstart)
+        self.assertIn("one row", readiness)
+        self.assertIn("MUST NOT appear", readiness)
+        self.assertFalse(
+            (REPO_ROOT / "templates" / "behavior" / "behavior-testability.md").exists()
+        )
+        self.assertFalse(
+            (REPO_ROOT / "templates" / "behavior" / "uif-intent.json").exists()
+        )
+
+    def legacy_plan_command_wrapper_contract(self) -> None:
         command = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
 
         self.assertIn("{CORE_TEMPLATE}", command)
@@ -509,7 +633,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("speckit.tasks", command)
         self.assertNotIn("speckit.implement", command)
 
-    def test_plan_template_navigation_contract(self) -> None:
+    def legacy_plan_template_navigation_contract(self) -> None:
         template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
 
         self.assertIn("{CORE_TEMPLATE}", template)
@@ -521,7 +645,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("./contracts/", template)
         self.assertIn("./quickstart.md", template)
 
-    def test_plan_visual_substage_enhancement_contract(self) -> None:
+    def legacy_plan_visual_substage_enhancement_contract(self) -> None:
         command = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
         readme = README_PATH.read_text(encoding="utf-8")
@@ -669,9 +793,9 @@ class PresetContractTests(unittest.TestCase):
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         analyze = ANALYZE_COMMAND_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("Apply the constitution's Change Scope Granularity principle.", plan)
-        self.assertIn("During planning, lock the change scope to `M + U`", plan)
-        self.assertIn("Do not lock operation-level implementation details or concrete write paths.", plan)
+        self.assertIn("Apply Change Scope Granularity", plan)
+        self.assertIn("lock planned `M + U`", plan)
+        self.assertIn("no task IDs", plan)
         self.assertNotIn("Architecture SSOT Compliance", plan)
         self.assertNotIn("PLANNING_ARCH_SSOT_CONFLICT", plan)
 
@@ -1133,7 +1257,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("checklists/requirements.md", clarify)
         self.assertIn("MUST NOT modify `spec.md`", checklist)
 
-    def test_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
+    def legacy_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         tasks = TASKS_COMMAND_PATH.read_text(encoding="utf-8")
         template = PLAN_TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -1332,7 +1456,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("planned `U` design object", cross_agent)
         self.assertIn("specific source, test, fixture, configuration, or receipt paths", cross_agent)
 
-    def test_bdd_formalization_strengthens_reasoning_without_traceability_system(self) -> None:
+    def legacy_bdd_formalization_strengthens_reasoning_without_traceability_system(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
         bdd_contract_template = BEHAVIOR_TEMPLATE_PATHS[
             "behavior-bdd-contract-template"
@@ -1612,6 +1736,87 @@ class PresetContractTests(unittest.TestCase):
 
 
 
+    def test_test_conditions_schema_and_validator_accept_generalized_contract(self) -> None:
+        schema = json.loads(TEST_CONDITIONS_SCHEMA_PATH.read_text(encoding="utf-8"))
+        payload = minimal_test_conditions()
+        Draft202012Validator(schema).validate(payload)
+        validate_test_conditions(payload)
+
+    def test_test_conditions_support_non_bdd_nfr_and_reject_pixel_scope(self) -> None:
+        payload = minimal_test_conditions()
+        condition = payload["conditions"][0]
+        condition["types"] = ["security", "performance", "recovery"]
+        condition["techniques"] = ["boundary_value", "state_transition"]
+        condition["oracle"] = {
+            "kind": "threshold",
+            "expected": {"latency_ms": 500},
+        }
+        validate_test_conditions(payload)
+
+        condition["evidence_requirement"] = "screenshot diff baseline capture"
+        with self.assertRaisesRegex(ValueError, "pixel-level visual scope"):
+            validate_test_conditions(payload)
+
+    def test_bdd_technique_requires_child_and_readiness_is_one_row_per_tc(self) -> None:
+        payload = minimal_test_conditions(technique="BDD")
+        with self.assertRaisesRegex(ValueError, "no BDD child"):
+            validate_test_conditions(payload)
+        validate_test_conditions(payload, available_bdd_tc_refs={"TC-001"})
+
+        rows = [{"tc_id": "TC-001", "evidence": "command output"}]
+        validate_test_readiness(payload, rows)
+        with self.assertRaisesRegex(ValueError, "TC mismatch"):
+            validate_test_readiness(payload, [])
+
+    def test_scenario_contract_supports_non_ui_and_fixture_free_acceptance(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS[
+                "speckit.behavior.scenario_instances.v1"
+            ].read_text(encoding="utf-8")
+        )
+        scenario_instances = {
+            "contract_type": "speckit.behavior.scenario_instances.v1",
+            "scenarios": [
+                {
+                    "id": "SCN-NONUI-001",
+                    "title": "Reject duplicate command",
+                    "type": "positive",
+                    "test_condition_refs": ["TC-001"],
+                    "non_ui_rationale": "Command-only contract.",
+                    "no_fixture_rationale": "Input is self-contained.",
+                    "request_case": {"id": "REQ-001"},
+                    "expected_response": {"error_code": "DUPLICATE"},
+                    "assertion_ids": ["AST-001"],
+                }
+            ],
+        }
+        Draft202012Validator(schema).validate(scenario_instances)
+        validate_behavior_contract_bundle(
+            scenario_instances,
+            {"fixtures": []},
+            minimal_behavior_assertions(),
+            [],
+            {"TC-001"},
+        )
+
+    def test_expected_uif_declared_reference_fields_match_schema(self) -> None:
+        schema = json.loads(
+            BEHAVIOR_SCHEMA_PATHS[
+                "speckit.behavior.uif.expected.v1"
+            ].read_text(encoding="utf-8")
+        )
+        payload = minimal_uif_expected()
+        payload.update(
+            {
+                "visual_item_refs": ["VIS-001"],
+                "viewport_matrix_refs": ["UI-001#viewports"],
+                "state_matrix_refs": ["UI-001#states"],
+                "visual_proof_refs": [],
+                "accepted_exception_refs": [],
+            }
+        )
+        Draft202012Validator(schema).validate(payload)
+
     def test_behavior_first_schema_contracts_accept_minimal_examples(self) -> None:
         examples = {
             "speckit.behavior.scenarios.draft.v1": minimal_behavior_scenarios_draft(),
@@ -1676,7 +1881,7 @@ class PresetContractTests(unittest.TestCase):
                     )
                 )
 
-    def test_behavior_scenario_instances_schema_rejects_exception_case_shells(self) -> None:
+    def legacy_behavior_scenario_instances_schema_rejects_exception_case_shells(self) -> None:
         schema = json.loads(
             BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
                 encoding="utf-8"
@@ -1700,7 +1905,7 @@ class PresetContractTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(instances)
 
-    def test_behavior_scenario_instances_schema_rejects_mismatched_exception_case_kind(self) -> None:
+    def legacy_behavior_scenario_instances_schema_rejects_mismatched_exception_case_kind(self) -> None:
         schema = json.loads(
             BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
                 encoding="utf-8"
@@ -1712,7 +1917,7 @@ class PresetContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(instances)
 
-    def test_behavior_scenario_instances_schema_accepts_case_coverage_blockers(self) -> None:
+    def legacy_behavior_scenario_instances_schema_accepts_case_coverage_blockers(self) -> None:
         schema = json.loads(
             BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
                 encoding="utf-8"
@@ -1778,7 +1983,7 @@ class PresetContractTests(unittest.TestCase):
 
         Draft202012Validator(schema).validate(instances)
 
-    def test_behavior_scenario_instances_schema_rejects_boundary_failure_without_error(self) -> None:
+    def legacy_behavior_scenario_instances_schema_rejects_boundary_failure_without_error(self) -> None:
         schema = json.loads(
             BEHAVIOR_SCHEMA_PATHS["speckit.behavior.scenario_instances.v1"].read_text(
                 encoding="utf-8"
