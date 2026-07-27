@@ -246,13 +246,34 @@ class RequirementCommandTests(unittest.TestCase):
             "Exclusions",
             "Source References",
             "Unresolved Product Decisions",
-            "Provider Evidence Gaps",
+            "Source Evidence Blockers",
             "Clarifications",
         ):
             self.assertIn(heading, template)
         for prefix in ("FR-", "NFR-", "UX-", "UI-", "VIS-"):
             self.assertIn(prefix, template)
         self.assertIn("content carrier, not a completeness checklist", template)
+
+    def test_source_reference_template_has_one_source_neutral_shape(self) -> None:
+        template = read(TEMPLATES / "spec-template.md")
+        for column in (
+            "SRC ref",
+            "Role",
+            "Opaque locator / description",
+            "Revision / identity",
+            "Authorized scope / facts",
+            "Projected requirement refs",
+            "Status / blocker",
+        ):
+            self.assertIn(column, template)
+        for role in (
+            "requirement-input",
+            "visual-input",
+            "technical-evidence",
+            "context-only",
+        ):
+            self.assertIn(role, template)
+        self.assertIn("broad source without a\nsafe feature slice", template)
 
     def test_specify_has_no_core_checklist_side_effect(self) -> None:
         command = read(COMMANDS / "speckit.specify.md")
@@ -262,13 +283,30 @@ class RequirementCommandTests(unittest.TestCase):
             "hooks.after_specify",
             "SPECIFY_FEATURE_DIRECTORY",
             ".specify/feature.json",
+            "Authorized Source Input Contract",
             "Full-Spectrum Projection",
+            "feature-local WHAT/WHY SSOT",
             "Do not compute completeness",
         ):
             self.assertIn(term, command)
         self.assertIn("checklists/requirements.md", command)
         self.assertIn("MUST NOT create, read, evaluate, or modify", command)
         self.assertNotIn("{CORE_TEMPLATE}", command)
+
+    def test_source_commands_keep_external_actions_outside_preset(self) -> None:
+        specify = read(COMMANDS / "speckit.specify.md")
+        clarify = read(COMMANDS / "speckit.clarify.md")
+        checklist = read(COMMANDS / "speckit.checklist.md")
+        for term in (
+            "dereference or execute a locator",
+            "import manifest",
+            "provider-specific\nschema",
+            "Intake is not an SDD stage",
+        ):
+            self.assertIn(term, specify)
+        self.assertIn("external\nwrite-back or synchronization", clarify)
+        self.assertIn("preserve the originating `SRC-*` provenance", clarify)
+        self.assertIn("MUST NOT dereference a locator", checklist)
 
     def test_clarify_writes_only_spec_and_uses_cross_domain_priority(self) -> None:
         command = read(COMMANDS / "speckit.clarify.md")
