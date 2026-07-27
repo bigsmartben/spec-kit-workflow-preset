@@ -33,6 +33,7 @@ TASKS_COMMAND_PATH = REPO_ROOT / "commands" / "speckit.tasks.md"
 CONSTITUTION_TEMPLATE_PATH = REPO_ROOT / "templates" / "constitution-template.md"
 ARCHITECTURE_TEMPLATE_PATH = REPO_ROOT / "templates" / "architecture-template.md"
 PLAN_TEMPLATE_PATH = REPO_ROOT / "templates" / "plan-template.md"
+SPEC_TEMPLATE_PATH = REPO_ROOT / "templates" / "spec-template.md"
 CANONICAL_RESPONSIVE_VISUAL_RULE = (
     "Responsive visual requirements block PASS only when required source-backed "
     "state or viewport evidence is missing for a feature that depends on provider evidence"
@@ -330,8 +331,8 @@ class PresetContractTests(unittest.TestCase):
         template_entries = [entry for entry in entries if entry["type"] == "template"]
 
         self.assertEqual(7, len(command_entries))
-        self.assertEqual(24, len(template_entries))
-        self.assertEqual(31, len(entries))
+        self.assertEqual(25, len(template_entries))
+        self.assertEqual(32, len(entries))
         self.assertNotIn(
             "speckit.implement",
             {entry["name"] for entry in command_entries},
@@ -382,28 +383,27 @@ class PresetContractTests(unittest.TestCase):
         checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
         clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
 
-        for path in (
-            "checklists/requirements.md",
-            "checklists/behavior.md",
-            "checklists/ux.md",
-            "checklists/security.md",
-            "checklists/nfr.md",
-            "checklists/visual.md",
+        self.assertIn("checklists/<focus>.md", checklist)
+        self.assertIn("question-form", checklist)
+        self.assertIn("broad requirements", checklist)
+        self.assertIn("focused domain", checklist)
+        self.assertIn("[Gap]", checklist)
+        self.assertIn("MUST NOT modify `spec.md`", checklist)
+        for forbidden in (
+            "Planning Readiness is aggregated",
+            "Case Coverage Matrix",
+            "Visual Fidelity Evidence Matrix",
+            "Recompute generated sections",
         ):
-            self.assertIn(path, checklist)
-        self.assertIn("Planning Readiness is aggregated in memory", checklist)
-        self.assertIn("do not create\n`planning-readiness.md`", checklist)
-        self.assertIn("Case Coverage Matrix", checklist)
-        self.assertIn("Visual Fidelity Evidence Matrix", checklist)
-        self.assertIn("[blocker:provider-evidence] [return:intake]", checklist)
-        self.assertIn("Recompute generated sections using stable", checklist)
-        self.assertIn("legacy `checklists/behavior-testability.md`", checklist)
+            self.assertNotIn(forbidden, checklist)
 
-        self.assertIn("[blocker:product-decision]", clarify)
-        self.assertIn("[blocker:provider-evidence]", clarify)
-        self.assertIn("preserve its `[return:intake]`", clarify)
-        self.assertIn("recompute affected requirement gates", clarify)
-        self.assertIn("never create `planning-readiness.md`", clarify)
+        self.assertIn("strategy: replace", clarify)
+        self.assertIn("Read and write only `FEATURE_SPEC`", clarify)
+        self.assertIn("exactly one at a time", clarify)
+        self.assertIn("impact × uncertainty", clarify)
+        self.assertIn("[BLOCKED: PROVIDER_EVIDENCE]", clarify)
+        self.assertIn("Do not create, recompute, answer", clarify)
+        self.assertNotIn("{CORE_TEMPLATE}", clarify)
 
     def test_bdd_plan_task_readiness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
@@ -444,40 +444,29 @@ class PresetContractTests(unittest.TestCase):
         visual_gate = REQUIREMENT_TEMPLATE_PATHS[
             "requirement-visual-gate-template"
         ].read_text(encoding="utf-8")
-        task_readiness = BEHAVIOR_TEMPLATE_PATHS[
-            "behavior-testability-template"
-        ].read_text(encoding="utf-8")
-
-        self.assertIn("**Stage**: requirements", behavior_gate)
-        self.assertIn("Case Coverage Matrix", behavior_gate)
-        self.assertIn("positive, negative, boundary, permission, validation", behavior_gate)
-        self.assertIn("NFR Coverage Matrix", nfr_gate)
-        self.assertIn("Not Applicable", nfr_gate)
-        self.assertIn("Visual Fidelity Evidence Matrix", visual_gate)
-        self.assertIn("[BLOCKED: PROVIDER_EVIDENCE]", visual_gate)
-
-        self.assertIn("Behavior Testability / Task Readiness", task_readiness)
-        self.assertIn("**Stage**: plan", task_readiness)
-        self.assertIn("**Behavior Testability Status**: READY | BLOCKED", task_readiness)
-        self.assertIn("**Spec Revision**", task_readiness)
-        self.assertIn("**Plan Revision**", task_readiness)
-        self.assertIn("Task Derivation Matrix", task_readiness)
-        self.assertIn("| Case ID | Scenario ID | BDD Ref | UIF Ref | Fixture Ref | Assertion Ref |", task_readiness)
+        for template in (behavior_gate, nfr_gate, visual_gate):
+            self.assertIn("- [ ] CHK-", template)
+            self.assertNotIn("PASS | BLOCKED", template)
+            self.assertNotIn("Readiness Matrix", template)
+        self.assertIn("primary, alternate, negative, boundary, permission", behavior_gate)
+        self.assertIn("[Measurability]", nfr_gate)
+        self.assertIn("loading/empty/error/success/disabled/focus", visual_gate)
+        self.assertIn("provider-evidence gaps", visual_gate)
         self.assertFalse(
             (REPO_ROOT / "templates" / "behavior" / "behavior-testability-checklist.md").exists()
         )
 
-    def test_public_docs_define_two_stage_ownership(self) -> None:
+    def test_public_docs_define_requirement_command_independence(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         governance = EXTENSION_GOVERNANCE_PATH.read_text(encoding="utf-8")
 
         self.assertIn("requirement-domain readiness gates", readme)
-        self.assertIn("behavior/behavior-testability.md", readme)
         self.assertIn("Missing provider evidence remains an intake blocker", readme)
 
-        self.assertIn("requirement-readiness gates", governance)
-        self.assertIn("BDD Plan closeout", governance)
-        self.assertIn("behavior/behavior-testability.md", governance)
+        self.assertIn("Requirement Command Independence", governance)
+        self.assertIn("full-spectrum `spec-template`", governance)
+        self.assertIn("Specify and Clarify are replacement commands", governance)
+        self.assertIn("unanswered question-form checks", governance)
 
 
     def test_plan_command_wrapper_contract(self) -> None:
@@ -811,7 +800,7 @@ class PresetContractTests(unittest.TestCase):
         self.assertNotIn("task_type: interface_validation", tasks)
         self.assertNotIn("task_type: data_side_effect_validation", tasks)
 
-    def test_behavior_first_command_wrapper_contracts(self) -> None:
+    def legacy_behavior_first_command_wrapper_contracts(self) -> None:
         specify = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
         clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
         checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
@@ -1078,6 +1067,71 @@ class PresetContractTests(unittest.TestCase):
         self.assertIn("PASS", checklist)
         self.assertIn("BLOCKED", checklist)
         self.assertIn("product-decision blockers, and provider-evidence", checklist)
+
+    def test_requirement_command_independence_and_full_spectrum_carrier(self) -> None:
+        specify = SPECIFY_COMMAND_PATH.read_text(encoding="utf-8")
+        clarify = CLARIFY_COMMAND_PATH.read_text(encoding="utf-8")
+        checklist = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
+        spec_template = SPEC_TEMPLATE_PATH.read_text(encoding="utf-8")
+        manifest = yaml.safe_load(PRESET_PATH.read_text(encoding="utf-8"))
+        entries = {
+            entry["name"]: entry
+            for entry in manifest["provides"]["templates"]
+        }
+
+        self.assertEqual("replace", entries["speckit.specify"]["strategy"])
+        self.assertEqual("replace", entries["speckit.clarify"]["strategy"])
+        self.assertEqual("wrap", entries["speckit.checklist"]["strategy"])
+        self.assertEqual("wrap", entries["spec-template"]["strategy"])
+
+        for command in (specify, clarify):
+            self.assertIn("## User Input", command)
+            self.assertNotIn("{CORE_TEMPLATE}", command)
+        self.assertIn("hooks.before_specify", specify)
+        self.assertIn("hooks.after_specify", specify)
+        self.assertIn("SPECIFY_FEATURE_DIRECTORY", specify)
+        self.assertIn(".specify/feature.json", specify)
+        self.assertIn("writes only the feature directory bootstrap", specify)
+        self.assertIn("Do not compute completeness", specify)
+        self.assertIn("Do not declare Planning Readiness", specify)
+
+        self.assertIn("hooks.before_clarify", clarify)
+        self.assertIn("hooks.after_clarify", clarify)
+        self.assertIn("Run `{SCRIPT}` once", clarify)
+        self.assertIn("Read and write only `FEATURE_SPEC`", clarify)
+        self.assertIn("impact × uncertainty", clarify)
+        self.assertIn("exactly one at a time", clarify)
+        self.assertIn("no more than five", clarify)
+
+        self.assertIn("{CORE_TEMPLATE}", checklist)
+        self.assertIn("writes only the selected checklist", checklist)
+        self.assertIn("question-form", checklist)
+        self.assertIn("Generated items remain unchecked questions", checklist)
+
+        for heading in (
+            "Functional Requirements",
+            "Non-Functional Requirements",
+            "UX Journeys and Interaction Expectations",
+            "UI Surfaces and States",
+            "Visual Requirements and Sources",
+            "Security and Privacy",
+            "Data and Integration Constraints",
+            "Dependencies and Boundaries",
+            "Assumptions",
+            "Exclusions",
+            "Source References",
+            "Unresolved Product Decisions",
+            "Provider Evidence Gaps",
+            "Clarifications",
+        ):
+            self.assertIn(heading, spec_template)
+        for prefix in ("FR-", "NFR-", "UX-", "UI-", "VIS-"):
+            self.assertIn(prefix, spec_template)
+
+        self.assertIn("checklists/requirements.md", specify)
+        self.assertIn("MUST NOT create, read, evaluate, or modify", specify)
+        self.assertNotIn("checklists/requirements.md", clarify)
+        self.assertIn("MUST NOT modify `spec.md`", checklist)
 
     def test_behavior_first_plan_and_tasks_awareness_contract(self) -> None:
         plan = PLAN_COMMAND_PATH.read_text(encoding="utf-8")
@@ -1374,7 +1428,7 @@ class PresetContractTests(unittest.TestCase):
             for term in forbidden_terms:
                 self.assertNotIn(term, document, f"{path} contains {term}")
 
-    def test_behavior_first_templates_exist_and_are_decoupled(self) -> None:
+    def legacy_behavior_first_templates_exist_and_are_decoupled(self) -> None:
         for path in BEHAVIOR_TEMPLATE_PATHS.values():
             self.assertTrue(path.exists(), path)
 
@@ -1443,7 +1497,23 @@ class PresetContractTests(unittest.TestCase):
         )
         self.assertIn('"intent": "state_invariant"', assertions_template)
 
-    def test_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
+    def test_requirement_checklists_are_questions_not_readiness_matrices(self) -> None:
+        for path in REQUIREMENT_TEMPLATE_PATHS.values():
+            template = path.read_text(encoding="utf-8")
+            self.assertRegex(template, r"- \[ \] CHK-")
+            self.assertNotIn("PASS | BLOCKED", template)
+            self.assertNotIn("Visual Fidelity Evidence Matrix", template)
+            self.assertNotIn("Planning Readiness", template)
+            self.assertNotIn("Gate Status", template)
+
+        visual = REQUIREMENT_TEMPLATE_PATHS[
+            "requirement-visual-gate-template"
+        ].read_text(encoding="utf-8")
+        self.assertIn("loading/empty/error/success/disabled/focus", visual)
+        self.assertIn("keyboard/accessibility", visual)
+        self.assertIn("provider-evidence gaps", visual)
+
+    def legacy_visual_fidelity_screenshot_evidence_gate_contract(self) -> None:
         command = CHECKLIST_COMMAND_PATH.read_text(encoding="utf-8")
         template = REQUIREMENT_TEMPLATE_PATHS[
             "requirement-visual-gate-template"

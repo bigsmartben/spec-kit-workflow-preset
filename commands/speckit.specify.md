@@ -1,59 +1,93 @@
 ---
-description: Wrap core specification with spec-only requirement ownership.
-strategy: wrap
+description: Create one full-spectrum WHAT/WHY specification without generating readiness artifacts.
+strategy: replace
 ---
 
 Follow cross-agent protocol profile: `speckit.specify.single_core`.
 
-## Spec-Only Requirement Policy
-This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.
+## User Input
 
-Preset-added requirement output writes only `spec.md`.
-Product requirements stay in `spec.md`: user stories, acceptance criteria, functional requirements, non-functional requirements, visual and UI requirements, constraints, assumptions, and any clarification markers required by the core template.
+```text
+$ARGUMENTS
+```
 
-Keep requirement text implementation-agnostic and scoped to product behavior. Non-functional requirements must be explicit product-level assumptions or constraints, including no-special-requirement or not-applicable statements when that is the confirmed requirement.
+The arguments are the feature description. If empty, stop with
+`No feature description provided`.
 
-## Wrapper Input Additions
-Treat product notes, PRDs, user prompts, confirmed external intake facts, visual SSOT refs, HTML SSOT refs, structured IR refs, evidence refs, screenshots, and visual proof refs as input to the same feature description. If the core feature description is empty, follow the core command error path.
+## Extension Hooks
 
-Treat confirmed Visual Asset Registry refs as external source artifact inputs only. They describe visual media inventory such as icons, images, illustrations, fonts, motion, video, textures, source refs, variants, license status, fallback policy, and blocker status.
+Read `.specify/extensions.yml` when present. Run enabled, unconditional
+`hooks.before_specify` entries before creating the specification and
+`hooks.after_specify` entries after the write but before reporting. Invoke and
+await mandatory hooks; condition evaluation remains the HookExecutor's
+responsibility.
 
-## Wrapper Preflight Additions
-Before writing evidence-derived requirements, consume only confirmed external intake facts or explicit user-provided requirement text. This preset does not perform intake, call provider tools, parse HTML SSOT bundles, re-parse structured IR artifacts, decide provider source readiness, or generate provider artifact instances.
+## Feature Path And Template
 
-Classify gaps by ownership: missing product decisions become `[NEEDS CLARIFICATION]`; missing provider or intake evidence for a feature that depends on that evidence becomes `[BLOCKED: PROVIDER_EVIDENCE]`; features that do not depend on HTML SSOT, structured IR, or provider evidence are `Not Applicable`.
+1. Generate a concise 2–4 word action/noun short name.
+2. If a successful pre-hook provides feature metadata, retain it without using
+   the branch name as the specification directory identity.
+3. Resolve `SPECIFY_FEATURE_DIRECTORY` from explicit input first. Otherwise use
+   `.specify/init-options.json` feature numbering and create one directory under
+   `specs/`.
+4. Resolve the active `spec-template` through the preset resolution stack.
+5. Materialize exactly one `spec.md` from that resolved template.
+6. Persist the actual directory in `.specify/feature.json`.
 
-## Wrapper Outline Additions
-Specification Projection Policy: write one implementation-agnostic `spec.md` from confirmed product facts, explicit product constraints, and source-backed external intake facts.
+This command writes only the feature directory bootstrap, `.specify/feature.json`,
+and `spec.md`. It MUST NOT create, read, evaluate, or modify
+`checklists/requirements.md` or any other checklist, Plan, Tasks, Architecture,
+contract, test-design, or implementation artifact.
 
-When visual or UI requirements apply, write a `Visual & UI Specification` section inside `spec.md` for observable visual and UI requirements only. When no visual or UI surface applies, record a Not Applicable rationale in `spec.md`.
+## Full-Spectrum Projection
 
-Every identified visual or UI requirement must be recorded with status `Required`, `Not Applicable`, `Unknown`, or `[BLOCKED: PROVIDER_EVIDENCE]`; do not silently omit low-evidence visual or UI requirements.
+Project confirmed natural-language input and authorized source facts into the
+resolved template. Keep the result stakeholder-readable, technology-agnostic,
+and focused on WHAT users need and WHY.
 
-For visual requirements, preserve visual SSOT refs, HTML SSOT refs, structured IR refs, evidence refs, state and viewport refs, visual proof refs, and Client Asset Contract facts: source refs, asset source strategy, required variants, fallback policy, and blocker status.
+Populate applicable carriers for:
 
-Promote only confirmed product facts and source-backed visual, layout, state, interaction, responsive, accessibility, and acceptance facts with source refs. Do not promote provider evidence gaps into product requirements or `[NEEDS CLARIFICATION]` markers.
+- product goals, actors, journeys, observable behavior, edge/failure cases;
+- functional requirements (`FR-*`);
+- non-functional outcomes (`NFR-*`);
+- UX journeys and interaction expectations (`UX-*`);
+- UI surfaces, states, feedback, and responsive behavior (`UI-*`);
+- visual requirements and confirmed source refs (`VIS-*`);
+- security/privacy, data/integration, dependencies, boundaries;
+- assumptions, exclusions, measurable success criteria;
+- source references, unresolved product decisions, provider-evidence gaps, and
+  clarification history.
 
-Treat Component State Matrix content as Visual & UI Specification requirements, not visual assets. Record observable states, visual feedback, and interaction outcomes; do not turn them into framework component names or implementation contracts.
+Optional domains remain optional. Use a specific `Not Applicable` statement only
+when the supplied feature context establishes non-applicability; absence alone
+is not proof. The template is a carrier, not a completeness result.
 
-Do not invent code props, code state names, component reuse decisions, self-drawing bans, copy restrictions, DOM structure, CSS selectors, component props, generated code organization, asset binding, or packaging strategy from external visual evidence.
+Make informed, documented assumptions for low-impact gaps. Use at most three
+`[NEEDS CLARIFICATION: ...]` markers for high-impact product decisions with no
+safe default. Missing external/provider evidence is
+`[BLOCKED: PROVIDER_EVIDENCE]`, not a product decision.
 
-When visual SSOT, HTML SSOT, structured IR, or provider evidence refs are blocked or unavailable, keep explicit visual or UI requirement coverage in `spec.md`, mark evidence-derived coverage as `[BLOCKED: PROVIDER_EVIDENCE]`, and do not invent missing visual facts.
+Preserve confirmed visual SSOT, HTML SSOT, structured IR, evidence, state,
+viewport, visual proof, and Client Asset Contract refs without re-running
+provider intake. Do not invent DOM/CSS structure, framework components, code
+props, local asset paths, hashes, or implementation strategies.
 
-## Official Style Alignment
-Focus on WHAT users need and WHY. Avoid HOW to implement. Limit [NEEDS CLARIFICATION] markers to the highest-impact unresolved product decisions; record low-impact gaps in Assumptions and provider readiness gaps as `[BLOCKED: PROVIDER_EVIDENCE]`.
+## Local Write Safety
 
-## Specification Quality Validation
-Validate that requirement text is stakeholder-readable, testable, implementation-agnostic, and explicit about assumptions, NFR applicability, visual evidence source refs, provider blockers, and unresolved product decisions.
+Before finishing, check only the artifact this command owns:
 
-{CORE_TEMPLATE}
+- the resolved template headings remain structurally valid;
+- the feature description was projected into user scenarios, applicable
+  requirement carriers, and measurable outcomes;
+- assumptions and unresolved decisions are not presented as confirmed facts;
+- no implementation design or foreign-stage artifact was written.
+
+Do not compute completeness, PASS/BLOCKED readiness, ID uniqueness, numbering
+gaps, stale refs, cross-artifact coverage, or cross-command consistency.
 
 ## Completion Report
-Before finishing, report the `spec.md` sections created or updated, confirmed requirements, visual SSOT refs preserved, provider blockers, and unresolved requirement ambiguities.
 
-## Done When
-- [ ] Confirmed requirement facts, visual SSOT refs, HTML SSOT refs, structured IR refs, and applicable Client Asset Contract facts are reflected in `spec.md`.
-- [ ] Functional, non-functional, and visual/UI requirement coverage is present or explicitly marked Not Applicable, Unknown, or `[BLOCKED: PROVIDER_EVIDENCE]`.
-- [ ] Product `[NEEDS CLARIFICATION]` markers are limited to high-impact unresolved decisions.
-- [ ] Provider readiness blockers remain `[BLOCKED: PROVIDER_EVIDENCE]`.
-- [ ] Completion reported with updated `spec.md` sections and remaining blockers.
+Report the `spec.md` path, populated specification areas, assumptions, unresolved
+product decisions, provider-evidence gaps, and hook status. Suggest
+`/speckit.clarify` for product decisions or `/speckit.checklist` for independent
+requirement-writing questions. Do not declare Planning Readiness.

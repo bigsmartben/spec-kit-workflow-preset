@@ -50,9 +50,9 @@ Analyze.
 | Stage | Owner | Durable output |
 |---|---|---|
 | `/speckit.constitution` | preset replacement | independently authorized Constitution and project Architecture outputs |
-| `/speckit.specify` | preset wrapper | requirement and UI/UX intent in `spec.md` |
-| `/speckit.clarify` | preset wrapper | clarified requirement decisions |
-| `/speckit.checklist` | preset wrapper | requirement-readiness gates |
+| `/speckit.specify` | preset replacement | full-spectrum WHAT/WHY content in `spec.md` |
+| `/speckit.clarify` | preset replacement | accepted product decisions in `spec.md` |
+| `/speckit.checklist` | preset wrapper | unanswered requirement-writing questions |
 | `/speckit.plan` | preset wrapper | design, behavior contracts, and validation design |
 | `/speckit.tasks` | preset wrapper | executable checklist in `tasks.md` |
 | `/speckit.analyze` | preset wrapper | read-only cross-command consistency findings |
@@ -72,7 +72,7 @@ protocol, manual execution queue, or implementation validator.
 The workflow is a producer-to-consumer pipeline:
 
 ```text
-spec.md + requirement gates
+spec.md + optional independent requirement-writing checklists
     -> plan artifacts + BDD/UIF/validation design
     -> tasks.md implementation and validation checklist
     -> core /speckit.implement execution
@@ -80,6 +80,27 @@ spec.md + requirement gates
 
 Tasks maps upstream artifacts into checklist items. It must not create another
 planning system or execution protocol.
+
+## Requirement Command Independence
+
+Specify, Clarify, and Checklist are independent:
+
+| Command | Writes | Does not own |
+|---|---|---|
+| Specify | one `spec.md` plus official feature bootstrap metadata | checklists, completeness/readiness, ID validation |
+| Clarify | accepted decisions in `spec.md` | checklist recomputation, provider intake, cross-artifact checks |
+| Checklist | `checklists/<focus>.md` questions | answers, spec repair, readiness aggregation |
+
+The full-spectrum `spec-template` supplies optional carriers for functional,
+NFR, UX, UI, visual, security/privacy, data/integration, dependency, boundary,
+assumption, exclusion, source, unresolved-decision, provider-gap, and measurable
+outcome content. A carrier's presence is not a completeness claim.
+
+Specify and Clarify are replacement commands because active Core side effects
+would otherwise create or re-evaluate `checklists/requirements.md`. Their
+replacement contracts preserve user input, feature/path resolution, extension
+hooks, local write safety, and completion reporting. Checklist remains a Core
+wrapper and produces only unanswered question-form checks.
 
 Examples:
 

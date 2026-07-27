@@ -1,84 +1,86 @@
 ---
-description: Wrap core clarification with product-decision gate repair.
-strategy: wrap
+description: Resolve high-impact product ambiguity and record accepted decisions only in spec.md.
+strategy: replace
+scripts:
+  sh: scripts/bash/check-prerequisites.sh --json --paths-only
+  ps: scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly
 ---
 
-## Spec-Only Clarification Policy
+## User Input
 
-This wrapper must not redefine core-owned User Input, Pre-Execution Checks, extension hooks, base path resolution, or core file handling.
+```text
+$ARGUMENTS
+```
 
-Use `spec.md` as the clarification source. Ask and record clarification only for requirement ambiguity that affects product behavior, constraints, non-functional requirement assumptions, visual/UI requirement coverage status, acceptance criteria, user roles, permissions, entity states, data semantics, exceptions, validation rules, or boundaries.
+Use optional arguments only as focus for this clarification run.
 
-Also read unchecked blockers from all metadata-bearing
-`checklists/*.md` files with `Stage: requirements`,
-`Gate: planning-readiness`, and `Status: BLOCKED`.
-Prioritize `[blocker:product-decision]` items as the repair queue. Never ask a
-question for `[blocker:provider-evidence]`; preserve its `[return:intake]`
-route and keep Planning Readiness BLOCKED.
+## Extension Hooks And Path Resolution
 
-Do not read or update behavior draft artifacts. Do not use behavior drafts as clarification inputs, and do not open a separate behavior-question channel. Product requirements stay in `spec.md`; update `spec.md` only after user-provided answers make the requirement clear.
+Run enabled, unconditional `hooks.before_clarify` before analysis and
+`hooks.after_clarify` after successful writes. Invoke and await mandatory hooks.
 
-## Wrapper Input Additions
+Run `{SCRIPT}` once from the repository root and read `FEATURE_DIR` and
+`FEATURE_SPEC`. If resolution fails or `spec.md` is missing, stop and recommend
+running `/speckit.specify`; do not create a specification here.
 
-Treat `$ARGUMENTS` as prioritization context for the current clarification run. Do not ask the user to restate requirements already present in `spec.md`.
+## Ownership
 
-## Wrapper Preflight Additions
+Read and write only `FEATURE_SPEC` aside from official path/hook mechanics.
+Do not read blocked checklists as a queue. Do not create, recompute, answer,
+toggle, or mutate checklist files. Do not aggregate readiness, revise gates,
+validate IDs/numbering/references, create provider artifacts, or modify Plan,
+Tasks, Architecture, contracts, or tests.
 
-Load the active `spec.md` through the core command. Official hooks still apply: `hooks.before_clarify` runs before Outline, `hooks.after_clarify` runs before Completion Report, and mandatory hooks emit `EXECUTE_COMMAND`. If `spec.md` is missing, follow the core command error path and do not create a new spec here.
+External provider-evidence gaps stay `[BLOCKED: PROVIDER_EVIDENCE]` and remain
+outside the product-decision question loop.
 
-## Wrapper Outline Additions
+## Cross-Domain Ambiguity Map
 
-## Design Requirement Clarification Strategy
+Build an in-memory map across:
 
-When `spec.md` was created from external intake evidence or visual SSOT refs, prioritize clarification questions for evidence-derived gaps already written in `spec.md`. Scan `spec.md` first for `[NEEDS CLARIFICATION]`, visual/UI coverage status `Unknown`, and gaps about provider-unprovided states, responsive behavior, business rules, permissions, and error handling.
+- scope and observable behavior;
+- roles, permissions, security/privacy, and compliance;
+- domain/data semantics and lifecycle;
+- UX journeys, UI states, accessibility, and failure recovery;
+- NFRs and measurable completion signals;
+- integrations, dependency failures, boundaries, constraints, and terminology.
 
-Do not call provider tools. Do not re-extract design facts, re-parse provider design links, parse HTML SSOT bundles, re-parse structured IR artifacts, or turn clarification into an intake step. External intake owns source capture and provider readiness; `/speckit.specify` only projects confirmed evidence-backed requirements and trace refs into `spec.md`. `/speckit.clarify` only selects high-impact questions from existing `spec.md` product-decision gaps and records confirmed answers. Do not ask the user to fix provider extraction artifacts.
+Prioritize candidates by `impact × uncertainty`. Do not use a UI-first fixed
+order. Exclude decisions already answered, low-impact stylistic preferences,
+provider intake gaps, and implementation choices better owned by Plan.
 
-Ask at most 5 high-impact questions whose answers materially affect requirements, implementation planning, or validation readiness. Maximum of 5 total questions. Present EXACTLY ONE question at a time. Do NOT output them all at once. Never reveal future queued questions.
+## Question Loop
 
-Format recommendations as `**Recommended:** Option [X] - <brief rationale>` when a discrete 2-5 option choice is available. Keep the rationale short and decision-focused. For short-answer gaps, use `Suggested` and constrain answers to `<=5 words`. Accept `yes`, `recommended`, or `suggested` as approval of the shown recommendation. Question selection order:
+Ask at most five high-impact questions, exactly one at a time. Never reveal the
+future queue. Use either 2–5 mutually exclusive options with
+`**Recommended:** Option X - ...`, or a short answer constrained to `<=5 words`
+with `**Suggested:** ...`. Accept `yes`, `recommended`, or `suggested` for the
+displayed recommendation.
 
-1. Visual/UI coverage status: Required, Not Applicable, Unknown, or `[BLOCKED: PROVIDER_EVIDENCE]`.
-2. Required frames, states, and breakpoints for acceptance.
-3. visual fidelity scope: pixel-perfect, design-system faithful, or functional equivalent.
-4. missing UI states such as loading, empty, error, disabled, hover, and focus.
-5. responsive behavior, scrolling, safe areas, and long-copy handling.
-6. required component reuse constraints explicitly stated in `spec.md`.
-7. data semantics for mock copy, API-backed copy, and interface-driven values.
-8. Prototype-uncovered navigation, dialogs, recovery paths, and failure handling.
-9. product-side acceptance evidence and accepted exception approval flow.
+After each accepted answer:
 
-After each accepted answer, write confirmed answers back into `spec.md` in the relevant Requirements, User Scenarios, Acceptance Criteria, Assumptions, Open Questions, or Visual & UI Specification, visual/responsive/state sections. Update affected visual/UI coverage status when the answer resolves an `Unknown` item. Ensure `## Clarifications`, `### Session YYYY-MM-DD`, and one `- Q: ... -> A: ...` bullet exist for the session. Save `spec.md` after each accepted answer. Do not create a separate provider-specific clarification document.
+1. ensure `## Clarifications` and `### Session YYYY-MM-DD` exist;
+2. append exactly one `- Q: ... -> A: ...` entry;
+3. update the existing canonical section that owns the decision;
+4. replace the ambiguous statement rather than duplicating it;
+5. atomically save `spec.md`.
 
-Do not generate visual restoration checklists. Clarification fills requirement gaps in `spec.md`; `/speckit.checklist` remains responsible for checking requirement text quality and readiness.
+## Local Validation After Every Write
 
-## Validation after each write
+Check only:
 
-Run validation after EACH write plus final pass. Confirm the accepted answer appears once in `spec.md`, Total asked questions is at most 5, the targeted ambiguity is removed or replaced, no contradictory earlier statement remains, and heading structure is preserved.
+- one history bullet per accepted answer and no more than five;
+- the targeted ambiguity is removed;
+- the accepted answer appears once in its owning section;
+- no contradiction or terminology drift was introduced;
+- Markdown structure and template-owned headings remain valid;
+- no artifact other than `spec.md` was changed.
 
-After each `spec.md` write, recompute affected requirement gates by stable
-CHK/CASE/NFR/VIS IDs. Verify unaffected gate sources before stamping every gate
-with the new spec SHA-256 revision. Replace generated status and blocker
-sections; do not append duplicate IDs or stale blockers. Aggregate Planning
-Readiness in memory and never create `planning-readiness.md`.
-
-Do not read or update the legacy `checklists/behavior-testability.md`.
-
-{CORE_TEMPLATE}
+These are local write-safety checks, not requirement completeness or
+cross-artifact validation.
 
 ## Completion Report
 
-Before finishing, report answered questions, `spec.md` sections updated,
-recomputed gate files, aggregate Planning Readiness, and unresolved
-product-decision versus provider-evidence blockers separately.
-
-## Done When
-
-- [ ] No more than 5 high-impact questions were asked.
-- [ ] Each accepted answer was written back to `spec.md`.
-- [ ] Any answered visual/UI coverage status was updated in `spec.md`.
-- [ ] Validation after each write found no duplicate or contradictory clarification.
-- [ ] Affected requirement gates were recomputed using stable IDs and current spec revision.
-- [ ] Provider-evidence blockers were preserved and routed to intake.
-- [ ] No Planning Readiness summary artifact was created.
-- [ ] Completion reported with sections touched and remaining blockers.
+Report questions asked, decisions recorded, sections updated, remaining product
+ambiguities, provider-evidence gaps, and hook status. Recommend independently
+rerunning Checklist when requirement-writing quality should be reassessed.
