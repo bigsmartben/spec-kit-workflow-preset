@@ -21,6 +21,30 @@ DATA_MODEL_OBLIGATION_CODES = {
     "readiness_lifecycle": "ARCH_LIFECYCLE_PROJECTION_MISSING",
 }
 
+SOURCE_ROLES = {
+    "requirement-input",
+    "visual-input",
+    "technical-evidence",
+    "context-only",
+}
+
+NORMATIVE_REQUIREMENT_PREFIXES = ("FR-", "NFR-", "UX-", "UI-", "VIS-")
+VISUAL_REQUIREMENT_PREFIXES = ("UI-", "VIS-")
+SOURCE_ROW_FIELDS = {
+    "ref",
+    "role",
+    "locator_or_description",
+    "revision",
+    "authorized_scope",
+    "projected_refs",
+    "status",
+    # In-memory audit hints derived from row prose and downstream applicability.
+    "broad",
+    "feature_slice",
+    "ui_ux_applicable",
+    "uif_required",
+}
+
 
 def _finding(
     code: str,
@@ -40,10 +64,277 @@ def _finding(
     }
 
 
+def _source_pair_set(rows: Any) -> set[tuple[str, str]]:
+    if not isinstance(rows, list):
+        return set()
+    return {
+        (str(row.get("source_ref")), str(row.get("requirement_ref")))
+        for row in rows
+        if isinstance(row, dict)
+        and row.get("source_ref")
+        and row.get("requirement_ref")
+    }
+
+
+def audit_source_reference_contract(
+    snapshot: dict[str, Any],
+) -> list[dict[str, str]]:
+    """Audit local source rows and projections without external access."""
+
+    findings: list[dict[str, str]] = []
+    spec = snapshot.get("spec", {})
+    plan = snapshot.get("plan", {})
+    sources = spec.get("sources", [])
+    if not isinstance(sources, list):
+        return [
+            _finding(
+                "SRC_CONTRACT_INVALID",
+                source="spec.md:Source References",
+                target="local source inventory",
+                evidence="sources must be a list",
+                owner="speckit.specify",
+            )
+        ]
+
+    source_refs = [
+        str(source.get("ref"))
+        for source in sources
+        if isinstance(source, dict) and source.get("ref")
+    ]
+    duplicate_refs = sorted(
+        {ref for ref in source_refs if source_refs.count(ref) > 1}
+    )
+    for ref in duplicate_refs:
+        findings.append(
+            _finding(
+                "SRC_REF_DUPLICATE",
+                source=f"spec.md:{ref}",
+                target="spec.md:Source References",
+                evidence="source identity is not unique",
+                owner="speckit.specify",
+            )
+        )
+
+    known_refs = set(source_refs)
+    requirement_refs = set(spec.get("requirement_refs", []))
+    downstream_refs = set(snapshot.get("referenced_source_refs", []))
+    downstream_refs.update(plan.get("source_refs", []))
+    ui_ux_mappings = _source_pair_set(plan.get("ui_ux_mappings"))
+    uif_mappings = _source_pair_set(plan.get("uif_mappings"))
+    downstream_refs.update(source_ref for source_ref, _ in ui_ux_mappings)
+    downstream_refs.update(source_ref for source_ref, _ in uif_mappings)
+
+    for source in sources:
+        if not isinstance(source, dict):
+            findings.append(
+                _finding(
+                    "SRC_CONTRACT_INVALID",
+                    source="spec.md:Source References",
+                    target="local source inventory",
+                    evidence="source row must be an object",
+                    owner="speckit.specify",
+                )
+            )
+            continue
+
+        if not source.get("ref"):
+            findings.append(
+                _finding(
+                    "SRC_REF_MISSING",
+                    source="spec.md:Source References row",
+                    target="spec.md:SRC ref",
+                    evidence="source row has no local identity",
+                    owner="speckit.specify",
+                )
+            )
+
+        ref = str(source.get("ref", "<missing>"))
+        role = source.get("role")
+        projected_refs = source.get("projected_refs", [])
+        if not isinstance(projected_refs, list):
+            projected_refs = []
+
+        invalid_fields = sorted(set(source) - SOURCE_ROW_FIELDS)
+        if invalid_fields:
+            findings.append(
+                _finding(
+                    "SRC_FIELD_INVALID",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:Source References columns",
+                    evidence=f"provider/source-specific field: {invalid_fields[0]}",
+                    owner="speckit.specify",
+                )
+            )
+
+        if not isinstance(role, str) or role not in SOURCE_ROLES:
+            findings.append(
+                _finding(
+                    "SRC_ROLE_INVALID",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:Source References.role",
+                    evidence=str(role),
+                    owner="speckit.specify",
+                )
+            )
+
+        if not source.get("locator_or_description"):
+            findings.append(
+                _finding(
+                    "SRC_IDENTITY_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:opaque locator / description",
+                    evidence="missing local source description",
+                    owner="speckit.specify",
+                )
+            )
+
+        if not source.get("authorized_scope"):
+            findings.append(
+                _finding(
+                    "SRC_AUTHORIZED_SCOPE_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:authorized scope / facts",
+                    evidence="missing explicit feature scope",
+                    owner="speckit.specify",
+                )
+            )
+
+        if not source.get("status"):
+            findings.append(
+                _finding(
+                    "SRC_STATUS_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:status / blocker",
+                    evidence="missing local projection status",
+                    owner="speckit.specify",
+                )
+            )
+
+        status = str(source.get("status", "")).lower()
+        if "contradict" in status:
+            findings.append(
+                _finding(
+                    "SRC_STATUS_CONTRADICTORY",
+                    source=f"spec.md:{ref}",
+                    target="local requirement projection",
+                    evidence=str(source.get("status")),
+                    owner="speckit.clarify",
+                )
+            )
+
+        if (
+            source.get("broad")
+            and not source.get("feature_slice")
+            and "block" not in status
+            and "clarif" not in status
+        ):
+            findings.append(
+                _finding(
+                    "SRC_FEATURE_SLICE_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:authorized scope / facts",
+                    evidence="broad source projected without safe feature slice",
+                    owner="speckit.specify",
+                )
+            )
+
+        normative_refs = [
+            str(projected_ref)
+            for projected_ref in projected_refs
+            if str(projected_ref).startswith(NORMATIVE_REQUIREMENT_PREFIXES)
+        ]
+        invalid_for_role = False
+        if role in {"technical-evidence", "context-only"} and normative_refs:
+            invalid_for_role = True
+        elif role == "visual-input" and any(
+            not ref_value.startswith(VISUAL_REQUIREMENT_PREFIXES)
+            for ref_value in normative_refs
+        ):
+            invalid_for_role = True
+        if invalid_for_role:
+            findings.append(
+                _finding(
+                    "SRC_ROLE_PROJECTION_INVALID",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:projected requirement refs",
+                    evidence=f"{role} -> {normative_refs}",
+                    owner="speckit.specify",
+                )
+            )
+
+        missing_projected_refs = sorted(set(projected_refs) - requirement_refs)
+        if missing_projected_refs:
+            findings.append(
+                _finding(
+                    "SRC_PROJECTED_REF_MISSING",
+                    source=f"spec.md:{ref}",
+                    target=f"spec.md:{missing_projected_refs[0]}",
+                    evidence="projected requirement ref does not exist locally",
+                    owner="speckit.specify",
+                )
+            )
+
+        if (
+            not projected_refs
+            and ref not in downstream_refs
+            and status not in {"retained", "context-only"}
+            and "block" not in status
+            and "clarif" not in status
+        ):
+            findings.append(
+                _finding(
+                    "SRC_ORPHAN",
+                    source=f"spec.md:{ref}",
+                    target="local requirements or blocker",
+                    evidence="source has no local projection or retained reason",
+                    owner="speckit.specify",
+                )
+            )
+
+        if source.get("ui_ux_applicable", True):
+            for projected_ref in normative_refs:
+                if not projected_ref.startswith(VISUAL_REQUIREMENT_PREFIXES):
+                    continue
+                pair = (ref, projected_ref)
+                if pair not in ui_ux_mappings:
+                    findings.append(
+                        _finding(
+                            "SRC_UIUX_MAPPING_MISSING",
+                            source=f"spec.md:{ref}+{projected_ref}",
+                            target="ui-ux-design.md",
+                            evidence="applicable source/UI-VIS pair is unmapped",
+                            owner="speckit.plan",
+                        )
+                    )
+                if source.get("uif_required") and pair not in uif_mappings:
+                    findings.append(
+                        _finding(
+                            "SRC_UIF_MAPPING_MISSING",
+                            source=f"spec.md:{ref}+{projected_ref}",
+                            target="contracts/uif/*.expected.json",
+                            evidence="required UIF source/requirement pair is unmapped",
+                            owner="speckit.plan",
+                        )
+                    )
+
+    for missing_ref in sorted(downstream_refs - known_refs):
+        findings.append(
+            _finding(
+                "SRC_REF_MISSING",
+                source=f"downstream:{missing_ref}",
+                target="spec.md:Source References",
+                evidence="referenced source does not exist locally",
+                owner="speckit.specify",
+            )
+        )
+
+    return findings
+
+
 def audit_cross_command_consistency(snapshot: dict[str, Any]) -> list[dict[str, str]]:
     """Return deterministic blocker findings without mutating the snapshot."""
 
-    findings: list[dict[str, str]] = []
+    findings = audit_source_reference_contract(snapshot)
     architecture = snapshot.get("architecture", {})
     plan = snapshot.get("plan", {})
     tasks = snapshot.get("tasks", {})

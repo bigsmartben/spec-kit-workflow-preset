@@ -24,7 +24,8 @@ Before writing, confirm and retain an in-memory agreement containing:
 
 - Architecture generation mode: `greenfield`, `brownfield`, or `amendment`;
 - run goal;
-- every authorized source and its role;
+- every authorized source, one allowed role, opaque identity, and explicit
+  technical scope;
 - excluded candidate sources;
 - repository inspection authorization and exact scope;
 - write scope: Constitution only, Architecture only, or both.
@@ -34,6 +35,16 @@ documents, an existing Constitution or Architecture, repository code, tests,
 configuration, documentation, and directory names are candidate sources until
 the user authorizes their role. Core-style repository inference MUST NOT expand
 the agreement. If the agreement is missing or ambiguous, stop before writing.
+
+Use the source-neutral roles `requirement-input`, `visual-input`,
+`technical-evidence`, and `context-only`. Only explicitly authorized
+`technical-evidence` may support observed or inferred technical records.
+Product-facing `requirement-input` or `visual-input` may establish approved
+target context but does not become a technical decision merely because it is
+available; `context-only` authorizes no normative Architecture fact. A source
+locator remains opaque and authorizes neither adjacent repository inspection
+nor external execution, authenticity/freshness checks, or publication-state
+validation.
 
 ## Independent Write Scopes
 
@@ -168,6 +179,10 @@ has consumed Architecture correctly.
 6. Run `CONSTITUTION_OUTPUT_READY` and/or `ARCHITECTURE_OUTPUT_READY`.
 7. Write only outputs whose internal gate passes. Use atomic replacement.
 8. Never repair or analyze downstream Spec, Plan, Tasks, or implementation.
+
+Do not create a separate source manifest, import/handoff package, adapter, or
+provider-specific schema. Source authorization is carried only by the existing
+input agreement and Architecture artifact.
 
 ## Post-Execution Hooks
 

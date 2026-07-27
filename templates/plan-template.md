@@ -12,6 +12,7 @@
 ### Upstream References
 
 - **Spec**: [path + revision]
+- **Spec Source Contract**: [Applicable local SRC refs and blockers; locators remain opaque.]
 - **Architecture Revision**: [revision]
 - **Applicable Architecture IDs**: [BND/CON/DEC/CST/GAP refs]
 
@@ -20,7 +21,7 @@
 | Lane | Applicability | Source refs | Declared outputs | Dependencies | Internal gate |
 |---|---|---|---|---|---|
 | X2-A Domain/Object/Interface | Required / N/A: reason / Blocked: ID | [refs] | [paths] | [lane refs] | X2A_DESIGN_READY |
-| X2-B UI/UX Delivery | Required / N/A: reason / Blocked: ID | [refs] | [paths] | [lane refs] | X2B_UIUX_READY |
+| X2-B UI/UX Delivery | Required / N/A: reason / Blocked: ID | [SRC + UI/VIS refs] | [paths] | [lane refs] | X2B_UIUX_READY |
 | X2-C Test & Acceptance | Required / N/A: reason / Blocked: ID | [refs] | [paths] | [lane refs] | X2C_TEST_DESIGN_READY |
 
 ### Cross-Lane Dependency Register
