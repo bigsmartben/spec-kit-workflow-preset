@@ -267,10 +267,15 @@ jobs:
               "schemas/speckit.test.conditions.v1.schema.json",
               "validators/speckit_analyze_contract.py",
               "validators/speckit_behavior_contract.py",
+              "validators/speckit_plan_contract.py",
               "validators/speckit_test_contract.py",
               "docs/extension-governance.md",
               "tests/test_preset_contract.py",
               "tests/contracts/speckit-cross-agent-protocol.md",
+              "tests/fixtures/plan_bundles/async_retry_compensation.json",
+              "tests/fixtures/plan_bundles/minimal_repository.json",
+              "tests/fixtures/plan_bundles/non_ui_single_interface.json",
+              "tests/fixtures/plan_bundles/ui_only.json",
           }
           forbidden_entries = {
               "commands/speckit.implement.md",
@@ -376,6 +381,7 @@ jobs:
           test -f .specify/presets/workflow-preset/templates/test/test-conditions.json
           test -f .specify/presets/workflow-preset/schemas/speckit.test.conditions.v1.schema.json
           test -f .specify/presets/workflow-preset/validators/speckit_analyze_contract.py
+          test -f .specify/presets/workflow-preset/validators/speckit_plan_contract.py
           test -f .specify/presets/workflow-preset/validators/speckit_test_contract.py
           test ! -e .specify/presets/workflow-preset/templates/behavior/behavior-testability.md
           test ! -e .specify/presets/workflow-preset/schemas/speckit.behavior.uif.intent.v1.schema.json

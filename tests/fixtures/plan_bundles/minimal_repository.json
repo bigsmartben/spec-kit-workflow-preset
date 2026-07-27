@@ -1,0 +1,67 @@
+{
+  "name": "minimal repository",
+  "repository_mode": "minimal",
+  "lanes": {
+    "X2-A": {"status": "Required"},
+    "X2-B": {"status": "N/A", "reason": "The scoped library API has no user-visible surface."},
+    "X2-C": {"status": "Required"}
+  },
+  "artifacts": [
+    {"path": "plan.md", "decision": "Required", "owner": "X0/X4", "content": "The empty observed topology and intended module boundary are explicit."},
+    {"path": "research.md", "decision": "Required", "owner": "X1", "content": "The runtime prerequisite and interface format decisions are recorded."},
+    {"path": "data-model.md", "decision": "Required", "owner": "X2-A", "content": "A value object and its invariants are defined without inventing existing paths.", "declared_ids": ["OBJ-VALUE-001"]},
+    {"path": "contracts/library.json", "decision": "Required", "owner": "X2-A", "content": "The intended library input, output, and errors are defined.", "declared_ids": ["IF-LIB-001"]},
+    {"path": "class-diagram.md", "decision": "N/A", "reason": "One value object has no cooperating-object relationship."},
+    {"path": "contracts/sequences.md", "decision": "N/A", "reason": "The pure library call has no cross-boundary ordering or failure propagation."},
+    {"path": "ui-ux-design.md", "decision": "N/A", "reason": "No UI, visual, responsive, asset, or accessibility delivery applies."},
+    {"path": "contracts/test/test-conditions.json", "decision": "Required", "owner": "X2-C", "content": "The value contract condition is complete."},
+    {"path": "quickstart.md", "decision": "Required", "owner": "X3", "content": "The intended local validation path and missing runtime prerequisite are explicit."},
+    {"path": "test-readiness.md", "decision": "Required", "owner": "X4", "content": "TC-MIN-001 has one readiness row."}
+  ],
+  "decisions": [
+    {"id": "DEC-TECH-MINIMAL", "affected_refs": ["OBJ-VALUE-001", "IF-LIB-001", "TC-MIN-001"]}
+  ],
+  "uif_contracts": [],
+  "test_conditions": {
+    "contract_type": "speckit.test.conditions.v1",
+    "feature": "minimal-library",
+    "conditions": [{
+      "id": "TC-MIN-001",
+      "source_refs": ["FR-001"],
+      "risk_or_priority": "medium",
+      "levels": ["unit", "contract"],
+      "types": ["functional"],
+      "techniques": ["boundary_value"],
+      "execution_mode": "local-after-runtime-bootstrap",
+      "no_fixture_rationale": "Boundary inputs are inline values.",
+      "environment_refs": ["ENV-RUNTIME-PREREQUISITE"],
+      "oracle": {"kind": "value_and_error", "expected": "valid values normalize and invalid values return the declared error"},
+      "evidence_requirement": "test command output after the runtime prerequisite is satisfied",
+      "related_refs": ["OBJ-VALUE-001", "IF-LIB-001"],
+      "quickstart_ref": "VAL-MIN-001",
+      "status": "required"
+    }]
+  },
+  "technique_children": {"bdd": [], "scenario": [], "fixture": [], "assertion": []},
+  "test_readiness_rows": [
+    {"tc_id": "TC-MIN-001", "status": "READY", "evidence": "quickstart.md#VAL-MIN-001"}
+  ],
+  "validation_paths": [
+    {"id": "VAL-MIN-001", "covered_refs": ["TC-MIN-001", "OBJ-VALUE-001", "IF-LIB-001"]}
+  ],
+  "reconciliation": {
+    "resolved_refs": ["DEC-TECH-MINIMAL", "OBJ-VALUE-001", "IF-LIB-001", "TC-MIN-001", "VAL-MIN-001"],
+    "findings": [],
+    "blocker_owners": {}
+  },
+  "gates": {
+    "X0_CONTROL_READY": {"status": "READY", "evidence": ["plan.md#repository-topology-minimal"]},
+    "X1_DECISIONS_READY": {"status": "READY", "evidence": ["research.md#DEC-TECH-MINIMAL"]},
+    "X2A_DESIGN_READY": {"status": "READY", "evidence": ["data-model.md#OBJ-VALUE-001", "contracts/library.json#IF-LIB-001"]},
+    "X2B_UIUX_READY": {"status": "N/A", "evidence": ["plan.md#active-lane-matrix-no-ui"]},
+    "X2C_TEST_DESIGN_READY": {"status": "READY", "evidence": ["contracts/test/test-conditions.json#TC-MIN-001"]},
+    "X2_RECONCILIATION_READY": {"status": "READY", "evidence": ["plan.md#x2-cross-lane-reconciliation"]},
+    "X3_VALIDATION_PATHS_READY": {"status": "READY", "evidence": ["quickstart.md#VAL-MIN-001"]}
+  },
+  "plan_output_ready": "READY"
+}

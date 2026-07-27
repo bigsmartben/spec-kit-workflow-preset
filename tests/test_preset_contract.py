@@ -15,6 +15,7 @@ from validators.speckit_analyze_contract import (
     audit_source_reference_contract,
 )
 from validators.speckit_behavior_contract import validate_behavior_contract_bundle
+from validators.speckit_plan_contract import validate_plan_artifact_bundle
 from validators.speckit_test_contract import (
     validate_test_conditions,
     validate_test_readiness,
@@ -32,6 +33,7 @@ README = ROOT / "README.md"
 AGENTS = ROOT / "AGENTS.md"
 CROSS_AGENT = ROOT / "tests" / "contracts" / "speckit-cross-agent-protocol.md"
 ARTIFACT_WORKFLOW = ROOT / ".github" / "workflows" / "preset-artifact.yml"
+PLAN_BUNDLE_FIXTURES = ROOT / "tests" / "fixtures" / "plan_bundles"
 
 
 def read(path: Path) -> str:
@@ -454,6 +456,47 @@ class PlanContractTests(unittest.TestCase):
         self.assertIn("validates Plan outputs only", command)
         self.assertNotIn("Architecture Conformance Gate", command)
 
+    def test_plan_has_deterministic_gates_reconciliation_and_resume(self) -> None:
+        command = read(COMMANDS / "speckit.plan.md")
+        for term in (
+            "Deterministic Execution Spine",
+            "Entry conditions",
+            "Bounded reads",
+            "Owned writes",
+            "Failure handling",
+            "Ownership And Conditional Artifact Decisions",
+            "X2 — Cross-Lane Reconciliation",
+            "X2_RECONCILIATION_READY",
+            "Continuation And Resume",
+            "first Gate whose evidence is absent",
+            "never unconditionally overwrite",
+            "Derive `PLAN_OUTPUT_READY`",
+        ):
+            self.assertIn(term, command)
+        for work_unit_field in (
+            "assigned_scope",
+            "allowed_reads",
+            "allowed_writes",
+            "required_outputs",
+            "validation_gate",
+            "blockers",
+            "context_gaps",
+        ):
+            self.assertIn(work_unit_field, command)
+
+    def test_plan_conditional_decision_table_covers_contextual_outputs(self) -> None:
+        command = read(COMMANDS / "speckit.plan.md")
+        for term in (
+            "`class-diagram.md`",
+            "`contracts/sequences.md`",
+            "X2-B + `ui-ux-design.md`/UIF",
+            "BDD/scenario child",
+            "fixture child",
+            "assertion child",
+            "never infer N/A merely because an artifact is absent",
+        ):
+            self.assertIn(term, command)
+
     def test_plan_control_template_has_lanes_navigation_and_closeout(self) -> None:
         template = read(TEMPLATES / "plan-template.md")
         for term in (
@@ -465,6 +508,8 @@ class PlanContractTests(unittest.TestCase):
             "Design Object Derivation Index",
             "X4 Closeout Summary",
             "PLAN_OUTPUT_READY",
+            "X2 Cross-Lane Reconciliation",
+            "Resume Checkpoint",
         ):
             self.assertIn(term, template)
         self.assertIn("Repository Topology", template)
@@ -487,6 +532,16 @@ class PlanContractTests(unittest.TestCase):
         self.assertIn("Cleanup/reset", quickstart)
         self.assertIn("Every required `TC-*` has exactly one row", readiness)
         self.assertIn("MUST NOT appear", readiness)
+        readiness_table = [
+            line for line in readiness.splitlines() if line.startswith("| TC ID")
+        ][0]
+        readiness_separator = [
+            line for line in readiness.splitlines() if line.startswith("|---")
+        ][0]
+        self.assertEqual(
+            readiness_table.count("|"),
+            readiness_separator.count("|"),
+        )
 
     def test_removed_behavior_parents_are_not_packaged(self) -> None:
         for path in (
@@ -497,6 +552,250 @@ class PlanContractTests(unittest.TestCase):
             SCHEMAS / "speckit.behavior.data-fixtures.intent.v1.schema.json",
         ):
             self.assertFalse(path.exists(), path)
+
+
+class PlanBundleSemanticTests(unittest.TestCase):
+    def test_four_representative_plan_bundles_are_closed(self) -> None:
+        fixtures = sorted(PLAN_BUNDLE_FIXTURES.glob("*.json"))
+        self.assertEqual(
+            {
+                "async_retry_compensation.json",
+                "minimal_repository.json",
+                "non_ui_single_interface.json",
+                "ui_only.json",
+            },
+            {path.name for path in fixtures},
+        )
+        for fixture in fixtures:
+            with self.subTest(bundle=fixture.name):
+                validate_plan_artifact_bundle(load_json(fixture))
+
+    def test_plan_bundle_rejects_n_a_without_reason_and_missing_children(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        del bundle["artifacts"][5]["reason"]
+        with self.assertRaisesRegex(ValueError, "N/A artifact missing reason"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["artifacts"] = [
+            artifact
+            for artifact in bundle["artifacts"]
+            if artifact["path"] != "quickstart.md"
+        ]
+        with self.assertRaisesRegex(ValueError, "missing required output"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "async_retry_compensation.json")
+        bundle["technique_children"]["assertion"] = []
+        with self.assertRaisesRegex(ValueError, "technique-triggered assertion"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_rejects_ref_drift_placeholder_and_false_ready(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["test_conditions"]["conditions"][0]["related_refs"] = ["UIF-RENAMED"]
+        with self.assertRaisesRegex(ValueError, "unresolved internal refs"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "minimal_repository.json")
+        bundle["artifacts"][0]["content"] = "TODO decide scope"
+        with self.assertRaisesRegex(ValueError, "unresolved placeholder"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["gates"]["X2_RECONCILIATION_READY"] = {
+            "status": "BLOCKED",
+            "evidence": ["BLK-REF-001"],
+            "blockers": ["BLK-REF-001"],
+        }
+        bundle["reconciliation"]["blocker_owners"] = {
+            "BLK-REF-001": "X2 reconciliation"
+        }
+        with self.assertRaisesRegex(ValueError, "PLAN_OUTPUT_READY is inconsistent"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_validates_test_readiness_rows(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["test_readiness_rows"] = []
+        with self.assertRaisesRegex(ValueError, "test readiness TC mismatch"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_blocked_test_readiness_row_blocks_plan_output(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["test_readiness_rows"][0] = {
+            "tc_id": "TC-001",
+            "status": "BLOCKED",
+            "blocker": "BLK-TEST-ENV-001",
+        }
+        bundle["reconciliation"]["blocker_owners"] = {
+            "BLK-TEST-ENV-001": "X4"
+        }
+        with self.assertRaisesRegex(ValueError, "PLAN_OUTPUT_READY is inconsistent"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle["plan_output_ready"] = "BLOCKED"
+        validate_plan_artifact_bundle(bundle)
+
+    def test_blocked_test_condition_blocks_plan_output(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        condition = bundle["test_conditions"]["conditions"][0]
+        condition["status"] = "blocked"
+        condition["blocker"] = "BLK-TC-001"
+        bundle["test_readiness_rows"] = []
+        bundle["reconciliation"]["blocker_owners"] = {"BLK-TC-001": "X2-C"}
+        with self.assertRaisesRegex(ValueError, "PLAN_OUTPUT_READY is inconsistent"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle["plan_output_ready"] = "BLOCKED"
+        validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_allows_blocked_x2b_without_relabeling_it_n_a(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["lanes"]["X2-B"] = {
+            "status": "Blocked",
+            "blocker": "BLK-UI-001",
+        }
+        uiux = next(
+            artifact
+            for artifact in bundle["artifacts"]
+            if artifact["path"] == "ui-ux-design.md"
+        )
+        uiux.clear()
+        uiux.update(
+            {
+                "path": "ui-ux-design.md",
+                "decision": "Blocked",
+                "owner": "X2-B",
+                "blocker": "BLK-UI-001",
+            }
+        )
+        bundle["gates"]["X2B_UIUX_READY"] = {
+            "status": "BLOCKED",
+            "evidence": ["BLK-UI-001"],
+            "blockers": ["BLK-UI-001"],
+        }
+        bundle["reconciliation"]["blocker_owners"] = {"BLK-UI-001": "X2-B"}
+        bundle["plan_output_ready"] = "BLOCKED"
+        validate_plan_artifact_bundle(bundle)
+
+    def test_blocked_x2c_preserves_unaffected_required_outputs(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["lanes"]["X2-C"] = {
+            "status": "Blocked",
+            "blocker": "BLK-X2C-001",
+        }
+        readiness = next(
+            artifact
+            for artifact in bundle["artifacts"]
+            if artifact["path"] == "test-readiness.md"
+        )
+        readiness.clear()
+        readiness.update(
+            {
+                "path": "test-readiness.md",
+                "decision": "Blocked",
+                "owner": "X4",
+                "blocker": "BLK-READINESS-001",
+            }
+        )
+        bundle["test_readiness_rows"] = []
+        bundle["gates"]["X2C_TEST_DESIGN_READY"] = {
+            "status": "BLOCKED",
+            "evidence": ["BLK-X2C-001"],
+            "blockers": ["BLK-X2C-001"],
+        }
+        bundle["reconciliation"]["blocker_owners"] = {
+            "BLK-X2C-001": "X2-C",
+            "BLK-READINESS-001": "X4",
+        }
+        bundle["plan_output_ready"] = "BLOCKED"
+        validate_plan_artifact_bundle(bundle)
+
+    def test_required_x2a_allows_pure_domain_design_without_interface(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "minimal_repository.json")
+        bundle["artifacts"] = [
+            artifact
+            for artifact in bundle["artifacts"]
+            if artifact["path"] != "contracts/library.json"
+        ]
+        bundle["decisions"][0]["affected_refs"].remove("IF-LIB-001")
+        bundle["test_conditions"]["conditions"][0]["related_refs"].remove(
+            "IF-LIB-001"
+        )
+        bundle["validation_paths"][0]["covered_refs"].remove("IF-LIB-001")
+        bundle["reconciliation"]["resolved_refs"].remove("IF-LIB-001")
+        bundle["gates"]["X2A_DESIGN_READY"]["evidence"] = [
+            "data-model.md#OBJ-VALUE-001"
+        ]
+        validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_allows_x2c_and_x3_n_a_with_reasons(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["lanes"]["X2-C"] = {
+            "status": "N/A",
+            "reason": "The scoped documentation-only change has no Test obligation.",
+        }
+        for artifact in bundle["artifacts"]:
+            if artifact["path"] in {
+                "contracts/test/test-conditions.json",
+                "quickstart.md",
+                "test-readiness.md",
+            }:
+                path = artifact["path"]
+                artifact.clear()
+                artifact.update(
+                    {
+                        "path": path,
+                        "decision": "N/A",
+                        "reason": "No Test or runnable validation obligation applies.",
+                    }
+                )
+        bundle["decisions"][0]["affected_refs"] = ["IF-001"]
+        bundle.pop("test_conditions")
+        bundle.pop("technique_children")
+        bundle.pop("test_readiness_rows")
+        bundle["validation_paths"] = []
+        bundle["reconciliation"]["resolved_refs"] = ["DEC-IF-001", "IF-001"]
+        bundle["gates"]["X2C_TEST_DESIGN_READY"] = {
+            "status": "N/A",
+            "evidence": ["plan.md#active-lane-matrix-no-test"],
+        }
+        bundle["gates"]["X3_VALIDATION_PATHS_READY"] = {
+            "status": "N/A",
+            "evidence": ["plan.md#active-lane-matrix-no-validation-path"],
+        }
+        validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_allows_pixel_delivery_language_only_in_uiux(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["artifacts"][5][
+            "content"
+        ] = "Pixel-perfect delivery and visual diff review remain owned by UI/UX."
+        validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_rejects_pixel_test_scope(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["test_conditions"]["conditions"][0][
+            "evidence_requirement"
+        ] = "screenshot diff"
+        with self.assertRaisesRegex(ValueError, "pixel-level visual scope"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_rejects_unknown_plan_output_state(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "non_ui_single_interface.json")
+        bundle["gates"]["X2_RECONCILIATION_READY"] = {
+            "status": "BLOCKED",
+            "evidence": ["BLK-REF-001"],
+            "blockers": ["BLK-REF-001"],
+        }
+        bundle["reconciliation"]["blocker_owners"] = {
+            "BLK-REF-001": "X2 reconciliation"
+        }
+        bundle["plan_output_ready"] = "NOT_A_STATE"
+        with self.assertRaisesRegex(
+            ValueError,
+            "PLAN_OUTPUT_READY must be READY or BLOCKED",
+        ):
+            validate_plan_artifact_bundle(bundle)
 
 
 class SchemaAndValidatorTests(unittest.TestCase):
@@ -534,7 +833,16 @@ class SchemaAndValidatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no BDD child"):
             validate_test_conditions(payload)
         validate_test_conditions(payload, available_bdd_tc_refs={"TC-001"})
-        validate_test_readiness(payload, [{"tc_id": "TC-001"}])
+        validate_test_readiness(
+            payload,
+            [
+                {
+                    "tc_id": "TC-001",
+                    "status": "READY",
+                    "evidence": "quickstart.md#VAL-001",
+                }
+            ],
+        )
         with self.assertRaisesRegex(ValueError, "TC mismatch"):
             validate_test_readiness(payload, [])
 
@@ -883,6 +1191,9 @@ class ReleaseBoundaryTests(unittest.TestCase):
             "specify preset resolve plan-template",
             "test -f .claude/skills/speckit-implement/SKILL.md",
             "test ! -e .specify/presets/workflow-preset/commands/speckit.implement.md",
+            "validators/speckit_plan_contract.py",
+            "tests/fixtures/plan_bundles/minimal_repository.json",
+            "tests/fixtures/plan_bundles/ui_only.json",
         ):
             self.assertIn(term, workflow)
 

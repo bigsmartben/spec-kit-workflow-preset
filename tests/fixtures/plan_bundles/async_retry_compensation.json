@@ -1,0 +1,75 @@
+{
+  "name": "async retry compensation",
+  "repository_mode": "populated",
+  "lanes": {
+    "X2-A": {"status": "Required"},
+    "X2-B": {"status": "N/A", "reason": "The scoped worker flow has no user-visible surface."},
+    "X2-C": {"status": "Required"}
+  },
+  "artifacts": [
+    {"path": "plan.md", "decision": "Required", "owner": "X0/X4", "content": "Async worker scope, gates, reconciliation, and closeout are evidenced."},
+    {"path": "research.md", "decision": "Required", "owner": "X1", "content": "Retry, idempotency, and compensation decisions are recorded."},
+    {"path": "data-model.md", "decision": "Required", "owner": "X2-A", "content": "Job attempt, idempotency key, and compensation lifecycle are defined."},
+    {"path": "class-diagram.md", "decision": "Required", "owner": "X2-A", "content": "Coordinator, retry policy, and compensation port responsibilities are defined.", "declared_ids": ["OBJ-COORDINATOR", "OBJ-RETRY-POLICY"]},
+    {"path": "contracts/job.json", "decision": "Required", "owner": "X2-A", "content": "Submission, callback, and failure contracts are defined.", "declared_ids": ["IF-JOB-001"]},
+    {"path": "contracts/sequences.md", "decision": "Required", "owner": "X2-A", "content": "Submit, callback, retry, terminal failure, and compensation order are defined.", "declared_ids": ["SEQ-JOB-001"]},
+    {"path": "ui-ux-design.md", "decision": "N/A", "reason": "No UI, visual, responsive, asset, or accessibility delivery applies."},
+    {"path": "contracts/test/test-conditions.json", "decision": "Required", "owner": "X2-C", "content": "Retry and compensation condition is complete."},
+    {"path": "contracts/behavior/scenario-instances.json", "decision": "Required", "owner": "X2-C", "content": "The retry exhaustion scenario references TC-ASYNC-001."},
+    {"path": "contracts/behavior/data-fixtures.json", "decision": "Required", "owner": "X2-C", "content": "Reusable failed-provider responses reference TC-ASYNC-001."},
+    {"path": "contracts/behavior/assertions.json", "decision": "Required", "owner": "X2-C", "content": "Rollback and compensation assertions reference TC-ASYNC-001."},
+    {"path": "quickstart.md", "decision": "Required", "owner": "X3", "content": "The sandbox retry and compensation journey is defined."},
+    {"path": "test-readiness.md", "decision": "Required", "owner": "X4", "content": "TC-ASYNC-001 has one readiness row."}
+  ],
+  "decisions": [
+    {"id": "DEC-DATA-RETRY", "affected_refs": ["OBJ-COORDINATOR", "OBJ-RETRY-POLICY", "IF-JOB-001", "SEQ-JOB-001", "TC-ASYNC-001"]}
+  ],
+  "uif_contracts": [],
+  "test_conditions": {
+    "contract_type": "speckit.test.conditions.v1",
+    "feature": "async-job-recovery",
+    "conditions": [{
+      "id": "TC-ASYNC-001",
+      "source_refs": ["FR-RETRY-001", "NFR-RELIABILITY-001"],
+      "risk_or_priority": "critical",
+      "levels": ["integration"],
+      "types": ["recovery", "reliability", "data_side_effect"],
+      "techniques": ["state_transition"],
+      "execution_mode": "sandbox",
+      "fixture_refs": ["FIX-PROVIDER-FAILURES"],
+      "environment_refs": ["ENV-SANDBOX"],
+      "oracle": {"kind": "state_and_compensation", "expected": "retry exhaustion produces one compensation and a terminal state"},
+      "evidence_requirement": "state history and provider call log",
+      "related_refs": ["IF-JOB-001", "SEQ-JOB-001", "OBJ-COORDINATOR"],
+      "quickstart_ref": "VAL-ASYNC-001",
+      "status": "required"
+    }]
+  },
+  "technique_children": {
+    "bdd": [],
+    "scenario": ["TC-ASYNC-001"],
+    "fixture": ["TC-ASYNC-001"],
+    "assertion": ["TC-ASYNC-001"]
+  },
+  "test_readiness_rows": [
+    {"tc_id": "TC-ASYNC-001", "status": "READY", "evidence": "quickstart.md#VAL-ASYNC-001"}
+  ],
+  "validation_paths": [
+    {"id": "VAL-ASYNC-001", "covered_refs": ["TC-ASYNC-001", "IF-JOB-001", "SEQ-JOB-001", "OBJ-COORDINATOR"]}
+  ],
+  "reconciliation": {
+    "resolved_refs": ["DEC-DATA-RETRY", "OBJ-COORDINATOR", "OBJ-RETRY-POLICY", "IF-JOB-001", "SEQ-JOB-001", "TC-ASYNC-001", "VAL-ASYNC-001"],
+    "findings": [],
+    "blocker_owners": {}
+  },
+  "gates": {
+    "X0_CONTROL_READY": {"status": "READY", "evidence": ["plan.md#x0-feature-plan-control"]},
+    "X1_DECISIONS_READY": {"status": "READY", "evidence": ["research.md#DEC-DATA-RETRY"]},
+    "X2A_DESIGN_READY": {"status": "READY", "evidence": ["class-diagram.md#objects", "contracts/sequences.md#SEQ-JOB-001"]},
+    "X2B_UIUX_READY": {"status": "N/A", "evidence": ["plan.md#active-lane-matrix-no-ui"]},
+    "X2C_TEST_DESIGN_READY": {"status": "READY", "evidence": ["contracts/test/test-conditions.json#TC-ASYNC-001"]},
+    "X2_RECONCILIATION_READY": {"status": "READY", "evidence": ["plan.md#x2-cross-lane-reconciliation"]},
+    "X3_VALIDATION_PATHS_READY": {"status": "READY", "evidence": ["quickstart.md#VAL-ASYNC-001"]}
+  },
+  "plan_output_ready": "READY"
+}

@@ -38,7 +38,24 @@
 | X2A_DESIGN_READY | [status] | [ref] |
 | X2B_UIUX_READY | [status] | [ref] |
 | X2C_TEST_DESIGN_READY | [status] | [ref] |
+| X2_RECONCILIATION_READY | [status] | [inventory/findings/blocker refs] |
 | X3_VALIDATION_PATHS_READY | [status] | [ref] |
+
+Each status is derived from the cited evidence. File existence alone is not
+evidence. A missing or invalid evidence cell means the Gate is not ready.
+
+### X2 Cross-Lane Reconciliation
+
+| Ref / mapping | Producer / owner | Consumers | Resolved target | Drift / ownership finding | Status / blocker |
+|---|---|---|---|---|---|
+| [DEC/UIF/TC/VAL/design ref] | [lane + artifact] | [lane artifacts] | [stable ID/path] | [none or finding] | [READY/BLOCKED: ID] |
+
+### Resume Checkpoint
+
+- **First unclosed/affected Gate**: [Gate ID]
+- **Verified artifacts preserved**: [paths + evidence refs]
+- **Changed inputs/refs**: [refs or none]
+- **Downstream Gates/reconciliation to rerun**: [Gate IDs]
 
 ## Artifact Navigation
 
@@ -71,3 +88,7 @@ No task IDs, exact per-task paths, or implementation order belong here.
 - **X3 Validation Paths**: [READY/BLOCKED/N/A]
 - **Blockers by lane**: [IDs]
 - **PLAN_OUTPUT_READY**: READY | BLOCKED
+
+`PLAN_OUTPUT_READY` is derived from the Internal Gate Summary, reconciliation,
+conditional artifact decisions, readiness products, resolved refs, and
+placeholders. Do not mark it READY from file presence or prose summary alone.

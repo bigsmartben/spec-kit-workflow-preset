@@ -288,6 +288,38 @@ Pixel-fidelity delivery and review belong only to UI/UX Delivery Readiness.
 Pixel, screenshot, diff, baseline, restoration, and rendered-visual-review work
 is rejected from Test Conditions and Test Readiness.
 
+Plan internal milestones use one evidence-bearing loop: entry conditions,
+bounded reads, owned writes, validation, `READY/BLOCKED/N/A` evidence, and stop
+handling. A dependent milestone cannot start before its dependency Gate closes.
+After active X2 lanes, Plan performs a cross-lane reconciliation over stable
+`DEC-*`, design/interface/sequence, UIF, `TC-*`, and requested `VAL-*` refs;
+X3 refreshes every affected reconciliation row after producing validation
+paths.
+
+Conditional artifacts are decided by explicit triggers rather than file
+presence. Class diagrams are triggered by cooperating-object responsibility or
+dependency design; interface contracts by an externally observable boundary;
+sequences by observable cross-boundary order/failure flow; X2-B by user-visible
+or interactive delivery; and BDD/scenario/fixture/assertion children by their
+parent Test Condition techniques. Pure domain/internal-object X2-A therefore
+does not require an interface contract. Each non-triggered artifact has a
+concrete N/A reason.
+
+Blocked applicability is never rewritten as N/A. During continuation, artifact
+decisions remain independent: preserve verified Required outputs and block only
+affected outputs. X2-C does not force Test Conditions, Quickstart, and Test
+Readiness to share one Blocked decision. Every required Test Readiness row is
+READY with evidence or BLOCKED with a blocker, and any blocked row prevents
+`PLAN_OUTPUT_READY`.
+
+`plan.md` Gate evidence is also the continuation index. A rerun preserves
+verified artifacts whose inputs and refs are unchanged, resumes at the first
+unclosed or affected Gate, and revalidates its downstream consumers. No
+`PENDING` state or persistent execution/transfer artifact is introduced.
+`PLAN_OUTPUT_READY` is derived only from evidenced internal Gates,
+reconciliation, readiness products, conditional decisions, resolved refs, and
+the absence of decision placeholders.
+
 Validation decisions stay in `research.md`, executable paths stay in
 `quickstart.md`, and `test-readiness.md` is the single Test/Tasks handoff. Do
 not restore `behavior/behavior-testability.md`, create a generic

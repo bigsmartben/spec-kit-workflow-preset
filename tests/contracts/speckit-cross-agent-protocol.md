@@ -39,15 +39,23 @@ Every preset-owned command profile defines:
 
 - `stage`: X0–X4 milestones nested in Core Plan.
 - `owner_agent`: Plan Core Agent.
+- `assigned_scope`: one bounded X1, X2-A, X2-B, X2-C, X3, or X4 derivation
+  unit; never an implementation unit.
 - `input_scope`: local Spec facts/blockers, Constitution, current repository
   facts, applicable Architecture refs, and assigned X1/X2/X3/X4 artifact
   families. External `SRC-*` locators are not allowed reads.
+- `allowed_reads`: authoritative upstream inputs, current repository facts,
+  packaged Plan templates/schemas, and already-produced Plan artifacts named by
+  the assigned scope.
 - `allowed_writes`: final planning artifacts owned by `/speckit.plan`.
-- `output_contract`: lane-qualified decisions, X2-A/X2-B/X2-C designs,
-  `TC-*`, `VAL-*`, independent readiness products, blockers, and
-  `context_gaps`.
+- `required_outputs`: lane-qualified decisions, X2-A/X2-B/X2-C designs,
+  `TC-*`, `VAL-*`, or independent readiness content explicitly named by the
+  assigned scope.
+- `output_contract`: required outputs plus `blockers` and `context_gaps`.
 - `validation_gate`: `PLAN_OUTPUT_READY` over Plan outputs and internal refs
-  only.
+  only, with a lane-local Gate on each assignment.
+- `stop_conditions`: an unmet entry Gate, an out-of-scope read/write, an
+  unresolved required ref, or a blocker owned by another lane.
 - `fallback`: the Plan Core Agent processes one assigned scope at a time and
   preserves final-write ownership.
 

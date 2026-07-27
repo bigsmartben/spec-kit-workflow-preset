@@ -93,7 +93,10 @@ def validate_test_conditions(
         if not condition.get("evidence_requirement"):
             raise ValueError(f"{condition_id} missing evidence_requirement")
 
-        if condition.get("status") == "blocked" and not condition.get("blocker"):
+        status = condition.get("status")
+        if status not in {"required", "blocked"}:
+            raise ValueError(f"{condition_id} has invalid Test Condition status")
+        if status == "blocked" and not condition.get("blocker"):
             raise ValueError(f"{condition_id} blocked condition missing blocker")
 
         if _contains_pixel_scope(condition):
@@ -122,5 +125,14 @@ def validate_test_readiness(
         missing = sorted(required_ids - set(row_ids))
         extra = sorted(set(row_ids) - required_ids)
         raise ValueError(f"test readiness TC mismatch missing={missing} extra={extra}")
+    for row in readiness_rows:
+        tc_id = row["tc_id"]
+        status = row.get("status")
+        if status not in {"READY", "BLOCKED"}:
+            raise ValueError(f"{tc_id} has invalid Test Readiness status")
+        if status == "READY" and not row.get("evidence"):
+            raise ValueError(f"{tc_id} READY Test Readiness missing evidence")
+        if status == "BLOCKED" and not row.get("blocker"):
+            raise ValueError(f"{tc_id} BLOCKED Test Readiness missing blocker")
     if _contains_pixel_scope(readiness_rows):
         raise ValueError("test readiness contains pixel-level visual scope")
