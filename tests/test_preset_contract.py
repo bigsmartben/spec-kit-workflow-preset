@@ -225,6 +225,29 @@ class ManifestAndGovernanceTests(unittest.TestCase):
         self.assertIn("X0–X4 Planning Artifact Boundaries", governance)
         self.assertIn("Tasks As A Pure Plan Mapper", governance)
         self.assertIn("Analyze Cross-Command Audit", governance)
+        self.assertIn("Source Reference Contract", governance)
+        self.assertIn(
+            "SRC-* + UI/VIS-* -> ui-ux-design.md -> UIF source_refs + requirement_refs",
+            governance,
+        )
+
+    def test_source_contract_adds_no_intake_or_transfer_runtime(self) -> None:
+        for path in (
+            ROOT / "templates" / "source-import-manifest.json",
+            ROOT / "schemas" / "speckit.source-import.v1.schema.json",
+            ROOT / "validators" / "speckit_source_adapter.py",
+            ROOT / "commands" / "speckit.intake.md",
+            ROOT / "scripts" / "source-dispatch.sh",
+        ):
+            self.assertFalse(path.exists(), path)
+
+        for document in (
+            read(GOVERNANCE),
+            read(COMMANDS / "speckit.specify.md"),
+            read(COMMANDS / "speckit.plan.md"),
+            read(COMMANDS / "speckit.analyze.md"),
+        ):
+            self.assertNotIn("## Intake", document)
 
 
 class ConstitutionAndArchitectureTests(unittest.TestCase):

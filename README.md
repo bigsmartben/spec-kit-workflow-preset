@@ -36,16 +36,51 @@ Constitution + Architecture
 
 ### 需求层
 
-`spec.md` 是产品需求唯一事实源（SSOT, Single Source of Truth）。功能需求、
-非功能需求、UX/UI、视觉、安全隐私、数据、集成、依赖、边界、假设和排除项
-都使用可选载体；不适用时明确写 N/A。
+授权来源投影完成后，`spec.md` 是当前功能的产品需求唯一事实源（SSOT,
+Single Source of Truth）。功能需求、非功能需求、UX/UI、视觉、安全隐私、
+数据、集成、依赖、边界、假设和排除项都使用可选载体；不适用时明确写
+N/A。
 
 `/speckit.specify` 与 `/speckit.clarify` 不生成或修改 checklist。
 `/speckit.checklist` 只提出可回答的问题，不把实现方案写回需求。
 
 例如：退款需求可以同时声明 `FR-001`（退款规则）、`NFR-001`（响应时间）和
-`UI-001`（加载/成功/失败状态）；缺少支付提供方凭证属于外部 intake
-（输入接入）阻塞，不是产品澄清问题。
+`UI-001`（加载/成功/失败状态）；若已授权的设计说明缺少结账失败态证据，
+就在对应 `SRC-*` 行记录本地阻塞，不把它混成产品澄清问题。
+
+### 来源中立契约
+
+自然语言、需求文档、可执行视觉引用和技术证据统一进入现有
+Source Reference Contract（来源引用契约）：
+
+```text
+SRC ref | role | opaque locator/description | revision/identity
+| authorized scope/facts | projected requirement refs | status/blocker
+```
+
+| 角色 | 含义 | 例子 |
+|---|---|---|
+| `requirement-input` | 可投影已确认、已切片的 WHAT/WHY | 当前对话中的退款规则 |
+| `visual-input` | 只可投影 `UI-*` / `VIS-*` | 结账错误态的可执行页面引用 |
+| `technical-evidence` | 可引用，但不升级成产品需求 | 性能测量报告 |
+| `context-only` | 只作背景，不授权规范性事实 | 竞品介绍 |
+
+定位符（locator）、路径、版本、摘要或文字描述都按不透明来源信息保存。
+预设不会因为看到一个引用就打开、执行或验证它，也不会推断相邻目录或要求
+上游工具。宽泛来源必须先确定当前功能切片；无法安全切片时只记录本地阻塞
+或待澄清项，不默认整份导入。
+
+本地链路是：
+
+```text
+SRC-* + 本地需求
+        ↓
+spec.md（本功能 WHAT/WHY SSOT）
+        ↓
+X2-B: ui-ux-design.md → UIF
+        ↓
+Tasks 只做实现映射；Analyze 只做本地引用审计
+```
 
 ### Plan：X0–X4
 
@@ -79,7 +114,8 @@ UI/UX 像素级交付准备可以在 Plan 中完成，但 Tasks 不得生成像�
 `/speckit.analyze` 一次读取 Constitution、Architecture、Spec、Plan 与 Tasks，
 输出稳定 finding ID、严重级别、证据和第一个阻塞点。它负责检查
 Architecture → Plan、Plan → Tasks、M + U 范围，以及数据模型的幂等、提供方
-绑定、重试、恢复和生命周期投影；不会修文件或发明新的 Plan 策略。
+绑定、重试、恢复和生命周期投影；同时检查 `SRC-*` 的本地存在性、角色和
+X2-B/UIF 投影。它不会访问外部定位符、修文件或发明新的 Plan 策略。
 
 ## 安装
 
