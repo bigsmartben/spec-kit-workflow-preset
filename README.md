@@ -36,7 +36,7 @@ Constitution + Architecture
 
 ### 需求层
 
-授权来源投影完成后，`spec.md` 是当前功能的产品需求唯一事实源（SSOT,
+有界输入投影完成后，`spec.md` 是当前功能的产品需求唯一事实源（SSOT,
 Single Source of Truth）。功能需求、非功能需求、UX/UI、视觉、安全隐私、
 数据、集成、依赖、边界、假设和排除项都使用可选载体；不适用时明确写
 N/A。
@@ -45,7 +45,7 @@ N/A。
 `/speckit.checklist` 只提出可回答的问题，不把实现方案写回需求。
 
 例如：退款需求可以同时声明 `FR-001`（退款规则）、`NFR-001`（响应时间）和
-`UI-001`（加载/成功/失败状态）；若已授权的设计说明缺少结账失败态证据，
+`UI-001`（加载/成功/失败状态）；若已供应的设计说明缺少结账失败态证据，
 就在对应 `SRC-*` 行记录本地阻塞，不把它混成产品澄清问题。
 
 ### 来源中立契约
@@ -55,20 +55,21 @@ Source Reference Contract（来源引用契约）：
 
 ```text
 SRC ref | role | opaque locator/description | revision/identity
-| authorized scope/facts | projected requirement refs | status/blocker
+| bounded feature scope | supplied content/facts
+| projected requirement refs | status/blocker
 ```
 
 | 角色 | 含义 | 例子 |
 |---|---|---|
-| `requirement-input` | 可投影已确认、已切片的 WHAT/WHY | 当前对话中的退款规则 |
+| `requirement-input` | 可投影已供应、已切片的 WHAT/WHY | 当前对话中的退款规则 |
 | `visual-input` | 只可投影 `UI-*` / `VIS-*` | 结账错误态的可执行页面引用 |
 | `technical-evidence` | 可引用，但不升级成产品需求 | 性能测量报告 |
 | `context-only` | 只作背景，不授权规范性事实 | 竞品介绍 |
 
-定位符（locator）、路径、版本、摘要或文字描述都按不透明来源信息保存。
-预设不会因为看到一个引用就打开、执行或验证它，也不会推断相邻目录或要求
-上游工具。宽泛来源必须先确定当前功能切片；无法安全切片时只记录本地阻塞
-或待澄清项，不默认整份导入。
+`/speckit.specify` 从内容或来源事实已经供应完毕的位置开始。定位符
+（locator）、路径、版本、摘要或文字描述只是不透明来源信息；如果没有随附
+内容/事实，则记录 `SRC_EVIDENCE_MISSING`，不投影本地需求。宽泛来源必须先
+确定当前功能切片；无法安全切片时只记录本地阻塞或待澄清项，不默认整份导入。
 
 本地链路是：
 
@@ -81,6 +82,27 @@ X2-B: ui-ux-design.md → UIF
         ↓
 Tasks 只做实现映射；Analyze 只做本地引用审计
 ```
+
+### UI 证据与还原契约
+
+`spec.md` 内的 `UI-*` / `VIS-*` 行会记录需求种类、可观察结果、`SRC-*`、
+输入内证据定位、界面/状态/视口、推导分类、可测验收条件和阻塞状态。推导分类
+固定为 `observed`（直接观察）、`derived`（确定性推导）、`assumed`（低影响
+假设）、`unresolved`（证据不足）和 `conflicting`（证据冲突）。
+
+还原需求会显式覆盖内容、信息结构、外观、交互反馈、UI 状态、响应式视口、
+无障碍和资产。像素还原使用稳定的 `PXR-*` 配置、`PXT-*` 界面 × 状态 ×
+视口目标和 `PEX-*` 例外；缺少基线、渲染上下文、保真模式、可测容差或例外
+策略时保持阻塞。跨平台还原还必须声明具体目标平台、适配模式、目标上下文和
+逐维度的 `preserve/adapt/add/omit/clarify/blocked` 决策。具体组件与实现
+映射仍归 X2-B，像素范围不进入 Test Conditions 或 Test Readiness。
+
+Plan 在 X0 和 `ui-ux-design.md` 记录同一个本地 `spec.md` SHA-256，用于
+发现 Clarify 造成的同 ID 语义变化。X2-B 只建立引用式 `X2B-*` 交付映射：
+通用 UI 映射、像素目标映射和平台适配映射。它不会复制 Spec 拥有的需求语句、
+基线、视口/状态、保真模式、验收容差、例外边界或适配决策；摘要变化或任何
+`UI/VIS/RST/PXR/PXT/PEX/ADP` 映射缺失都会阻止
+`X2B_UIUX_READY` 和 `PLAN_OUTPUT_READY`。
 
 ### Plan：X0–X4
 
@@ -101,15 +123,19 @@ Phase 0、Phase 1 或 Constitution re-check。
 （测试数据）和 assertion（断言）只有在技术适用时才生成；非 UI 功能和
 无 fixture 场景可以记录明确理由。
 
-UI/UX 像素级交付准备可以在 Plan 中完成，但 Tasks 不得生成像素还原、
-截图对比、visual diff（视觉差异）、baseline（基线）、视觉恢复或渲染审查
-任务。
+UI/UX 像素级交付准备在 Plan 中完成。Tasks 可以把 `X2B-PX-*` 映射成间距、
+排版、颜色、资产适配、层叠、溢出和裁剪等实现任务；但不得生成截图/基线、
+pixel/perceptual comparison（像素/感知比较）、visual diff（视觉差异）、
+视觉验收或最终渲染保真度审查任务。
 
 ### Tasks 与 Analyze
 
 `/speckit.tasks` 只消费 `PLAN_OUTPUT_READY`，按 T0–T5 映射已存在的设计对象、
 路径、依赖、测试条件和 `VAL-*`。必需的 `TC-*` 会覆盖 Core 模板中“测试可选”
-的默认提示；最后一个强制阶段始终是 **Final Code Review**。
+的默认提示。`X2B-UI-*`、`X2B-PX-*`、`X2B-ADP-*` 分别生成通用 UI、视觉
+实现和平台适配任务；每个 Required 映射必须落到具体路径，或保留 Plan 明确
+允许的“仅评审方法、无任务”理由。最后一个强制阶段始终是
+**Final Code Review**。
 
 `/speckit.analyze` 一次读取 Constitution、Architecture、Spec、Plan 与 Tasks，
 输出稳定 finding ID、严重级别、证据和第一个阻塞点。它负责检查

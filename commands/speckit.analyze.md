@@ -42,11 +42,13 @@ Audit only the local Source Reference Contract and its local projections:
 
 - every referenced `SRC-*` exists exactly once in the Spec carrier;
 - every source has exactly one allowed role, opaque locator/description,
-  explicit authorized scope/facts, projection refs or a reason for none, and a
-  status/blocker;
+  explicit bounded feature scope, supplied content/facts, projection refs or a
+  reason for none, and a status/blocker;
+- a locator-only row has no projected refs and records
+  `SRC_EVIDENCE_MISSING`;
 - every projected requirement ref exists locally and is compatible with the
   role: `requirement-input` may project WHAT/WHY refs, `visual-input` only
-  `UI-*`/`VIS-*`, while `technical-evidence` and `context-only` authorize no
+  `UI-*`/`VIS-*`, while `technical-evidence` and `context-only` support no
   normative requirement;
 - a broad source without a safe feature slice remains blocked or needs
   clarification instead of projecting unrelated facts;
@@ -58,9 +60,10 @@ Audit only the local Source Reference Contract and its local projections:
 
 Use stable codes including `SRC_REF_MISSING`, `SRC_REF_DUPLICATE`,
 `SRC_FIELD_INVALID`, `SRC_ROLE_INVALID`, `SRC_ROLE_PROJECTION_INVALID`,
-`SRC_PROJECTED_REF_MISSING`, `SRC_FEATURE_SLICE_MISSING`, `SRC_ORPHAN`,
-`SRC_STATUS_CONTRADICTORY`, `SRC_UIUX_MAPPING_MISSING`, and
-`SRC_UIF_MAPPING_MISSING`.
+`SRC_BOUNDED_SCOPE_MISSING`, `SRC_SUPPLIED_FACTS_INVALID`,
+`SRC_EVIDENCE_MISSING`, `SRC_BLOCKER_MISSING`, `SRC_PROJECTED_REF_MISSING`,
+`SRC_FEATURE_SLICE_MISSING`, `SRC_ORPHAN`, `SRC_STATUS_CONTRADICTORY`,
+`SRC_UIUX_MAPPING_MISSING`, and `SRC_UIF_MAPPING_MISSING`.
 
 Do not open, run, inspect, compare, fetch, or otherwise dereference an external
 locator. Do not decide source authenticity, availability, revision/digest

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 import re
 import unittest
@@ -16,6 +17,17 @@ from validators.speckit_analyze_contract import (
 )
 from validators.speckit_behavior_contract import validate_behavior_contract_bundle
 from validators.speckit_plan_contract import validate_plan_artifact_bundle
+from validators.speckit_spec_contract import (
+    ADAPTATION_DIMENSIONS,
+    CONFLICT_PRECEDENCE,
+    RESTORATION_DIMENSIONS,
+    validate_ui_specification_contract,
+)
+from validators.speckit_tasks_contract import (
+    FINAL_REVIEW_SCOPES,
+    MAPPING_DIMENSIONS,
+    validate_tasks_x2b_derivation,
+)
 from validators.speckit_test_contract import (
     validate_test_conditions,
     validate_test_readiness,
@@ -42,6 +54,19 @@ def read(path: Path) -> str:
 
 def load_json(path: Path) -> dict:
     return json.loads(read(path))
+
+
+def replace_string_values(value, old: str, new: str):
+    if isinstance(value, dict):
+        return {
+            key: replace_string_values(child, old, new)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [replace_string_values(child, old, new) for child in value]
+    if isinstance(value, str):
+        return value.replace(old, new)
+    return value
 
 
 def minimal_test_conditions(*, technique: str = "contract_testing") -> dict:
@@ -105,7 +130,8 @@ def source_contract_snapshot() -> dict:
                     "ref": "SRC-001",
                     "role": "requirement-input",
                     "locator_or_description": "current conversation direction",
-                    "authorized_scope": "refund submission behavior",
+                    "bounded_scope": "refund submission behavior",
+                    "supplied_facts": ["refunds can be submitted"],
                     "projected_refs": ["FR-001"],
                     "status": "projected",
                 },
@@ -114,7 +140,8 @@ def source_contract_snapshot() -> dict:
                     "role": "requirement-input",
                     "locator_or_description": "opaque product document",
                     "revision": "supplied-r7",
-                    "authorized_scope": "refund eligibility section",
+                    "bounded_scope": "refund eligibility section",
+                    "supplied_facts": ["eligibility rules in the supplied section"],
                     "feature_slice": "refund eligibility",
                     "broad": True,
                     "projected_refs": ["FR-002"],
@@ -124,7 +151,8 @@ def source_contract_snapshot() -> dict:
                     "ref": "SRC-003",
                     "role": "visual-input",
                     "locator_or_description": "opaque executable visual reference",
-                    "authorized_scope": "refund error states",
+                    "bounded_scope": "refund error states",
+                    "supplied_facts": ["supplied error-state markup and appearance"],
                     "projected_refs": ["UI-001", "VIS-001"],
                     "status": "projected",
                     "uif_required": True,
@@ -133,7 +161,8 @@ def source_contract_snapshot() -> dict:
                     "ref": "SRC-004",
                     "role": "technical-evidence",
                     "locator_or_description": "latency measurement report",
-                    "authorized_scope": "technical evidence citation only",
+                    "bounded_scope": "technical evidence citation only",
+                    "supplied_facts": ["latency measurement"],
                     "projected_refs": [],
                     "status": "retained",
                 },
@@ -141,7 +170,8 @@ def source_contract_snapshot() -> dict:
                     "ref": "SRC-005",
                     "role": "context-only",
                     "locator_or_description": "competitor overview",
-                    "authorized_scope": "background only",
+                    "bounded_scope": "background only",
+                    "supplied_facts": ["competitor context"],
                     "projected_refs": [],
                     "status": "context-only",
                 },
@@ -156,6 +186,335 @@ def source_contract_snapshot() -> dict:
                 {"source_ref": "SRC-003", "requirement_ref": "UI-001"},
                 {"source_ref": "SRC-003", "requirement_ref": "VIS-001"},
             ],
+        },
+    }
+
+
+def minimal_ui_spec_contract() -> dict:
+    requirements = [
+        {
+            "id": "UI-001",
+            "kind": "interaction",
+            "statement": "The refund panel exposes error feedback.",
+            "source_refs": ["SRC-UI-001"],
+            "evidence_locators": ["refund.html#refund-panel"],
+            "evidence_support": ["surface", "state", "viewport", "interaction"],
+            "surface": "refund panel",
+            "state": "validation error with supplied invalid amount",
+            "viewport": "1280x720 web",
+            "derivation": "observed",
+            "acceptance": "The cited error text is visible in the panel.",
+            "outcome_only": True,
+            "status": "specified",
+        },
+        {
+            "id": "VIS-001",
+            "kind": "restoration",
+            "statement": "The refund panel matches the supplied baseline.",
+            "source_refs": ["SRC-UI-001"],
+            "evidence_locators": ["baseline.png#refund-panel"],
+            "evidence_support": ["surface", "state", "viewport", "restoration"],
+            "surface": "refund panel",
+            "state": "validation error with supplied invalid amount",
+            "viewport": "1280x720 web",
+            "derivation": "observed",
+            "acceptance": "PXT-001 satisfies its declared envelope.",
+            "outcome_only": True,
+            "status": "specified",
+        },
+    ]
+    return {
+        "sources": [
+            {
+                "ref": "SRC-UI-001",
+                "role": "visual-input",
+                "locator_or_description": "supplied refund HTML and baseline",
+                "bounded_scope": "refund error panel",
+                "supplied_facts": [
+                    "refund.html#refund-panel",
+                    "baseline.png#refund-panel",
+                ],
+                "projected_refs": ["UI-001", "VIS-001"],
+                "status": "projected",
+            }
+        ],
+        "all_spec_requirement_refs": [
+            requirement["id"] for requirement in requirements
+        ],
+        "requirements": requirements,
+        "restoration_requested": True,
+        "restoration_dimensions": [
+            {
+                "dimension": dimension,
+                "requirement_refs": ["VIS-001"],
+                "source_refs": ["SRC-UI-001"],
+                "evidence_locators": ["baseline.png#refund-panel"],
+                "acceptance": f"{dimension} matches the cited baseline.",
+                "status": "required",
+            }
+            for dimension in sorted(RESTORATION_DIMENSIONS)
+        ],
+        "pixel_restoration_requested": True,
+        "pixel_profiles": [
+            {
+                "id": "PXR-001",
+                "scope": "refund panel",
+                "requirement_refs": ["UI-001", "VIS-001"],
+                "source_refs": ["SRC-UI-001"],
+                "target_refs": ["PXT-001"],
+                "target_matrix": [
+                    {
+                        "target_ref": "PXT-001",
+                        "surface": "refund panel",
+                        "state": "validation error with supplied invalid amount",
+                        "viewport": "1280x720",
+                    }
+                ],
+                "fidelity_mode": "pixel-tolerant",
+                "exception_policy": "Only stable PEX refs weaken exact regions.",
+                "exception_refs": ["PEX-001"],
+                "status": "specified",
+            }
+        ],
+        "pixel_targets": [
+            {
+                "id": "PXT-001",
+                "profile_id": "PXR-001",
+                "surface": "refund panel",
+                "state": "validation error with supplied invalid amount",
+                "viewport": "1280x720",
+                "device_pixel_ratio": "1",
+                "baseline_source_ref": "SRC-UI-001",
+                "baseline_locator": "baseline.png#refund-panel",
+                "rendering_context": {
+                    "fonts": "Inter with supplied fallback",
+                    "color_mode": "light",
+                    "locale": "en-US",
+                    "platform": "Chromium on Windows",
+                },
+                "visual_dimensions": {
+                    "geometry-sizing-spacing-alignment-flow": "match baseline",
+                    "overflow-and-clipping": "match baseline",
+                    "typography": "match baseline family/size/weight/metrics",
+                    "color-border-radius-shadow-opacity-effects": "match baseline",
+                    "asset-identity-variant-crop-aspect-fitting": "match baseline",
+                    "layering-stacking-fixed-sticky-occlusion": "match baseline",
+                },
+                "fidelity_mode": "pixel-tolerant",
+                "acceptance_envelope": {
+                    "kind": "per-channel",
+                    "threshold": 1,
+                },
+                "exception_refs": ["PEX-001"],
+                "derivation": "observed",
+                "status": "specified",
+            }
+        ],
+        "pixel_exceptions": [
+            {
+                "id": "PEX-001",
+                "target_refs": ["PXT-001"],
+                "region": "timestamp text only",
+                "reason": "dynamic value",
+                "allowed_divergence": "glyph pixels inside timestamp bounds",
+                "bound": "the measured timestamp bounding box",
+                "requirement_refs": ["VIS-001"],
+                "source_refs": ["SRC-UI-001"],
+            }
+        ],
+        "cross_platform_restoration_requested": True,
+        "adaptation_policies": [
+            {
+                "id": "ADP-001",
+                "source_platform": "HTML/Web",
+                "target_platform": "Android",
+                "mode": "brand-preserving-native",
+                "target_contexts": {
+                    "window_or_device": "compact portrait",
+                    "input": "touch and external keyboard",
+                    "accessibility": "font scale 1.0-2.0 and screen reader",
+                    "locale": "en-US plus RTL expansion",
+                },
+                "source_refs": ["SRC-UI-001"],
+                "conflict_precedence": list(CONFLICT_PRECEDENCE),
+                "decisions": [
+                    {
+                        "dimension": dimension,
+                        "decision": (
+                            "preserve"
+                            if dimension
+                            in {
+                                "content-and-information-hierarchy",
+                                "task-flow-and-navigation",
+                                "ui-state-and-feedback",
+                                "color-effects-and-brand",
+                            }
+                            else "adapt"
+                        ),
+                        "requirement_refs": ["UI-001", "VIS-001"],
+                        "source_refs": ["SRC-UI-001"],
+                        "outcome": f"Target outcome for {dimension}.",
+                        "acceptance": f"Observe the declared {dimension} outcome.",
+                        "status": "specified",
+                    }
+                    for dimension in sorted(ADAPTATION_DIMENSIONS)
+                ],
+                "status": "specified",
+            }
+        ],
+    }
+
+
+def minimal_tasks_x2b_bundle() -> dict:
+    ui_dimensions = sorted(MAPPING_DIMENSIONS["UI"])
+    pixel_dimensions = sorted(MAPPING_DIMENSIONS["PX"])
+    adaptation_dimensions = sorted(MAPPING_DIMENSIONS["ADP"])
+    pixel_binding_dimensions = [
+        dimension
+        for dimension in pixel_dimensions
+        if dimension != "asset-preparation"
+    ]
+    return {
+        "plan_output_ready": "READY",
+        "current_plan_revision": "PLAN-47",
+        "tasks_handoff_revision": "PLAN-47",
+        "uiux_delivery_readiness": "READY",
+        "declared_traceability_refs": [
+            "UI-001",
+            "VIS-001",
+            "PXT-001",
+            "PEX-001",
+            "ADP-001",
+        ],
+        "x2b_mappings": [
+            {
+                "id": "X2B-UI-001",
+                "status": "Required",
+                "implementation_dimensions": list(ui_dimensions),
+                "depends_on": [],
+                "traceability_refs": ["UI-001"],
+            },
+            {
+                "id": "X2B-PX-001",
+                "status": "Required",
+                "implementation_dimensions": list(pixel_dimensions),
+                "depends_on": ["X2B-UI-001"],
+                "traceability_refs": [
+                    "VIS-001",
+                    "PXT-001",
+                    "PEX-001",
+                ],
+            },
+            {
+                "id": "X2B-ADP-001",
+                "status": "Required",
+                "implementation_dimensions": list(adaptation_dimensions),
+                "depends_on": ["X2B-UI-001"],
+                "traceability_refs": ["ADP-001"],
+            },
+            {
+                "id": "X2B-PX-REVIEW-001",
+                "status": "Required",
+                "implementation_dimensions": [],
+                "depends_on": [],
+                "traceability_refs": ["PXT-001"],
+                "review_method_only": True,
+                "no_task_rationale": (
+                    "The Plan records only a review method; Tasks cannot "
+                    "execute rendered visual comparison."
+                ),
+            },
+            {
+                "id": "X2B-ADP-NA-001",
+                "status": "N/A",
+                "implementation_dimensions": [],
+                "depends_on": [],
+                "traceability_refs": [],
+                "reason": "The supplied slice targets one platform.",
+            },
+        ],
+        "tasks": [
+            {
+                "id": "T040",
+                "kind": "implementation",
+                "action_classes": ["implementation"],
+                "paths": ["src/ui/RefundPanel.tsx"],
+                "mapping_refs": ["X2B-UI-001"],
+                "implementation_dimensions": list(ui_dimensions),
+                "traceability_refs": ["UI-001"],
+                "depends_on": [],
+                "parallel": False,
+                "description": "Implement the mapped component and UI states.",
+            },
+            {
+                "id": "T041",
+                "kind": "implementation",
+                "action_classes": ["implementation"],
+                "paths": ["src/ui/assets/refund-panel.svg"],
+                "mapping_refs": ["X2B-PX-001"],
+                "implementation_dimensions": ["asset-preparation"],
+                "traceability_refs": ["VIS-001", "PXT-001"],
+                "depends_on": ["T040"],
+                "parallel": False,
+                "description": "Prepare the locally authorized panel asset.",
+            },
+            {
+                "id": "T042",
+                "kind": "implementation",
+                "action_classes": ["implementation"],
+                "paths": ["src/ui/RefundPanel.tsx"],
+                "mapping_refs": ["X2B-PX-001"],
+                "implementation_dimensions": pixel_binding_dimensions,
+                "traceability_refs": ["VIS-001", "PXT-001", "PEX-001"],
+                "depends_on": ["T040", "T041"],
+                "parallel": False,
+                "description": "Implement mapped visual dimensions and bind assets.",
+            },
+            {
+                "id": "T043",
+                "kind": "implementation",
+                "action_classes": ["implementation"],
+                "paths": ["src/platform/android/RefundPanel.kt"],
+                "mapping_refs": ["X2B-ADP-001"],
+                "implementation_dimensions": list(adaptation_dimensions),
+                "traceability_refs": ["ADP-001"],
+                "depends_on": ["T040"],
+                "parallel": False,
+                "description": "Implement the mapped Android adaptation.",
+            },
+        ],
+        "required_test_readiness_tc_refs": ["TC-UI-001"],
+        "test_tasks": [
+            {
+                "id": "T044",
+                "action_classes": ["functional-validation"],
+                "tc_refs": ["TC-UI-001"],
+                "paths": ["tests/ui/test_refund_panel.py"],
+            }
+        ],
+        "phases": ["Setup", "Refund panel", "Final Code Review"],
+        "final_review": {
+            "phase": "Final Code Review",
+            "kind": "code-design-contract-review",
+            "action_classes": ["code-design-contract-review"],
+            "mapping_refs": [
+                "X2B-UI-001",
+                "X2B-PX-001",
+                "X2B-ADP-001",
+            ],
+            "scopes": [
+                "implementation-conformance",
+                "x2b-blockers-and-plan-drift",
+                FINAL_REVIEW_SCOPES["UI"],
+                FINAL_REVIEW_SCOPES["PX"],
+                FINAL_REVIEW_SCOPES["ADP"],
+            ],
+            "paths": [
+                "src/ui/RefundPanel.tsx",
+                "src/ui/assets/refund-panel.svg",
+                "src/platform/android/RefundPanel.kt",
+            ],
+            "description": "Review code/design-contract conformance for X2-B.",
         },
     }
 
@@ -229,7 +588,11 @@ class ManifestAndGovernanceTests(unittest.TestCase):
         self.assertIn("Analyze Cross-Command Audit", governance)
         self.assertIn("Source Reference Contract", governance)
         self.assertIn(
-            "SRC-* + UI/VIS-* -> ui-ux-design.md -> UIF source_refs + requirement_refs",
+            "SRC-* + UI/VIS/RST/PXR/PXT/PEX/ADP refs",
+            governance,
+        )
+        self.assertIn(
+            "X2B-* delivery mappings + UIF source_refs/requirement_refs",
             governance,
         )
 
@@ -331,8 +694,11 @@ class RequirementCommandTests(unittest.TestCase):
             "Functional Requirements",
             "Non-Functional Requirements",
             "UX Journeys and Interaction Expectations",
-            "UI Surfaces and States",
-            "Visual Requirements and Sources",
+            "UI Specification Contract",
+            "UI Evidence Projection Rules",
+            "Restoration Equivalence",
+            "Pixel-Restoration Profiles",
+            "Cross-Platform Restoration Adaptation",
             "Security and Privacy",
             "Data and Integration Constraints",
             "Dependencies and Boundaries",
@@ -355,7 +721,8 @@ class RequirementCommandTests(unittest.TestCase):
             "Role",
             "Opaque locator / description",
             "Revision / identity",
-            "Authorized scope / facts",
+            "Bounded feature scope",
+            "Supplied content / facts",
             "Projected requirement refs",
             "Status / blocker",
         ):
@@ -377,7 +744,7 @@ class RequirementCommandTests(unittest.TestCase):
             "hooks.after_specify",
             "SPECIFY_FEATURE_DIRECTORY",
             ".specify/feature.json",
-            "Authorized Source Input Contract",
+            "Bounded Supplied Input Contract",
             "Full-Spectrum Projection",
             "feature-local WHAT/WHY SSOT",
             "Do not compute completeness",
@@ -387,20 +754,75 @@ class RequirementCommandTests(unittest.TestCase):
         self.assertIn("MUST NOT create, read, evaluate, or modify", command)
         self.assertNotIn("{CORE_TEMPLATE}", command)
 
-    def test_source_commands_keep_external_actions_outside_preset(self) -> None:
+    def test_specify_starts_at_bounded_evidence_without_upstream_responsibilities(
+        self,
+    ) -> None:
         specify = read(COMMANDS / "speckit.specify.md")
         clarify = read(COMMANDS / "speckit.clarify.md")
         checklist = read(COMMANDS / "speckit.checklist.md")
         for term in (
-            "dereference or execute a locator",
-            "import manifest",
-            "provider-specific\nschema",
-            "Intake is not an SDD stage",
+            "bounded content or source-backed facts have already\nbeen supplied",
+            "locator without supplied content or source-backed facts is provenance only",
+            "SRC_EVIDENCE_MISSING",
+            "UI Evidence Projection Rules",
+            "surface x state x viewport",
+            "PIXEL_PROFILE_INCOMPLETE",
+            "one allowed adaptation mode",
         ):
             self.assertIn(term, specify)
+        for forbidden in (
+            "authorization",
+            "tool-call",
+            "provider",
+            "plugin",
+            "dereference",
+            "adapter",
+            "external synchronization",
+        ):
+            self.assertNotIn(forbidden, specify.casefold())
         self.assertIn("external\nwrite-back or synchronization", clarify)
         self.assertIn("preserve the originating `SRC-*` provenance", clarify)
         self.assertIn("MUST NOT dereference a locator", checklist)
+
+    def test_ui_spec_template_exposes_deterministic_restoration_contracts(self) -> None:
+        template = read(TEMPLATES / "spec-template.md")
+        for term in (
+            "Evidence locator(s) within supplied input",
+            "observed / derived / assumed / unresolved / conflicting",
+            "HTML / semantic markup",
+            "CSS / computed-style facts",
+            "responsive-viewports",
+            "PXR-001",
+            "PXT-001",
+            "PEX-001",
+            "pixel-exact",
+            "pixel-tolerant",
+            "perceptual-equivalent",
+            "structural-only",
+            "framework-equivalent",
+            "native-adaptive",
+            "brand-preserving-native",
+            "visual-equivalent-native",
+            "target-platform hard constraints and accessibility requirements",
+            "`Swift` is invalid",
+            "Concrete widgets, classes, code properties",
+        ):
+            self.assertIn(term, template)
+        self.assertIn("UI requirement source of truth inside `spec.md`", template)
+        self.assertIn("capture/comparison\nprocedures", template)
+
+    def test_visual_checklist_covers_evidence_pixel_and_adaptation_quality(self) -> None:
+        checklist = read(TEMPLATES / "requirements" / "visual-gate.md")
+        for checklist_id in (
+            "CHK-UI-003",
+            "CHK-RST-001",
+            "CHK-PXR-001",
+            "CHK-PXR-002",
+            "CHK-ADP-001",
+            "CHK-ADP-002",
+            "CHK-BND-001",
+        ):
+            self.assertIn(checklist_id, checklist)
 
     def test_clarify_writes_only_spec_and_uses_cross_domain_priority(self) -> None:
         command = read(COMMANDS / "speckit.clarify.md")
@@ -428,6 +850,262 @@ class RequirementCommandTests(unittest.TestCase):
             self.assertRegex(template, r"- \[ \] CHK-")
             self.assertNotIn("PASS | BLOCKED", template)
             self.assertNotIn("Readiness Matrix", template)
+
+
+class UISpecContractTests(unittest.TestCase):
+    def test_complete_ui_spec_contract_is_valid(self) -> None:
+        validate_ui_specification_contract(minimal_ui_spec_contract())
+
+    def test_locator_only_and_visual_role_overreach_are_rejected(self) -> None:
+        payload = minimal_ui_spec_contract()
+        payload["sources"][0]["supplied_facts"] = []
+        with self.assertRaisesRegex(ValueError, "locator alone"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["sources"][0]["projected_refs"].append("FR-001")
+        payload["all_spec_requirement_refs"].append("FR-001")
+        with self.assertRaisesRegex(ValueError, "visual-input projects unrelated"):
+            validate_ui_specification_contract(payload)
+
+    def test_requirement_source_can_project_mixed_spec_and_ui_refs(self) -> None:
+        payload = minimal_ui_spec_contract()
+        payload["sources"][0]["role"] = "requirement-input"
+        payload["sources"][0]["projected_refs"].append("FR-001")
+        payload["all_spec_requirement_refs"].append("FR-001")
+        validate_ui_specification_contract(payload)
+
+    def test_derivation_gap_and_conflict_states_remain_distinguishable(self) -> None:
+        payload = minimal_ui_spec_contract()
+        requirement = payload["requirements"][0]
+        requirement["derivation"] = "derived"
+        with self.assertRaisesRegex(ValueError, "derived_from"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        requirement = payload["requirements"][0]
+        requirement["derivation"] = "derived"
+        requirement["derived_from"] = ["invented-observation"]
+        with self.assertRaisesRegex(ValueError, "does not cite an observation"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        requirement = payload["requirements"][0]
+        requirement["derivation"] = "assumed"
+        with self.assertRaisesRegex(ValueError, "documented default"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        requirement = payload["requirements"][0]
+        requirement["derivation"] = "conflicting"
+        requirement["status"] = "BLOCKED"
+        requirement["blocker"] = "UI_EVIDENCE_CONFLICT"
+        with self.assertRaisesRegex(ValueError, "needs two locators"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        requirement = payload["requirements"][0]
+        requirement["derivation"] = "unresolved"
+        with self.assertRaisesRegex(ValueError, "must remain BLOCKED"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        requirement = payload["requirements"][0]
+        requirement["derivation"] = "unresolved"
+        requirement["status"] = "BLOCKED"
+        requirement["blocker"] = "UI_EVIDENCE_MISSING"
+        requirement["evidence_locators"] = []
+        del requirement["acceptance"]
+        validate_ui_specification_contract(payload)
+
+    def test_state_viewport_evidence_and_outcome_ownership_are_structural(self) -> None:
+        payload = minimal_ui_spec_contract()
+        payload["requirements"][0]["evidence_support"].remove("viewport")
+        with self.assertRaisesRegex(ValueError, "corresponding evidence for viewport"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["requirements"][0]["evidence_locators"] = ["missing.html#state"]
+        with self.assertRaisesRegex(ValueError, "not present in supplied source facts"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["requirements"][0]["outcome_only"] = False
+        with self.assertRaisesRegex(ValueError, "observable outcome, not implementation"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["requirements"][0]["framework_component"] = "RefundPanel"
+        with self.assertRaisesRegex(
+            ValueError,
+            "implementation/source-unsupported field",
+        ):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["sources"].append(
+            {
+                "ref": "SRC-UI-002",
+                "role": "visual-input",
+                "locator_or_description": "unsupplied design locator",
+                "bounded_scope": "refund success state",
+                "supplied_facts": [],
+                "projected_refs": [],
+                "status": "BLOCKED",
+                "blocker": "SRC_EVIDENCE_MISSING",
+            }
+        )
+        validate_ui_specification_contract(payload)
+
+    def test_restoration_dimensions_and_pixel_target_contract_are_closed(self) -> None:
+        payload = minimal_ui_spec_contract()
+        payload["restoration_dimensions"].pop()
+        with self.assertRaisesRegex(ValueError, "dimension matrix is incomplete"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        del payload["pixel_targets"][0]["rendering_context"]
+        with self.assertRaisesRegex(ValueError, "incomplete rendering_context"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_targets"][0]["baseline_locator"] = "missing.png#panel"
+        with self.assertRaisesRegex(ValueError, "not present in supplied source facts"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_targets"][0]["exception_refs"] = ["PEX-404"]
+        with self.assertRaisesRegex(ValueError, "unknown accepted exception"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_exceptions"][0]["source_refs"] = []
+        with self.assertRaisesRegex(ValueError, "non-empty source_refs"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_targets"][0]["visual_dimensions"].pop("typography")
+        with self.assertRaisesRegex(ValueError, "incomplete visual_dimensions"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_targets"][0]["acceptance_envelope"]["kind"] = "perceptual"
+        with self.assertRaisesRegex(ValueError, "mismatches fidelity mode"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_targets"][0]["fidelity_mode"] = "structural-only"
+        with self.assertRaisesRegex(ValueError, "differs from its profile"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_profiles"][0]["exception_refs"] = []
+        with self.assertRaisesRegex(ValueError, "outside its profile policy"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_profiles"] = []
+        payload["pixel_targets"] = []
+        payload["pixel_exceptions"] = []
+        with self.assertRaisesRegex(ValueError, "stable specified or blocked profile"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["pixel_profiles"][0]["status"] = "BLOCKED"
+        payload["pixel_profiles"][0]["blocker"] = "PIXEL_BASELINE_MISSING"
+        del payload["pixel_profiles"][0]["fidelity_mode"]
+        del payload["pixel_profiles"][0]["exception_policy"]
+        payload["pixel_targets"][0]["status"] = "BLOCKED"
+        payload["pixel_targets"][0]["blocker"] = "PIXEL_BASELINE_MISSING"
+        for field in (
+            "baseline_source_ref",
+            "baseline_locator",
+            "rendering_context",
+            "visual_dimensions",
+            "acceptance_envelope",
+        ):
+            del payload["pixel_targets"][0][field]
+        validate_ui_specification_contract(payload)
+
+    def test_adaptation_policy_rejects_ambiguity_and_lower_priority_override(
+        self,
+    ) -> None:
+        payload = minimal_ui_spec_contract()
+        payload["adaptation_policies"][0]["target_platform"] = "Swift"
+        with self.assertRaisesRegex(ValueError, "not a target platform"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["adaptation_policies"][0]["mode"] = "hybrid"
+        with self.assertRaisesRegex(ValueError, "invalid adaptation mode"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["adaptation_policies"][0]["decisions"].pop()
+        with self.assertRaisesRegex(ValueError, "incomplete or duplicated"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        del payload["adaptation_policies"][0]["target_contexts"]["accessibility"]
+        with self.assertRaisesRegex(ValueError, "incomplete target contexts"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        adaptive_decision = next(
+            decision
+            for decision in payload["adaptation_policies"][0]["decisions"]
+            if decision["decision"] == "adapt"
+        )
+        adaptive_decision["source_refs"] = []
+        with self.assertRaisesRegex(ValueError, "must cite source evidence"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        content_decision = next(
+            decision
+            for decision in payload["adaptation_policies"][0]["decisions"]
+            if decision["dimension"] == "content-and-information-hierarchy"
+        )
+        content_decision["decision"] = "adapt"
+        with self.assertRaisesRegex(ValueError, "fails to preserve"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        decision = payload["adaptation_policies"][0]["decisions"][0]
+        decision["hard_constraint_conflict"] = True
+        decision["decision"] = "preserve"
+        with self.assertRaisesRegex(ValueError, "override a hard constraint"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        decision = payload["adaptation_policies"][0]["decisions"][0]
+        decision["decision"] = "blocked"
+        decision["status"] = "BLOCKED"
+        decision["blocker"] = "TARGET_CONTEXT_CONFLICT"
+        with self.assertRaisesRegex(ValueError, "must be BLOCKED"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        payload["adaptation_policies"] = []
+        with self.assertRaisesRegex(ValueError, "requires an adaptation policy"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        policy = payload["adaptation_policies"][0]
+        policy["mode"] = "visual-equivalent-native"
+        with self.assertRaisesRegex(ValueError, "override requires an explicit reason"):
+            validate_ui_specification_contract(payload)
+
+        payload = minimal_ui_spec_contract()
+        policy = payload["adaptation_policies"][0]
+        policy["target_platform"] = "HTML/Web"
+        policy["mode"] = "framework-equivalent"
+        for policy_decision in policy["decisions"]:
+            policy_decision["decision"] = "preserve"
+        validate_ui_specification_contract(payload)
+        policy["decisions"][0]["decision"] = "adapt"
+        with self.assertRaisesRegex(ValueError, "framework-equivalent diverges"):
+            validate_ui_specification_contract(payload)
 
 
 class PlanContractTests(unittest.TestCase):
@@ -483,6 +1161,17 @@ class PlanContractTests(unittest.TestCase):
             "context_gaps",
         ):
             self.assertIn(work_unit_field, command)
+        for issue_46_term in (
+            "Consumed Spec SHA-256",
+            "PLAN_SPEC_INPUT_STALE",
+            "reference-only Spec UI Input Inventory",
+            "general UI mappings",
+            "pixel-target mappings",
+            "platform-adaptation mappings",
+            "every applicable `PXT-*` and `ADP-*`",
+            "never relabeled N/A",
+        ):
+            self.assertIn(issue_46_term, command)
 
     def test_plan_conditional_decision_table_covers_contextual_outputs(self) -> None:
         command = read(COMMANDS / "speckit.plan.md")
@@ -496,6 +1185,24 @@ class PlanContractTests(unittest.TestCase):
             "never infer N/A merely because an artifact is absent",
         ):
             self.assertIn(term, command)
+
+    def test_plan_x2b_uses_stable_ui_consumption_failure_codes(self) -> None:
+        command = read(COMMANDS / "speckit.plan.md")
+        validator = read(VALIDATORS / "speckit_plan_contract.py")
+        for code in (
+            "PLAN_SPEC_INPUT_STALE",
+            "X2B_SPEC_REF_UNMAPPED",
+            "X2B_SPEC_REF_DUPLICATE",
+            "X2B_SPEC_REF_UNKNOWN",
+            "X2B_PIXEL_TARGET_UNMAPPED",
+            "X2B_PIXEL_EXCEPTION_UNRESOLVED",
+            "X2B_ADAPTATION_UNMAPPED",
+            "X2B_BLOCKER_SUPPRESSED",
+            "X2B_SPEC_OWNERSHIP_LEAK",
+            "X2B_DELIVERY_DECISION_INCOMPLETE",
+        ):
+            self.assertIn(code, command)
+            self.assertIn(code, validator)
 
     def test_plan_control_template_has_lanes_navigation_and_closeout(self) -> None:
         template = read(TEMPLATES / "plan-template.md")
@@ -514,6 +1221,9 @@ class PlanContractTests(unittest.TestCase):
             self.assertIn(term, template)
         self.assertIn("Repository Topology", template)
         self.assertIn("No task IDs, exact per-task paths", template)
+        self.assertIn("Consumed Spec SHA-256", template)
+        self.assertIn("Current local Spec SHA-256", template)
+        self.assertIn("Invalidate affected X2-B", template)
 
     def test_plan_artifact_templates_have_non_overlapping_ownership(self) -> None:
         class_template = read(TEMPLATES / "class-diagram-template.md")
@@ -528,6 +1238,20 @@ class PlanContractTests(unittest.TestCase):
         self.assertIn("Pixel delivery/review is owned here", ui_template)
         self.assertIn("SRC + UI/VIS refs", ui_template)
         self.assertIn("does not dereference", ui_template)
+        for issue_46_term in (
+            "Consumed Spec SHA-256",
+            "Spec UI Input Inventory",
+            "General UI Delivery Mappings",
+            "Pixel-Target Delivery Mappings",
+            "Platform-Adaptation Delivery Mappings",
+            "X2B-UI-001",
+            "X2B-PX-001",
+            "X2B-ADP-001",
+            "does not copy requirement statements",
+            "must not repeat or weaken those values",
+            "Every required `X2B-*` mapping has exactly one closed row",
+        ):
+            self.assertIn(issue_46_term, ui_template)
         self.assertIn("### VAL-001", quickstart)
         self.assertIn("Cleanup/reset", quickstart)
         self.assertIn("Every required `TC-*` has exactly one row", readiness)
@@ -611,6 +1335,225 @@ class PlanBundleSemanticTests(unittest.TestCase):
             "BLK-REF-001": "X2 reconciliation"
         }
         with self.assertRaisesRegex(ValueError, "PLAN_OUTPUT_READY is inconsistent"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_rejects_stale_spec_and_generic_mapping_gaps(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["spec_input"]["current_sha256"] = (
+            "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        )
+        with self.assertRaisesRegex(ValueError, "PLAN_SPEC_INPUT_STALE"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["x2b_delivery_mappings"][0]["spec_refs"].remove("UI-001")
+        with self.assertRaisesRegex(ValueError, "X2B_SPEC_REF_UNMAPPED"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_rejects_pixel_and_adaptation_mapping_gaps(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        pixel_mapping = next(
+            mapping
+            for mapping in bundle["x2b_delivery_mappings"]
+            if mapping["kind"] == "pixel-target"
+        )
+        pixel_mapping["spec_refs"].remove("PXT-001")
+        with self.assertRaisesRegex(ValueError, "X2B_PIXEL_TARGET_UNMAPPED"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        pixel_mapping = next(
+            mapping
+            for mapping in bundle["x2b_delivery_mappings"]
+            if mapping["kind"] == "pixel-target"
+        )
+        pixel_mapping["spec_refs"].remove("PEX-001")
+        with self.assertRaisesRegex(ValueError, "X2B_PIXEL_EXCEPTION_UNRESOLVED"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["x2b_delivery_mappings"] = [
+            mapping
+            for mapping in bundle["x2b_delivery_mappings"]
+            if mapping["id"] != "X2B-ADP-002"
+        ]
+        bundle["uiux_readiness_rows"] = [
+            row
+            for row in bundle["uiux_readiness_rows"]
+            if row["mapping_ref"] != "X2B-ADP-002"
+        ]
+        with self.assertRaisesRegex(ValueError, "X2B_ADAPTATION_UNMAPPED"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_rejects_duplicate_unknown_and_incomplete_x2b_rows(
+        self,
+    ) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["x2b_input_inventory"].append(
+            dict(bundle["x2b_input_inventory"][0])
+        )
+        with self.assertRaisesRegex(ValueError, "X2B_SPEC_REF_DUPLICATE"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        orphan = dict(bundle["x2b_delivery_mappings"][0])
+        orphan["id"] = "X2B-UI-ORPHAN-001"
+        orphan["spec_refs"] = ["UI-404"]
+        bundle["x2b_delivery_mappings"].append(orphan)
+        with self.assertRaisesRegex(ValueError, "X2B_SPEC_REF_UNKNOWN"):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        del bundle["x2b_delivery_mappings"][0]["component_delivery"]
+        with self.assertRaisesRegex(
+            ValueError,
+            "X2B_DELIVERY_DECISION_INCOMPLETE",
+        ):
+            validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["uiux_readiness_rows"].pop()
+        with self.assertRaisesRegex(
+            ValueError,
+            "X2B_DELIVERY_DECISION_INCOMPLETE",
+        ):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_propagates_spec_blockers_and_rejects_ownership_leaks(
+        self,
+    ) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        bundle["spec_input"]["ui_contract_refs"][0]["status"] = "BLOCKED"
+        bundle["spec_input"]["ui_contract_refs"][0]["blocker"] = "UI-SRC-BLOCKED"
+        with self.assertRaisesRegex(ValueError, "X2B_BLOCKER_SUPPRESSED"):
+            validate_plan_artifact_bundle(bundle)
+
+        for forbidden_field in (
+            "statement",
+            "acceptance",
+            "fidelity_mode",
+            "acceptance_envelope",
+            "baseline_locator",
+            "bound",
+            "exception_bound",
+            "decisions",
+            "adaptation_decision",
+        ):
+            with self.subTest(field=forbidden_field):
+                bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+                bundle["x2b_delivery_mappings"][0][forbidden_field] = "copied"
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "X2B_SPEC_OWNERSHIP_LEAK",
+                ):
+                    validate_plan_artifact_bundle(bundle)
+
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        pixel_mapping = next(
+            mapping
+            for mapping in bundle["x2b_delivery_mappings"]
+            if mapping["kind"] == "pixel-target"
+        )
+        pixel_mapping["delivery_mapping"] = {
+            "layout_delivery": "component-owned",
+            "acceptance_envelope": {"kind": "copied"},
+        }
+        with self.assertRaisesRegex(ValueError, "X2B_SPEC_OWNERSHIP_LEAK"):
+            validate_plan_artifact_bundle(bundle)
+
+    def test_plan_x2b_mapping_kind_requires_matching_id_prefix(self) -> None:
+        cases = (
+            ("X2B-UI-001", "X2B-PX-999"),
+            ("X2B-PX-001", "X2B-UI-999"),
+            ("X2B-ADP-001", "X2B-UI-998"),
+        )
+        for old_id, mismatched_id in cases:
+            with self.subTest(old_id=old_id, mismatched_id=mismatched_id):
+                bundle = replace_string_values(
+                    load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json"),
+                    old_id,
+                    mismatched_id,
+                )
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "X2B_DELIVERY_DECISION_INCOMPLETE",
+                ):
+                    validate_plan_artifact_bundle(bundle)
+
+    def test_plan_bundle_accepts_same_stable_spec_blocker_propagation(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        blocker = "BLK-SPEC-UI-001"
+        bundle["spec_input"]["ui_contract_refs"][0]["status"] = "BLOCKED"
+        bundle["spec_input"]["ui_contract_refs"][0]["blocker"] = blocker
+        inventory_row = next(
+            row
+            for row in bundle["x2b_input_inventory"]
+            if row["spec_ref"] == "UI-001"
+        )
+        inventory_row["spec_status"] = "BLOCKED"
+        inventory_row["x2b_applicability"] = "Blocked"
+        inventory_row["propagated_blocker"] = blocker
+        del inventory_row["mapping_ref"]
+        general_mapping = next(
+            mapping
+            for mapping in bundle["x2b_delivery_mappings"]
+            if mapping["id"] == "X2B-UI-001"
+        )
+        general_mapping["spec_refs"].remove("UI-001")
+        for mapping in bundle["x2b_delivery_mappings"]:
+            if "ui_vis_refs" in mapping:
+                mapping["ui_vis_refs"] = ["VIS-001"]
+        bundle["lanes"]["X2-B"] = {"status": "Blocked", "blocker": blocker}
+        bundle["gates"]["X2B_UIUX_READY"] = {
+            "status": "BLOCKED",
+            "evidence": [blocker],
+            "blockers": [blocker],
+        }
+        bundle["reconciliation"]["blocker_owners"] = {blocker: "X2-B"}
+        bundle["plan_output_ready"] = "BLOCKED"
+        validate_plan_artifact_bundle(bundle)
+
+    def test_blocked_x2b_mapping_blocks_gate_and_plan_output(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        blocker = "BLK-X2B-DELIVERY-001"
+        mapping = bundle["x2b_delivery_mappings"][0]
+        mapping["status"] = "BLOCKED"
+        mapping["blocker"] = blocker
+        readiness = next(
+            row
+            for row in bundle["uiux_readiness_rows"]
+            if row["mapping_ref"] == mapping["id"]
+        )
+        readiness.clear()
+        readiness.update(
+            {
+                "mapping_ref": mapping["id"],
+                "status": "BLOCKED",
+                "blocker": blocker,
+            }
+        )
+        bundle["lanes"]["X2-B"] = {"status": "Blocked", "blocker": blocker}
+        bundle["gates"]["X2B_UIUX_READY"] = {
+            "status": "BLOCKED",
+            "evidence": [blocker],
+            "blockers": [blocker],
+        }
+        bundle["reconciliation"]["blocker_owners"] = {blocker: "X2-B"}
+        bundle["plan_output_ready"] = "BLOCKED"
+        validate_plan_artifact_bundle(bundle)
+
+    def test_non_ui_bundle_closes_x2b_with_scoped_spec_evidence(self) -> None:
+        bundle = load_json(PLAN_BUNDLE_FIXTURES / "minimal_repository.json")
+        self.assertTrue(bundle["spec_input"]["non_ui_evidence"])
+        self.assertEqual([], bundle["spec_input"]["ui_contract_refs"])
+        self.assertEqual("N/A", bundle["gates"]["X2B_UIUX_READY"]["status"])
+        validate_plan_artifact_bundle(bundle)
+
+        del bundle["spec_input"]["non_ui_evidence"]["reason"]
+        with self.assertRaisesRegex(
+            ValueError,
+            "X2B_DELIVERY_DECISION_INCOMPLETE",
+        ):
             validate_plan_artifact_bundle(bundle)
 
     def test_plan_bundle_validates_test_readiness_rows(self) -> None:
@@ -988,6 +1931,249 @@ class TasksAndAnalyzeTests(unittest.TestCase):
         self.assertIn("no phase may follow it", command)
         self.assertIn("MUST NOT\njudge rendered visual fidelity", command)
 
+    def test_tasks_x2b_complete_bundle_maps_all_classes_once(self) -> None:
+        bundle = minimal_tasks_x2b_bundle()
+        validate_tasks_x2b_derivation(bundle)
+        task_refs = [
+            mapping_ref
+            for task in bundle["tasks"]
+            for mapping_ref in task["mapping_refs"]
+        ]
+        self.assertEqual(1, task_refs.count("X2B-UI-001"))
+        self.assertEqual(2, task_refs.count("X2B-PX-001"))
+        self.assertEqual(1, task_refs.count("X2B-ADP-001"))
+        self.assertNotIn("X2B-PX-REVIEW-001", task_refs)
+        self.assertNotIn("X2B-ADP-NA-001", task_refs)
+
+    def test_tasks_x2b_preflight_rejects_stale_handoff(self) -> None:
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["tasks_handoff_revision"] = "PLAN-46"
+        with self.assertRaisesRegex(ValueError, "PLAN_OUTPUT_INCOMPLETE"):
+            validate_tasks_x2b_derivation(bundle)
+
+    def test_tasks_x2b_required_mapping_must_have_concrete_tasks(self) -> None:
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["tasks"] = [
+            task for task in bundle["tasks"] if task["id"] != "T043"
+        ]
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_MAPPING_UNMAPPED"):
+            validate_tasks_x2b_derivation(bundle)
+
+    def test_tasks_x2b_duplicate_mapping_and_unknown_ref_are_stable(self) -> None:
+        duplicate = minimal_tasks_x2b_bundle()
+        duplicate["x2b_mappings"].append(
+            deepcopy(duplicate["x2b_mappings"][0])
+        )
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_MAPPING_DUPLICATE"):
+            validate_tasks_x2b_derivation(duplicate)
+
+        unknown = minimal_tasks_x2b_bundle()
+        unknown["tasks"][0]["mapping_refs"] = ["X2B-UI-404"]
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_REF_UNKNOWN"):
+            validate_tasks_x2b_derivation(unknown)
+
+    def test_tasks_x2b_blocker_never_becomes_normal_task(self) -> None:
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["x2b_mappings"].append(
+            {
+                "id": "X2B-UI-BLOCKED-001",
+                "status": "Blocked",
+                "implementation_dimensions": [],
+                "depends_on": [],
+                "traceability_refs": ["UI-001"],
+                "blocker": "BLOCK-UI-001",
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "PLAN_OUTPUT_INCOMPLETE"):
+            validate_tasks_x2b_derivation(bundle)
+
+        suppressed = minimal_tasks_x2b_bundle()
+        suppressed["x2b_mappings"].append(
+            {
+                "id": "X2B-UI-BLOCKED-001",
+                "status": "Blocked",
+                "implementation_dimensions": [],
+                "depends_on": [],
+                "traceability_refs": ["UI-001"],
+                "blocker": "BLOCK-UI-001",
+            }
+        )
+        task = deepcopy(suppressed["tasks"][0])
+        task["id"] = "T045"
+        task["paths"] = ["src/ui/BlockedPanel.tsx"]
+        task["mapping_refs"] = ["X2B-UI-BLOCKED-001"]
+        suppressed["tasks"].append(task)
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_BLOCKER_SUPPRESSED"):
+            validate_tasks_x2b_derivation(suppressed)
+
+    def test_tasks_x2b_requires_full_pixel_and_adaptation_dimensions(self) -> None:
+        pixel = minimal_tasks_x2b_bundle()
+        pixel["tasks"][2]["implementation_dimensions"].remove("typography")
+        with self.assertRaisesRegex(
+            ValueError,
+            "TASK_X2B_IMPLEMENTATION_DIMENSION_UNCOVERED",
+        ):
+            validate_tasks_x2b_derivation(pixel)
+
+        adaptation = minimal_tasks_x2b_bundle()
+        adaptation["tasks"][3]["implementation_dimensions"].remove(
+            "localization"
+        )
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_ADAPTATION_UNCOVERED"):
+            validate_tasks_x2b_derivation(adaptation)
+
+    def test_tasks_x2b_derives_dependencies_without_fixed_lane_order(self) -> None:
+        missing_asset_edge = minimal_tasks_x2b_bundle()
+        missing_asset_edge["tasks"][2]["depends_on"].remove("T041")
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_MAPPING_UNMAPPED"):
+            validate_tasks_x2b_derivation(missing_asset_edge)
+
+        independent_platform = minimal_tasks_x2b_bundle()
+        independent_platform["x2b_mappings"][2]["depends_on"] = []
+        independent_platform["tasks"][3]["depends_on"] = []
+        independent_platform["tasks"][3]["parallel"] = True
+        validate_tasks_x2b_derivation(independent_platform)
+
+        transitive = minimal_tasks_x2b_bundle()
+        transitive["x2b_mappings"][1]["depends_on"] = []
+        transitive["tasks"][2]["depends_on"] = ["T041"]
+        validate_tasks_x2b_derivation(transitive)
+
+        cyclic = minimal_tasks_x2b_bundle()
+        cyclic["tasks"][0]["depends_on"] = ["T042"]
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_MAPPING_UNMAPPED"):
+            validate_tasks_x2b_derivation(cyclic)
+
+        dependent_parallel = minimal_tasks_x2b_bundle()
+        dependent_parallel["tasks"][2]["parallel"] = True
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_MAPPING_UNMAPPED"):
+            validate_tasks_x2b_derivation(dependent_parallel)
+
+    def test_tasks_x2b_rejects_spec_ownership_and_visual_execution(self) -> None:
+        for owned_field in (
+            "statement",
+            "baseline_identity",
+            "baseline_source_ref",
+            "baseline_locator",
+            "rendering_context",
+            "fidelity_mode",
+            "acceptance",
+            "acceptance_envelope",
+            "bound",
+            "exception_bound",
+            "adaptation_decisions",
+            "adaptation_decision",
+        ):
+            with self.subTest(owned_field=owned_field):
+                bundle = minimal_tasks_x2b_bundle()
+                bundle["tasks"][0][owned_field] = "copied from Spec"
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "TASK_SPEC_OWNERSHIP_LEAK",
+                ):
+                    validate_tasks_x2b_derivation(bundle)
+
+        for forbidden in (
+            "screenshot capture",
+            "capture screenshots",
+            "take screenshots",
+            "generate a baseline",
+            "produce the baseline",
+            "evaluate the acceptance threshold",
+            "compare pixels",
+            "run visual-diff",
+            "pixel comparison",
+            "perceptual comparison",
+            "visual acceptance",
+            "final rendered visual review",
+        ):
+            with self.subTest(forbidden=forbidden):
+                bundle = minimal_tasks_x2b_bundle()
+                bundle["tasks"][0]["description"] = forbidden
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "TASK_VISUAL_EXECUTION_LEAK",
+                ):
+                    validate_tasks_x2b_derivation(bundle)
+
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["tasks"][0]["description"] = (
+            "Use pixel-tolerant fidelity semantics."
+        )
+        with self.assertRaisesRegex(ValueError, "TASK_SPEC_OWNERSHIP_LEAK"):
+            validate_tasks_x2b_derivation(bundle)
+
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["tasks"][0]["description"] = "Prepare the component."
+        bundle["tasks"][0]["action_classes"] = ["visual-execution"]
+        with self.assertRaisesRegex(ValueError, "TASK_VISUAL_EXECUTION_LEAK"):
+            validate_tasks_x2b_derivation(bundle)
+
+    def test_tasks_tests_are_derived_only_from_required_test_readiness(self) -> None:
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["test_tasks"][0]["tc_refs"] = ["TC-VISUAL-INVENTED"]
+        with self.assertRaisesRegex(ValueError, "TASK_SPEC_OWNERSHIP_LEAK"):
+            validate_tasks_x2b_derivation(bundle)
+
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["test_tasks"][0]["action_classes"] = ["visual-execution"]
+        with self.assertRaisesRegex(ValueError, "TASK_VISUAL_EXECUTION_LEAK"):
+            validate_tasks_x2b_derivation(bundle)
+
+    def test_tasks_x2b_rejects_orphan_mapping_traceability(self) -> None:
+        bundle = minimal_tasks_x2b_bundle()
+        bundle["x2b_mappings"][0]["traceability_refs"] = []
+        with self.assertRaisesRegex(ValueError, "TASK_X2B_REF_UNKNOWN"):
+            validate_tasks_x2b_derivation(bundle)
+
+    def test_tasks_final_review_covers_x2b_and_stays_last(self) -> None:
+        missing_mapping = minimal_tasks_x2b_bundle()
+        missing_mapping["final_review"]["mapping_refs"].remove("X2B-PX-001")
+        with self.assertRaisesRegex(
+            ValueError,
+            "TASK_FINAL_REVIEW_MAPPING_MISSING",
+        ):
+            validate_tasks_x2b_derivation(missing_mapping)
+
+        not_last = minimal_tasks_x2b_bundle()
+        not_last["phases"].append("Visual Acceptance")
+        with self.assertRaisesRegex(
+            ValueError,
+            "TASK_FINAL_REVIEW_MAPPING_MISSING",
+        ):
+            validate_tasks_x2b_derivation(not_last)
+
+        visual_review = minimal_tasks_x2b_bundle()
+        visual_review["final_review"]["description"] = "Run screenshot diff"
+        with self.assertRaisesRegex(ValueError, "TASK_VISUAL_EXECUTION_LEAK"):
+            validate_tasks_x2b_derivation(visual_review)
+
+    def test_tasks_non_ui_handoff_remains_valid_without_x2b(self) -> None:
+        bundle = {
+            "plan_output_ready": "READY",
+            "current_plan_revision": "PLAN-NON-UI",
+            "tasks_handoff_revision": "PLAN-NON-UI",
+            "uiux_delivery_readiness": "N/A",
+            "declared_traceability_refs": [],
+            "x2b_mappings": [],
+            "tasks": [],
+            "required_test_readiness_tc_refs": [],
+            "test_tasks": [],
+            "phases": ["Service implementation", "Final Code Review"],
+            "final_review": {
+                "phase": "Final Code Review",
+                "kind": "code-design-contract-review",
+                "action_classes": ["code-design-contract-review"],
+                "mapping_refs": [],
+                "scopes": [
+                    "implementation-conformance",
+                ],
+                "paths": ["src/service/refund.py"],
+                "description": "Review non-UI code/design-contract conformance.",
+            },
+        }
+        validate_tasks_x2b_derivation(bundle)
+
     def test_analyze_is_read_only_and_owns_all_cross_command_chains(self) -> None:
         command = read(COMMANDS / "speckit.analyze.md")
         for term in (
@@ -1022,7 +2208,8 @@ class TasksAndAnalyzeTests(unittest.TestCase):
                     "role": "provider-input",
                     "locator_or_description": "provider-specific packet",
                     "provider_node_id": "node-42",
-                    "authorized_scope": "refund feature",
+                    "bounded_scope": "refund feature",
+                    "supplied_facts": ["provider packet content"],
                     "projected_refs": [],
                     "status": "retained",
                 },
@@ -1030,7 +2217,8 @@ class TasksAndAnalyzeTests(unittest.TestCase):
                     "ref": "SRC-007",
                     "role": "context-only",
                     "locator_or_description": "background note",
-                    "authorized_scope": "background only",
+                    "bounded_scope": "background only",
+                    "supplied_facts": ["background note"],
                     "projected_refs": ["FR-001"],
                     "status": "projected",
                 },
@@ -1038,7 +2226,8 @@ class TasksAndAnalyzeTests(unittest.TestCase):
                     "ref": "SRC-008",
                     "role": "requirement-input",
                     "locator_or_description": "broad roadmap",
-                    "authorized_scope": "entire roadmap",
+                    "bounded_scope": "entire roadmap",
+                    "supplied_facts": ["broad roadmap content"],
                     "broad": True,
                     "projected_refs": [],
                     "status": "projected",
@@ -1084,6 +2273,44 @@ class TasksAndAnalyzeTests(unittest.TestCase):
                 "SRC_UIF_MAPPING_MISSING",
             }.issubset(codes)
         )
+
+    def test_source_audit_blocks_locator_only_projection(self) -> None:
+        snapshot = source_contract_snapshot()
+        snapshot["spec"]["sources"][2]["supplied_facts"] = []
+        codes = {
+            finding["code"]
+            for finding in audit_source_reference_contract(snapshot)
+        }
+        self.assertIn("SRC_EVIDENCE_MISSING", codes)
+
+    def test_source_audit_accepts_stable_blocker_and_rejects_missing_blocker(
+        self,
+    ) -> None:
+        snapshot = source_contract_snapshot()
+        source = snapshot["spec"]["sources"][0]
+        source["supplied_facts"] = []
+        source["projected_refs"] = []
+        source["status"] = "BLOCKED"
+        source["blocker"] = "SRC_EVIDENCE_MISSING"
+        findings = audit_source_reference_contract(snapshot)
+        self.assertNotIn(
+            "SRC_FIELD_INVALID",
+            {finding["code"] for finding in findings},
+        )
+        self.assertFalse(
+            any(
+                finding["source"] == "spec.md:SRC-001"
+                for finding in findings
+            )
+        )
+
+        del source["blocker"]
+        codes = {
+            finding["code"]
+            for finding in audit_source_reference_contract(snapshot)
+            if finding["source"] == "spec.md:SRC-001"
+        }
+        self.assertIn("SRC_BLOCKER_MISSING", codes)
 
     def test_audit_reports_deterministic_vertical_breaks(self) -> None:
         snapshot = {
