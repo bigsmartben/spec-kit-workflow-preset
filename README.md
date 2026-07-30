@@ -154,7 +154,7 @@ specify preset add --dev /path/to/spec-kit-workflow-preset
 已发布版本：
 
 ```bash
-specify preset add --from https://github.com/bigsmartben/spec-kit-workflow-preset/releases/download/v3.1.1/spec-kit-workflow-preset-v3.1.1.zip
+specify preset add --from https://github.com/bigsmartben/spec-kit-workflow-preset/releases/download/v3.2.0/spec-kit-workflow-preset-v3.2.0.zip
 ```
 
 安装后可检查预设信息：
