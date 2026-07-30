@@ -3,7 +3,7 @@ schema_version: "1.0"
 preset:
   id: "workflow-preset"
   name: "Workflow Preset"
-  version: "3.1.1"
+  version: "3.2.0"
   description: "Separated SDD governance, source-neutral specification, X0-X4 design, test-first contracts, and execution-ready task mapping"
   author: "bigsmartben"
   repository: "https://github.com/bigsmartben/spec-kit-workflow-preset"

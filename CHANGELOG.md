@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 3.2.0 - 2026-07-30
+
+- Added one canonical `UI-*` specification model with deterministic source,
+  requirement, route, state, interaction, responsive, and accessibility
+  coverage.
+- Projected UI requirements through X2-B delivery and readiness without moving
+  product truth out of `spec.md` or adding external-source validation.
+- Required Tasks to map X2-B visual implementation and acceptance work while
+  preserving dependency ordering and Final Code Review as the last phase.
+- Added validator and fixture coverage for missing, duplicate, orphaned, and
+  incomplete UI specification paths.
+
 ## 3.1.1 - 2026-07-27
 
 - Hardened Plan bundle validation so blocked Test Readiness rows and blocked
