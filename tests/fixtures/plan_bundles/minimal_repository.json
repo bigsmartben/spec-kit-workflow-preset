@@ -6,6 +6,19 @@
     "X2-B": {"status": "N/A", "reason": "The scoped library API has no user-visible surface."},
     "X2-C": {"status": "Required"}
   },
+  "spec_input": {
+    "current_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recorded_x0_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recorded_uiux_sha256": "N/A",
+    "ui_contract_refs": [],
+    "non_ui_evidence": {
+      "spec_scope_ref": "spec.md#scoped-library-api",
+      "reason": "The scoped Spec contains no UI, VIS, restoration, pixel, or adaptation contract ref."
+    }
+  },
+  "x2b_input_inventory": [],
+  "x2b_delivery_mappings": [],
+  "uiux_readiness_rows": [],
   "artifacts": [
     {"path": "plan.md", "decision": "Required", "owner": "X0/X4", "content": "The empty observed topology and intended module boundary are explicit."},
     {"path": "research.md", "decision": "Required", "owner": "X1", "content": "The runtime prerequisite and interface format decisions are recorded."},

@@ -86,6 +86,15 @@ authenticity, revision, digest, freshness, publication state, or availability.
 Unavailable evidence remains the blocker already projected into Spec or
 Architecture.
 
+At Plan start and every resume, compute the SHA-256 of the current local
+`spec.md`. Record `Consumed Spec SHA-256: sha256:<digest>` in X0 and, when X2-B
+is active, in `ui-ux-design.md`. This digest is local freshness evidence only;
+it certifies no external source, revision, locator, or baseline. Compare the
+current digest with both recorded values before preserving prior evidence. A
+mismatch emits `PLAN_SPEC_INPUT_STALE`, invalidates affected X2-B,
+reconciliation, X4, and `PLAN_OUTPUT_READY` evidence, and requires rebuilding
+them even when the consumed stable IDs are unchanged.
+
 Apply Change Scope Granularity: lock planned `M + U`; `plan.md` may record
 repository/module directory topology required by Core, but no task IDs,
 per-task paths, operation-level changes, or implementation order.
@@ -146,7 +155,8 @@ Populate the control sections supplied by `plan-template`:
 
 - feature goal and exclusions;
 - repository-grounded planned `M + U`;
-- Spec and applicable Architecture revision/ID refs;
+- Spec path/revision, current local SHA-256, and applicable Architecture
+  revision/ID refs;
 - X2-A, X2-B, X2-C applicability (`Required`, `Not Applicable: <reason>`, or
   `Blocked: <ID>`);
 - declared independent artifact outputs and internal gates;
@@ -206,10 +216,40 @@ presented as a decision.
 ### X2-B UI/UX Delivery
 
 When UI/UX or visual delivery applies, create `ui-ux-design.md` from its stable
-template. It owns surfaces, components, composition, state, navigation/events,
-viewports/responsive behavior, tokens/themes/variants, assets/fallbacks,
-accessibility implementation, opaque accepted-source provenance, local delivery
-method, and UI/UX Delivery Readiness.
+template. It owns reference-based delivery mappings for surfaces, components,
+composition, state, navigation/events, viewports/responsive behavior,
+tokens/themes/variants, assets/fallbacks, accessibility implementation, target
+platform delivery, opaque accepted-source provenance, local delivery method,
+and UI/UX Delivery Readiness.
+
+First build the template's reference-only Spec UI Input Inventory. Inventory
+every applicable `UI-*`, `VIS-*`, `RST-*` scope/dimension, `PXR-*`, `PXT-*`,
+`PEX-*`, and `ADP-*` policy/dimension ref exactly once with its Spec status and
+one `X2B-*` mapping ref or the same stable upstream blocker. Do not copy
+requirement statements, baseline identities/locators, state/viewport values,
+rendering contexts, fidelity modes, acceptance envelopes, exception bounds, or
+adaptation decisions.
+
+Then produce only Plan-owned delivery mappings:
+
+- general UI mappings (`general-ui`) use `X2B-UI-*` IDs and bind
+  `UI/VIS/RST` refs and `SRC-*` refs to regions, components,
+  composition/state ownership, navigation, input, responsive, and
+  accessibility delivery plus `DEC-UI-*` and applicable UIF/interface/asset
+  refs;
+- pixel-target mappings use `X2B-PX-*` IDs and bind one applicable `PXT-*`
+  and its `PXR-*`, `UI/VIS`, `PEX-*`, and `SRC-*` refs to the exact target
+  region, component/style/token/asset/layering/overflow delivery, and a local
+  X2-B delivery/review method;
+- platform-adaptation mappings use `X2B-ADP-*` IDs and bind one `ADP-*`
+  policy/dimension ref plus `UI/VIS` and `SRC-*` refs to target contexts and
+  target component, navigation, input, layout, and accessibility delivery
+  design.
+
+The mapping implements referenced observable requirements and adaptation
+decisions; it never repairs, weakens, reclassifies, or duplicates them. A
+product decision returns to Clarify and a later Plan run rebuilds affected
+mappings from the current Spec.
 
 `contracts/uif/*.expected.json` is a UI/UX interaction contract: start view,
 events, routes, observable states/feedback, API call refs, and transitions. It
@@ -221,13 +261,23 @@ does not own pixel comparison, styling, or API payload schemas.
 Do not produce `behavior/uif.intent.json` as a mandatory parent or second SSOT.
 Formal UIF derives from accepted Spec refs plus `ui-ux-design.md`.
 
-`X2B_UIUX_READY` requires each applicable `SRC-* + UI/VIS-*` pair to map to
-surface/component/state, viewport/responsive/accessibility, asset/variant/
-fallback, accepted-source/delivery-method, and UIF records or a stable local
-blocker. X2-B preserves opaque provenance but MUST NOT open, run, inspect,
-compare, or certify an external source or its fidelity/state as part of the
-local gate. Local pixel delivery ownership stays in UI/UX, never Test
-Conditions.
+`X2B_UIUX_READY` requires a current Spec digest; one inventory row per
+applicable Spec UI contract ref; exactly one required `X2B-*` mapping or the
+same upstream blocker per ref; resolved Spec, `SRC-*`, `DEC-UI-*`, UIF,
+interface, asset, and exception refs; every applicable `PXT-*` and `ADP-*`
+dimension closed; one UI/UX Delivery Readiness row per required mapping; zero
+Spec-owned duplicated fields; and no unresolved X2-B/reconciliation finding.
+Blocked Spec applicability remains blocked and is never relabeled N/A. X2-B
+preserves opaque provenance but MUST NOT open, run, inspect, compare, or
+certify an external source or its fidelity/state as part of the local gate.
+Local pixel delivery ownership stays in UI/UX, never Test Conditions.
+
+Structure-first X2-B validation uses stable failure codes:
+`PLAN_SPEC_INPUT_STALE`, `X2B_SPEC_REF_UNMAPPED`,
+`X2B_SPEC_REF_DUPLICATE`, `X2B_SPEC_REF_UNKNOWN`,
+`X2B_PIXEL_TARGET_UNMAPPED`, `X2B_PIXEL_EXCEPTION_UNRESOLVED`,
+`X2B_ADAPTATION_UNMAPPED`, `X2B_BLOCKER_SUPPRESSED`,
+`X2B_SPEC_OWNERSHIP_LEAK`, and `X2B_DELIVERY_DECISION_INCOMPLETE`.
 
 ### X2-C Test & Acceptance
 
@@ -265,7 +315,7 @@ judgment. Inventory each declared `DEC-*`, design/interface/sequence ID, UIF,
    name; report missing, duplicate, renamed, and stale refs;
 2. every material `DEC-*` reaches each affected active-lane output;
 3. every UIF API/design ref resolves in X2-A and every applicable UI/VIS source
-   pair resolves in X2-B;
+   pair plus every `RST/PXR/PXT/PEX/ADP` inventory ref resolves in X2-B;
 4. every `TC-*` resolves its requirement, design/UIF/interface refs and every
    technique-triggered child;
 5. every condition needing execution declares the expected `VAL-*` mapping or
@@ -303,14 +353,17 @@ map to a complete `VAL-*` or stable runtime blocker.
 
 Treat the `plan.md` Internal Gate Summary and its evidence as the resume index:
 
-1. validate the recorded evidence rather than trusting the status text;
-2. preserve an already-verified artifact when its bounded inputs and stable refs
+1. compute the current local Spec SHA-256 and compare it with recorded X0 and
+   UI/UX values; a mismatch starts at affected X2-B with
+   `PLAN_SPEC_INPUT_STALE`;
+2. validate the recorded evidence rather than trusting the status text;
+3. preserve an already-verified artifact when its bounded inputs, Spec digest, and stable refs
    are unchanged;
-3. resume at the first Gate whose evidence is absent, invalid, `BLOCKED`, or
+4. resume at the first Gate whose evidence is absent, invalid, `BLOCKED`, or
    affected by changed input;
-4. re-run that Gate and every downstream reconciliation/Gate that consumes the
+5. re-run that Gate and every downstream reconciliation/Gate that consumes the
    changed artifact or ref;
-5. never unconditionally overwrite a verified upstream artifact, and never
+6. never unconditionally overwrite a verified upstream artifact, and never
    preserve a downstream `READY` status after an input/ref it depends on changed.
 
 No `PENDING` state is introduced. A Gate without closed evidence is simply not
@@ -336,7 +389,9 @@ Derive `PLAN_OUTPUT_READY`; never set it independently. It is `READY` if and
 only if X0 + X1 + `X2_RECONCILIATION_READY` + every applicable X2 Gate +
 applicable X3 + complete Design/UI/UX/Test readiness are evidenced, every
 conditional artifact is Required/READY or has a valid N/A reason, all
-Plan-internal refs resolve, all blockers are lane-owned, and no placeholder is
+Plan-internal refs resolve, the current Spec digest matches recorded X0 and
+UI/UX evidence, all applicable Spec UI refs have closed X2-B mappings or
+propagated blockers, all blockers are lane-owned, and no placeholder is
 presented as a decision. Otherwise it is `BLOCKED` with the failed Gate and
 blocker evidence. It validates Plan outputs only.
 

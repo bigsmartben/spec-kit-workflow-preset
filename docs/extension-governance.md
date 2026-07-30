@@ -140,31 +140,35 @@ Examples:
 
 ## Source Reference Contract
 
-Authorized external material is an input to existing commands, not an SDD stage
-or runtime dependency. `spec.md` carries one canonical, source-neutral shape:
+Bounded supplied material is an input to existing commands, not an SDD stage or
+runtime dependency. `/speckit.specify` begins only after applicable content or
+source-backed facts have been supplied. It owns no source-access,
+authentication, provider, locator-resolution, adapter, or synchronization
+responsibility. `spec.md` carries one canonical, source-neutral shape:
 
 ```text
 SRC ref | role | opaque locator/description | revision/identity
-| authorized scope/facts | projected requirement refs | status/blocker
+| bounded feature scope | supplied content/facts
+| projected requirement refs | status/blocker
 ```
 
 The allowed roles are exactly:
 
 | Role | Local authority |
 |---|---|
-| `requirement-input` | confirmed, feature-scoped WHAT/WHY facts |
-| `visual-input` | feature-scoped `UI-*` and `VIS-*` facts |
+| `requirement-input` | supplied, feature-scoped WHAT/WHY facts |
+| `visual-input` | supplied, feature-scoped `UI-*` and `VIS-*` evidence/facts |
 | `technical-evidence` | citable evidence that does not become a product requirement |
 | `context-only` | informative context with no normative projection authority |
 
 Every used source has one role and a feature slice. A broad source without a
 safe slice remains blocked or needs clarification instead of being imported in
-full. Supplied URI/path/revision/digest/description values are opaque
-provenance; the preset does not infer adjacent scope or validate their external
-meaning, authenticity, freshness, publication state, availability, or
-fidelity.
+full. A URI/path/revision/digest/description is opaque provenance; without
+supplied content/facts it records `SRC_EVIDENCE_MISSING` and projects no local
+requirement. The preset does not infer adjacent scope or validate external
+meaning, authenticity, freshness, publication state, availability, or fidelity.
 
-After authorized projection, `spec.md` is the feature-local WHAT/WHY SSOT.
+After source-backed projection, `spec.md` is the feature-local WHAT/WHY SSOT.
 Clarify may make a user-accepted local decision current while retaining the
 originating `SRC-*` and clarification history; no external write-back or
 synchronization is required.
@@ -179,13 +183,101 @@ facts. `SRC-*` locators are provenance, not read or execution targets.
 Applicable visual projection follows:
 
 ```text
-SRC-* + UI/VIS-* -> ui-ux-design.md -> UIF source_refs + requirement_refs
+SRC-* + UI/VIS/RST/PXR/PXT/PEX/ADP refs
+  -> ui-ux-design.md Spec UI Input Inventory
+  -> X2B-* delivery mappings + UIF source_refs/requirement_refs
+  -> UI/UX Delivery Readiness
 ```
 
 Tasks uses that local mapping for implementation guidance only. Analyze checks
 local source existence, uniqueness, role compatibility, projection targets,
 orphans, contradictions, and X2-B/UIF mappings. Neither command acquires,
 dereferences, executes, compares, or certifies an external source.
+
+## Feature-Local UI Specification Contract
+
+`spec.md` remains the only product-requirement SSOT. Its stable UI
+Specification structure makes every applicable `UI-*`/`VIS-*` row identify:
+
+- stable identity and kind;
+- observable statement;
+- `SRC-*` refs and locators inside the bounded supplied input;
+- surface/region, state/preconditions, and viewport/target context;
+- one of `observed`, `derived`, `assumed`, `unresolved`, or `conflicting`;
+- measurable acceptance condition;
+- `specified` or a stable blocker.
+
+HTML, CSS, rendered-state, interaction, asset, responsive, and accessibility
+evidence projects only outcomes directly supported by cited observations or
+deterministically derived from them. For example, one desktop rendering may
+support the cited desktop geometry but cannot support an unevidenced mobile
+layout. An `assumed` low-impact default is labeled as such; `unresolved` and
+`conflicting` rows remain blocked.
+
+Restoration additionally classifies content, information structure, visual
+appearance, interaction/feedback, UI states, responsive viewports,
+accessibility, and asset identity/substitution. Pixel restoration uses stable
+`PXR-*` profiles, `PXT-*` surface × state × viewport targets, and `PEX-*`
+accepted exceptions. Each unblocked target identifies one baseline,
+rendering-context constraints, one of `pixel-exact`, `pixel-tolerant`,
+`perceptual-equivalent`, or `structural-only`, and a measurable acceptance
+envelope. Missing/conflicting inputs remain blocked; Specify owns no baseline
+production, comparison execution, implementation method, or review result.
+
+Cross-platform restoration records one policy per applicable scope:
+
+```text
+UI ref | source platform | concrete target platform | adaptation mode
+| preserve/adapt/add/omit decisions | target contexts | SRC refs
+| status/blocker
+```
+
+Allowed modes are `framework-equivalent`, `native-adaptive`,
+`brand-preserving-native`, and `visual-equivalent-native`; `hybrid` is invalid.
+Each applicable dimension resolves to `preserve`, `adapt`, `add`, `omit`,
+`clarify`, or `blocked`. `Swift` is an implementation language rather than a
+concrete target platform.
+
+Conflicts use this precedence:
+
+```text
+target-platform hard constraints and accessibility requirements
+  > explicit product requirements
+  > declared adaptation policy and per-dimension decisions
+  > source-backed observable UI evidence
+  > target-platform defaults
+  > implementation preference
+```
+
+Specify owns target outcomes. X2-B owns concrete components, unit conversions,
+navigation/presentation mechanisms, safe-region implementation, accessibility
+mapping, adaptive-layout strategy, and delivery/review methods. Pixel scope
+must not enter Test Conditions or Test Readiness.
+
+### Plan-Internal UI Contract Consumption
+
+Plan consumes the UI Specification through reference-only, rebuildable X2-B
+delivery mappings. X0 and `ui-ux-design.md` record the same current local
+`spec.md` SHA-256. The digest detects local same-ID semantic changes; it does
+not certify any external source, revision, locator, or baseline. A mismatch
+invalidates affected X2-B, reconciliation, X4, and `PLAN_OUTPUT_READY`
+evidence.
+
+`ui-ux-design.md` inventories every applicable `UI/VIS/RST/PXR/PXT/PEX/ADP`
+ref exactly once, then maps it through stable Plan-owned `X2B-*` records:
+
+- general UI delivery maps UI/visual/restoration refs to regions, components,
+  state, navigation, input, responsive, and accessibility design;
+- pixel-target delivery maps profile/target/exception refs to target-region,
+  style/token/asset/layering/overflow responsibilities and a local X2-B method;
+- platform-adaptation delivery maps one policy/dimension ref to target-context
+  component, navigation, input, layout, and accessibility design.
+
+The inventory and mappings reference but never copy Spec-owned statements,
+baseline identity/locator, state/viewport, rendering context, fidelity mode,
+acceptance envelope, exception bound, or adaptation decision. Every required
+mapping has one UI/UX Delivery Readiness row. A Spec blocker propagates with
+the same ID and cannot become `READY` or `N/A`.
 
 ## Final Code Review Gate
 
@@ -208,10 +300,12 @@ Completion requires the review tasks themselves to pass. No separate worker
 result file or orchestration layer is required.
 
 UI review is code/design-contract review. Tasks and Final Code Review never
-create or evaluate visual acceptance, pixel fidelity, screenshot comparison,
-visual diff, baseline capture, visual restoration, or final rendered-visual
-review. Visual/IR/source refs may guide implementation but do not create a
-validation task.
+create or evaluate visual acceptance, screenshot/baseline production,
+pixel/perceptual comparison, visual diff, acceptance-envelope thresholds, or
+final rendered-visual review. `X2B-PX-*` may still produce geometry,
+typography, appearance, asset, layering, overflow, and clipping implementation
+work. Visual/IR/source refs remain traceability and do not create a validation
+task.
 
 ## Tasks As A Pure Plan Mapper
 
@@ -231,11 +325,36 @@ Tasks owns exact paths, task IDs, dependency order, `[P]`, and checklist shape.
 It preserves Plan-selected design/test/UI decisions. Missing mappings produce
 `PLAN_OUTPUT_INCOMPLETE`; Tasks does not reconstruct them.
 
+A current, closed X2-B handoff routes mappings as follows:
+
+| Mapping | Tasks responsibility |
+|---|---|
+| `X2B-UI-*` | component, state, interaction, navigation, responsive, accessibility |
+| `X2B-PX-*` | geometry, typography, color/effects, assets, layering, overflow, clipping |
+| `X2B-ADP-*` | target-platform system, navigation, input, layout, accessibility, localization |
+
+Every Required implementation mapping names concrete paths. A
+review-method-only mapping may omit tasks only with its explicit Plan rationale.
+Blocked mappings emit no normal tasks and keep `PLAN_OUTPUT_INCOMPLETE`.
+Dependencies come from mapping/`DEC-UI-*` refs, shared paths, interface/UIF
+boundaries, asset preparation/binding, and accessibility/adaptive constraints;
+independent lanes retain parallel eligibility.
+
 A Required `TC-*` overrides Core's generic optional-test wording. UI,
 accessibility, responsive, and journey tests exist only when Test Readiness
 requires them. UI/UX Delivery Readiness otherwise maps only to component, state,
-interaction, accessibility, responsive, asset, variant, and fallback
-implementation work.
+interaction, accessibility, responsive, geometry/style, asset/layering, and
+platform-adaptation implementation work.
+
+`validators/speckit_tasks_contract.py` is a pure in-memory test helper. Its
+stable surfaces include `TASK_X2B_MAPPING_UNMAPPED`,
+`TASK_X2B_MAPPING_DUPLICATE`, `TASK_X2B_REF_UNKNOWN`,
+`TASK_X2B_BLOCKER_SUPPRESSED`,
+`TASK_X2B_IMPLEMENTATION_DIMENSION_UNCOVERED`,
+`TASK_X2B_ADAPTATION_UNCOVERED`, `TASK_SPEC_OWNERSHIP_LEAK`,
+`TASK_VISUAL_EXECUTION_LEAK`, and `TASK_FINAL_REVIEW_MAPPING_MISSING`. It is
+not an execution runtime, manifest, transfer protocol, worker format, or
+Implement override.
 
 ## Structured Artifact Rules
 
@@ -245,6 +364,16 @@ behavior JSON artifacts require schemas in `schemas/` and focused coverage in
 
 Every packaged schema and validator must be covered by
 `tests/test_preset_contract.py`.
+
+The UI Specification validator's in-memory bundle keeps
+`all_spec_requirement_refs` separate from its `UI-*`/`VIS-*` requirement
+records. This lets one canonical `SRC-*` row project both general product refs
+and UI refs without moving `FR-*`/`NFR-*` content into the UI contract.
+
+The Tasks validator's in-memory candidates use transient `action_classes` to
+separate implementation, functional validation, forbidden visual execution,
+and Final Code Review. This metadata exists only for contract tests; it is not
+written to `tasks.md` and is not an execution manifest or transfer protocol.
 
 ## Cross-Agent Rules
 

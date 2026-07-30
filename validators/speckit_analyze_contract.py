@@ -35,9 +35,11 @@ SOURCE_ROW_FIELDS = {
     "role",
     "locator_or_description",
     "revision",
-    "authorized_scope",
+    "bounded_scope",
+    "supplied_facts",
     "projected_refs",
     "status",
+    "blocker",
     # In-memory audit hints derived from row prose and downstream applicability.
     "broad",
     "feature_slice",
@@ -188,16 +190,29 @@ def audit_source_reference_contract(
                 )
             )
 
-        if not source.get("authorized_scope"):
+        if not source.get("bounded_scope"):
             findings.append(
                 _finding(
-                    "SRC_AUTHORIZED_SCOPE_MISSING",
+                    "SRC_BOUNDED_SCOPE_MISSING",
                     source=f"spec.md:{ref}",
-                    target="spec.md:authorized scope / facts",
+                    target="spec.md:bounded feature scope",
                     evidence="missing explicit feature scope",
                     owner="speckit.specify",
                 )
             )
+
+        supplied_facts = source.get("supplied_facts")
+        if not isinstance(supplied_facts, list):
+            findings.append(
+                _finding(
+                    "SRC_SUPPLIED_FACTS_INVALID",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:supplied content / facts",
+                    evidence="supplied_facts must be a list",
+                    owner="speckit.specify",
+                )
+            )
+            supplied_facts = []
 
         if not source.get("status"):
             findings.append(
@@ -211,6 +226,54 @@ def audit_source_reference_contract(
             )
 
         status = str(source.get("status", "")).lower()
+        blocker = source.get("blocker")
+        if "block" in status and (
+            not isinstance(blocker, str) or not blocker.strip()
+        ):
+            findings.append(
+                _finding(
+                    "SRC_BLOCKER_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:status / blocker",
+                    evidence="BLOCKED source lacks a stable blocker",
+                    owner="speckit.specify",
+                )
+            )
+        elif blocker and "block" not in status:
+            findings.append(
+                _finding(
+                    "SRC_STATUS_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:status / blocker",
+                    evidence="source blocker requires BLOCKED status",
+                    owner="speckit.specify",
+                )
+            )
+        if projected_refs and not supplied_facts:
+            findings.append(
+                _finding(
+                    "SRC_EVIDENCE_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="local requirement projection",
+                    evidence="locator-only input cannot support projected requirements",
+                    owner="speckit.specify",
+                )
+            )
+        elif (
+            not supplied_facts
+            and "block" not in status
+            and "evidence_missing" not in status
+        ):
+            findings.append(
+                _finding(
+                    "SRC_EVIDENCE_MISSING",
+                    source=f"spec.md:{ref}",
+                    target="spec.md:status / blocker",
+                    evidence="locator-only input lacks SRC_EVIDENCE_MISSING blocker",
+                    owner="speckit.specify",
+                )
+            )
+
         if "contradict" in status:
             findings.append(
                 _finding(
@@ -232,7 +295,7 @@ def audit_source_reference_contract(
                 _finding(
                     "SRC_FEATURE_SLICE_MISSING",
                     source=f"spec.md:{ref}",
-                    target="spec.md:authorized scope / facts",
+                    target="spec.md:bounded feature scope",
                     evidence="broad source projected without safe feature slice",
                     owner="speckit.specify",
                 )

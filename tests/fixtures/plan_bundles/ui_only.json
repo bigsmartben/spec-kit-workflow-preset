@@ -6,6 +6,101 @@
     "X2-B": {"status": "Required"},
     "X2-C": {"status": "Required"}
   },
+  "spec_input": {
+    "current_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "recorded_x0_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "recorded_uiux_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "ui_contract_refs": [
+      {"ref": "UI-001", "contract_class": "UI", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "VIS-001", "contract_class": "VIS", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "RST-001/content", "contract_class": "RST", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "PXR-001", "contract_class": "PXR", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "PXT-001", "contract_class": "PXT", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "PEX-001", "contract_class": "PEX", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "ADP-001/content-and-information-hierarchy", "contract_class": "ADP", "status": "specified", "source_refs": ["SRC-UI-001"]},
+      {"ref": "ADP-001/accessibility-and-user-scaling", "contract_class": "ADP", "status": "specified", "source_refs": ["SRC-UI-001"]}
+    ]
+  },
+  "x2b_input_inventory": [
+    {"spec_ref": "UI-001", "contract_class": "UI", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-UI-001"},
+    {"spec_ref": "VIS-001", "contract_class": "VIS", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-UI-001"},
+    {"spec_ref": "RST-001/content", "contract_class": "RST", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-UI-001"},
+    {"spec_ref": "PXR-001", "contract_class": "PXR", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-PX-001"},
+    {"spec_ref": "PXT-001", "contract_class": "PXT", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-PX-001"},
+    {"spec_ref": "PEX-001", "contract_class": "PEX", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-PX-001"},
+    {"spec_ref": "ADP-001/content-and-information-hierarchy", "contract_class": "ADP", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-ADP-001"},
+    {"spec_ref": "ADP-001/accessibility-and-user-scaling", "contract_class": "ADP", "spec_status": "specified", "x2b_applicability": "Required", "mapping_ref": "X2B-ADP-002"}
+  ],
+  "x2b_delivery_mappings": [
+    {
+      "id": "X2B-UI-001",
+      "kind": "general-ui",
+      "spec_refs": ["UI-001", "VIS-001", "RST-001/content"],
+      "source_refs": ["SRC-UI-001"],
+      "surface_region_binding": "Banner surface and message/action regions",
+      "component_delivery": "Banner component owns composition, visible/hidden state, and feedback",
+      "navigation_input_responsive_accessibility": "Dismiss input, responsive wrapping, focus continuity, and semantic announcement",
+      "decision_refs": ["DEC-UI-001"],
+      "uif_refs": ["UIF-001"],
+      "interface_refs": [],
+      "asset_refs": [],
+      "status": "READY"
+    },
+    {
+      "id": "X2B-PX-001",
+      "kind": "pixel-target",
+      "spec_refs": ["PXR-001", "PXT-001", "PEX-001"],
+      "pxr_ref": "PXR-001",
+      "pxt_ref": "PXT-001",
+      "ui_vis_refs": ["UI-001", "VIS-001"],
+      "source_refs": ["SRC-UI-001"],
+      "target_region_binding": "Banner outer box and message/action subregions",
+      "delivery_mapping": "Component layout, typography token, asset, stacking, and clipping responsibilities",
+      "pex_refs": ["PEX-001"],
+      "local_delivery_review_method": "X2-B local rendered-delivery review against referenced Spec outcomes",
+      "decision_refs": ["DEC-UI-001"],
+      "uif_refs": ["UIF-001"],
+      "interface_refs": [],
+      "asset_refs": [],
+      "status": "READY"
+    },
+    {
+      "id": "X2B-ADP-001",
+      "kind": "platform-adaptation",
+      "spec_refs": ["ADP-001/content-and-information-hierarchy"],
+      "adp_ref": "ADP-001/content-and-information-hierarchy",
+      "ui_vis_refs": ["UI-001", "VIS-001"],
+      "source_refs": ["SRC-UI-001"],
+      "target_context_binding": "Android compact and expanded window contexts",
+      "target_delivery_design": "Target component composition preserves information hierarchy",
+      "decision_refs": ["DEC-UI-001"],
+      "uif_refs": ["UIF-001"],
+      "interface_refs": [],
+      "asset_refs": [],
+      "status": "READY"
+    },
+    {
+      "id": "X2B-ADP-002",
+      "kind": "platform-adaptation",
+      "spec_refs": ["ADP-001/accessibility-and-user-scaling"],
+      "adp_ref": "ADP-001/accessibility-and-user-scaling",
+      "ui_vis_refs": ["UI-001", "VIS-001"],
+      "source_refs": ["SRC-UI-001"],
+      "target_context_binding": "Android font-scale and assistive-technology contexts",
+      "target_delivery_design": "Target semantics, focus, interaction area, and scaling delivery",
+      "decision_refs": ["DEC-UI-001"],
+      "uif_refs": ["UIF-001"],
+      "interface_refs": [],
+      "asset_refs": [],
+      "status": "READY"
+    }
+  ],
+  "uiux_readiness_rows": [
+    {"mapping_ref": "X2B-UI-001", "status": "READY", "evidence": "ui-ux-design.md#X2B-UI-001"},
+    {"mapping_ref": "X2B-PX-001", "status": "READY", "evidence": "ui-ux-design.md#X2B-PX-001"},
+    {"mapping_ref": "X2B-ADP-001", "status": "READY", "evidence": "ui-ux-design.md#X2B-ADP-001"},
+    {"mapping_ref": "X2B-ADP-002", "status": "READY", "evidence": "ui-ux-design.md#X2B-ADP-002"}
+  ],
   "artifacts": [
     {"path": "plan.md", "decision": "Required", "owner": "X0/X4", "content": "UI-only scope, gates, reconciliation, and closeout are evidenced."},
     {"path": "research.md", "decision": "Required", "owner": "X1", "content": "UI state and component Test decisions are recorded."},
@@ -19,7 +114,7 @@
     {"path": "test-readiness.md", "decision": "Required", "owner": "X4", "content": "TC-UI-001 has one readiness row."}
   ],
   "decisions": [
-    {"id": "DEC-UI-001", "affected_refs": ["UIF-001", "TC-UI-001"]}
+    {"id": "DEC-UI-001", "affected_refs": ["X2B-UI-001", "X2B-PX-001", "X2B-ADP-001", "X2B-ADP-002", "UIF-001", "TC-UI-001"]}
   ],
   "uif_contracts": [
     {"id": "UIF-001", "source_refs": ["SRC-UI-001"], "requirement_refs": ["UI-001", "VIS-001"], "related_refs": []}
@@ -52,7 +147,7 @@
     {"id": "VAL-UI-001", "covered_refs": ["TC-UI-001", "UIF-001"]}
   ],
   "reconciliation": {
-    "resolved_refs": ["DEC-UI-001", "UIF-001", "TC-UI-001", "VAL-UI-001"],
+    "resolved_refs": ["DEC-UI-001", "X2B-UI-001", "X2B-PX-001", "X2B-ADP-001", "X2B-ADP-002", "UIF-001", "TC-UI-001", "VAL-UI-001"],
     "findings": [],
     "blocker_owners": {}
   },
@@ -60,7 +155,7 @@
     "X0_CONTROL_READY": {"status": "READY", "evidence": ["plan.md#x0-feature-plan-control"]},
     "X1_DECISIONS_READY": {"status": "READY", "evidence": ["research.md#DEC-UI-001"]},
     "X2A_DESIGN_READY": {"status": "N/A", "evidence": ["plan.md#active-lane-matrix-local-ui-only"]},
-    "X2B_UIUX_READY": {"status": "READY", "evidence": ["ui-ux-design.md#delivery-readiness", "contracts/uif/banner.expected.json#UIF-001"]},
+    "X2B_UIUX_READY": {"status": "READY", "evidence": ["ui-ux-design.md#spec-ui-input-inventory", "ui-ux-design.md#delivery-mappings", "ui-ux-design.md#delivery-readiness", "contracts/uif/banner.expected.json#UIF-001"]},
     "X2C_TEST_DESIGN_READY": {"status": "READY", "evidence": ["contracts/test/test-conditions.json#TC-UI-001"]},
     "X2_RECONCILIATION_READY": {"status": "READY", "evidence": ["plan.md#x2-cross-lane-reconciliation"]},
     "X3_VALIDATION_PATHS_READY": {"status": "READY", "evidence": ["quickstart.md#VAL-UI-001"]}

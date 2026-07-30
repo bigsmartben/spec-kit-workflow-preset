@@ -6,6 +6,19 @@
     "X2-B": {"status": "N/A", "reason": "The scoped worker flow has no user-visible surface."},
     "X2-C": {"status": "Required"}
   },
+  "spec_input": {
+    "current_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "recorded_x0_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "recorded_uiux_sha256": "N/A",
+    "ui_contract_refs": [],
+    "non_ui_evidence": {
+      "spec_scope_ref": "spec.md#worker-recovery-scope",
+      "reason": "The scoped Spec contains no UI, VIS, restoration, pixel, or adaptation contract ref."
+    }
+  },
+  "x2b_input_inventory": [],
+  "x2b_delivery_mappings": [],
+  "uiux_readiness_rows": [],
   "artifacts": [
     {"path": "plan.md", "decision": "Required", "owner": "X0/X4", "content": "Async worker scope, gates, reconciliation, and closeout are evidenced."},
     {"path": "research.md", "decision": "Required", "owner": "X1", "content": "Retry, idempotency, and compensation decisions are recorded."},

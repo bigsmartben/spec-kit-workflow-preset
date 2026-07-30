@@ -12,17 +12,25 @@
 ### Upstream References
 
 - **Spec**: [path + revision]
+- **Consumed Spec SHA-256**: [sha256:<64 lowercase hexadecimal characters>]
 - **Spec Source Contract**: [Applicable local SRC refs and blockers; locators remain opaque.]
 - **Architecture Revision**: [revision]
 - **Applicable Architecture IDs**: [BND/CON/DEC/CST/GAP refs]
+
+The Spec digest is local freshness evidence. It does not certify an external
+source, revision, locator, or baseline. The same digest is recorded in
+`ui-ux-design.md` when X2-B is active.
 
 ### Active Lane Matrix
 
 | Lane | Applicability | Source refs | Declared outputs | Dependencies | Internal gate |
 |---|---|---|---|---|---|
 | X2-A Domain/Object/Interface | Required / N/A: reason / Blocked: ID | [refs] | [paths] | [lane refs] | X2A_DESIGN_READY |
-| X2-B UI/UX Delivery | Required / N/A: reason / Blocked: ID | [SRC + UI/VIS refs] | [paths] | [lane refs] | X2B_UIUX_READY |
+| X2-B UI/UX Delivery | Required / N/A: reason / Blocked: ID | [SRC + UI/VIS/RST/PXR/PXT/PEX/ADP refs] | [paths] | [lane refs] | X2B_UIUX_READY |
 | X2-C Test & Acceptance | Required / N/A: reason / Blocked: ID | [refs] | [paths] | [lane refs] | X2C_TEST_DESIGN_READY |
+
+An N/A X2-B decision records both the scoped `spec.md` section/ref and the
+concrete reason that no applicable UI contract ref exists.
 
 ### Cross-Lane Dependency Register
 
@@ -48,14 +56,20 @@ evidence. A missing or invalid evidence cell means the Gate is not ready.
 
 | Ref / mapping | Producer / owner | Consumers | Resolved target | Drift / ownership finding | Status / blocker |
 |---|---|---|---|---|---|
-| [DEC/UIF/TC/VAL/design ref] | [lane + artifact] | [lane artifacts] | [stable ID/path] | [none or finding] | [READY/BLOCKED: ID] |
+| [DEC/X2B/UIF/TC/VAL/design ref] | [lane + artifact] | [lane artifacts] | [stable ID/path] | [none or finding] | [READY/BLOCKED: ID] |
 
 ### Resume Checkpoint
 
+- **Current local Spec SHA-256**: [sha256:<digest>]
+- **Recorded X0 / UI-UX Spec SHA-256**: [digests or N/A for inactive X2-B]
 - **First unclosed/affected Gate**: [Gate ID]
 - **Verified artifacts preserved**: [paths + evidence refs]
 - **Changed inputs/refs**: [refs or none]
 - **Downstream Gates/reconciliation to rerun**: [Gate IDs]
+
+If the current digest differs from either recorded digest, treat the Spec input
+as changed even when stable IDs are unchanged. Invalidate affected X2-B,
+reconciliation, X4, and `PLAN_OUTPUT_READY` evidence before rebuilding.
 
 ## Artifact Navigation
 
