@@ -1,17 +1,25 @@
-# Visual and UI Requirements Writing Checklist: [FEATURE]
+# Visual and UI Gate Rule Fragment
 
-- [ ] CHK-UI-001 Are critical surfaces, loading/empty/error/success/disabled/focus states, and recovery feedback specified? [Completeness]
-- [ ] CHK-UX-001 Are journeys, navigation, keyboard/accessibility behavior, and responsive expectations observable? [Clarity]
-- [ ] CHK-VIS-001 Does every `UI-*`/`VIS-*` row identify its kind, observable statement, `SRC-*`, evidence locator, surface, state, viewport/context, derivation classification, measurable acceptance condition, and status/blocker? [Traceability]
-- [ ] CHK-VIS-002 Does each visual source have the `visual-input` role, a bounded feature slice, supplied content/facts, and only `UI-*`/`VIS-*` projections? [Consistency]
-- [ ] CHK-UI-002 Are state, viewport, responsive, asset, accessibility, long-copy, and safe-region claims backed by corresponding supplied evidence or an explicit blocker? [Evidence]
-- [ ] CHK-UI-003 Are `observed`, `derived`, `assumed`, `unresolved`, and `conflicting` statements distinguishable without presenting an assumption or gap as observed? [Inference]
-- [ ] CHK-RST-001 When restoration applies, are content, information structure, appearance, interaction/feedback, UI states, responsive viewports, accessibility, and asset identity/substitution each required, N/A with reason, or blocked? [Coverage]
-- [ ] CHK-PXR-001 Does every pixel-restoration profile cover the complete applicable surface × state × viewport matrix with one baseline, rendering context, fidelity mode, measurable envelope, and stable accepted-exception policy per target? [Measurability]
-- [ ] CHK-PXR-002 Does each accepted exception have a stable `PEX-*` ref, exact region and bound, while unrelated regions retain the profile fidelity rule? [Containment]
-- [ ] CHK-ADP-001 Does each cross-platform scope name source/target platforms, an allowed adaptation mode, target contexts, and one allowed decision for every applicable equivalence dimension? [Completeness]
-- [ ] CHK-ADP-002 Do `adapt`, `add`, and `omit` decisions cite affected `UI-*`/`VIS-*` plus `SRC-*` evidence or a target hard constraint, with the declared conflict precedence preserved? [Traceability]
-- [ ] CHK-BND-001 Are observable UI outcomes kept in `spec.md` while concrete components, capture/comparison methods, and implementation choices remain downstream? [Ownership]
+This fragment contributes Visual/UX/Requirements concerns to Semantic
+Requirement Groups in the one canonical Gate. It is never emitted as
+`checklists/visual.md`.
 
-Use citations or `[Gap]`. Do not dereference or validate external sources,
-acquire evidence, answer these questions, or modify `spec.md`.
+| Rule key | Gate | Atomic concern / question pattern |
+|---|---|---|
+| UI-STATES | ux | Are critical surfaces, loading/empty/error/success/disabled/focus states, and recovery feedback specified? |
+| UX-JOURNEY | ux | Are journeys, navigation, keyboard/accessibility behavior, and responsive outcomes observable? |
+| VIS-TRACE | visual | Does every `UI-*`/`VIS-*` row identify kind, observable statement, `SRC-*`, evidence locator, surface, state, viewport/context, derivation, measurable acceptance, and status/blocker? |
+| VIS-SOURCE | visual | Does visual input have the right role, bounded feature slice, supplied facts, and only allowed projections? |
+| UI-EVIDENCE | visual | Are state, viewport, responsive, asset, accessibility, long-copy, and safe-region claims supported or blocked? |
+| UI-INFERENCE | visual | Are observed, derived, assumed, unresolved, and conflicting statements distinguishable? |
+| RST-COVERAGE | visual | When restoration applies, are all required equivalence dimensions classified? |
+| PXR-PROFILE | visual | Does each pixel profile cover its target matrix, baseline, rendering context, fidelity, envelope, and exception policy? |
+| PXR-EXCEPTION | visual | Is every accepted exception bounded while unrelated regions retain the profile rule? |
+| ADP-COVERAGE | visual | Does cross-platform scope identify platforms, adaptation mode, target contexts, and every applicable dimension? |
+| ADP-TRACE | visual | Do adapt/add/omit decisions cite affected UI/VIS refs and evidence or hard constraints? |
+| UI-BOUNDARY | requirements | Are observable outcomes kept in `spec.md` while components and delivery methods remain downstream? |
+
+Examples of generated Check families include `CHK-UI-003`, `CHK-RST-001`,
+`CHK-PXR-001`, `CHK-PXR-002`, `CHK-ADP-001`, `CHK-ADP-002`, and
+`CHK-BND-001`; final IDs also bind the owning Spec semantic ref. Do not acquire
+external evidence or answer product questions while assembling these rules.

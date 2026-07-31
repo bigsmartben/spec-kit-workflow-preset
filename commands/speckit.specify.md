@@ -93,6 +93,26 @@ Populate applicable carriers for:
 - source references, unresolved product decisions, source-evidence blockers, and
   clarification history.
 
+Every atomic point that a Requirements, Behavior, UX, Security, NFR, or Visual
+Gate can inspect has a stable semantic ref in `spec.md`. Use the applicable
+families `FR-*`, `NFR-*`, `UX-*`, `UI-*`, `VIS-*`, `SEC-*`, `DAT-*`, `DEP-*`,
+`BND-*`, `ASM-*`, `EXC-*`, and Core success/outcome refs. Scenario prose,
+security/privacy, data/integration, dependency/boundary, assumption, and
+exclusion content must resolve to those refs instead of relying on a heading or
+line number.
+
+IDs are stable for product meaning, not wording or position:
+
+- preserve an ID for meaning-preserving edits;
+- on split, retain the old ref as `REPLACED` and name every successor;
+- on merge, select one current ref and record every merged ref's successor;
+- on retirement or N/A, retain the old ref and a concrete reason;
+- never silently reuse a retired/refactored ID for a different meaning.
+
+Record non-active relations in the template's Semantic ID Lifecycle table.
+Specify does not create Gate Check or Blocker IDs and does not read or update
+the Requirement Gate.
+
 Optional domains remain optional. Use a specific `Not Applicable` statement only
 when the supplied feature context establishes non-applicability; absence alone
 is not proof. The template is a carrier, not a completeness result.
@@ -149,10 +169,12 @@ Before finishing, check only the artifact this command owns:
 - every applicable restoration, pixel-profile, and cross-platform adaptation
   structure is complete or carries its owning stable blocker;
 - assumptions and unresolved decisions are not presented as confirmed facts;
+- every checkable atomic requirement carrier has a stable semantic ref and
+  every split/merge/retirement/N/A relation is explicit;
 - no implementation design or foreign-stage artifact was written.
 
-Do not compute completeness, PASS/BLOCKED readiness, ID uniqueness, numbering
-gaps, stale refs, cross-artifact coverage, or cross-command consistency.
+Do not compute completeness, PASS/BLOCKED readiness, Gate Check/Blocker state,
+numbering gaps, cross-artifact coverage, or cross-command consistency.
 
 ## Completion Report
 

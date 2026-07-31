@@ -1,0 +1,171 @@
+{
+  "path": "checklists/requirements.md",
+  "metadata": {
+    "stage": "requirements",
+    "contract": "speckit.requirement-gate.v1",
+    "spec_revision": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "planning_readiness": "BLOCKED"
+  },
+  "semantic_groups": [
+    {
+      "spec_ref": "FR-017",
+      "checks": [
+        {
+          "id": "CHK-REQ-017",
+          "rule_key": "DOM-SCOPE",
+          "gate": "requirements",
+          "concern": "authorization subject",
+          "spec_refs": ["FR-017"],
+          "status": "BLOCKED",
+          "evidence_refs": [],
+          "blocker_ref": "BLK-FR-017-01"
+        },
+        {
+          "id": "CHK-BEH-017",
+          "rule_key": "BEH-OBSERVABLE",
+          "gate": "behavior",
+          "concern": "authorization behavior",
+          "spec_refs": ["FR-017"],
+          "status": "BLOCKED",
+          "evidence_refs": [],
+          "blocker_ref": "BLK-FR-017-01"
+        },
+        {
+          "id": "CHK-SEC-017",
+          "rule_key": "DOM-ACTOR-STATE",
+          "gate": "security",
+          "concern": "authorization permission",
+          "spec_refs": ["FR-017"],
+          "status": "BLOCKED",
+          "evidence_refs": [],
+          "blocker_ref": "BLK-FR-017-01"
+        },
+        {
+          "id": "CHK-UX-017",
+          "rule_key": "UX-JOURNEY",
+          "gate": "ux",
+          "concern": "deletion scope feedback",
+          "spec_refs": ["FR-017"],
+          "status": "BLOCKED",
+          "evidence_refs": [],
+          "blocker_ref": "BLK-FR-017-02"
+        },
+        {
+          "id": "CHK-NFR-017",
+          "rule_key": "NFR-MEASURE",
+          "gate": "nfr",
+          "concern": "completion timing",
+          "spec_refs": ["FR-017"],
+          "status": "PASS",
+          "evidence_refs": ["spec.md#FR-017"],
+          "blocker_ref": null
+        },
+        {
+          "id": "CHK-VIS-017",
+          "rule_key": "UI-EVIDENCE",
+          "gate": "visual",
+          "concern": "non-visual applicability",
+          "spec_refs": ["FR-017"],
+          "status": "PASS",
+          "evidence_refs": ["spec.md#FR-017"],
+          "blocker_ref": null
+        }
+      ],
+      "blockers": [
+        {
+          "id": "BLK-FR-017-01",
+          "primary_spec_ref": "FR-017",
+          "semantic_key": "authorization-subject",
+          "gap": "The actor allowed to authorize deletion is unresolved.",
+          "affected_check_ids": [
+            "CHK-BEH-017",
+            "CHK-REQ-017",
+            "CHK-SEC-017"
+          ],
+          "class": "product-decision",
+          "owner": "clarify",
+          "status": "OPEN",
+          "replacement_refs": []
+        },
+        {
+          "id": "BLK-FR-017-02",
+          "primary_spec_ref": "FR-017",
+          "semantic_key": "deletion-scope",
+          "gap": "The cloud-data deletion scope is unresolved.",
+          "affected_check_ids": ["CHK-UX-017"],
+          "class": "product-decision",
+          "owner": "clarify",
+          "status": "OPEN",
+          "replacement_refs": []
+        }
+      ]
+    }
+  ],
+  "gate_summary": [
+    {
+      "gate": "requirements",
+      "applicability": "APPLICABLE",
+      "applicability_reason": null,
+      "status": "BLOCKED",
+      "check_refs": ["CHK-REQ-017"],
+      "blocker_refs": ["BLK-FR-017-01"],
+      "check_count": 1,
+      "blocker_count": 1
+    },
+    {
+      "gate": "behavior",
+      "applicability": "APPLICABLE",
+      "applicability_reason": null,
+      "status": "BLOCKED",
+      "check_refs": ["CHK-BEH-017"],
+      "blocker_refs": ["BLK-FR-017-01"],
+      "check_count": 1,
+      "blocker_count": 1
+    },
+    {
+      "gate": "ux",
+      "applicability": "APPLICABLE",
+      "applicability_reason": null,
+      "status": "BLOCKED",
+      "check_refs": ["CHK-UX-017"],
+      "blocker_refs": ["BLK-FR-017-02"],
+      "check_count": 1,
+      "blocker_count": 1
+    },
+    {
+      "gate": "security",
+      "applicability": "APPLICABLE",
+      "applicability_reason": null,
+      "status": "BLOCKED",
+      "check_refs": ["CHK-SEC-017"],
+      "blocker_refs": ["BLK-FR-017-01"],
+      "check_count": 1,
+      "blocker_count": 1
+    },
+    {
+      "gate": "nfr",
+      "applicability": "APPLICABLE",
+      "applicability_reason": null,
+      "status": "PASS",
+      "check_refs": ["CHK-NFR-017"],
+      "blocker_refs": [],
+      "check_count": 1,
+      "blocker_count": 0
+    },
+    {
+      "gate": "visual",
+      "applicability": "APPLICABLE",
+      "applicability_reason": null,
+      "status": "PASS",
+      "check_refs": ["CHK-VIS-017"],
+      "blocker_refs": [],
+      "check_count": 1,
+      "blocker_count": 0
+    }
+  ],
+  "planning_readiness": {
+    "status": "BLOCKED",
+    "spec_revision": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "blocker_refs": ["BLK-FR-017-01", "BLK-FR-017-02"]
+  }
+}
