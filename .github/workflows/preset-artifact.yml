@@ -388,7 +388,7 @@ jobs:
           test ! -e .specify/presets/workflow-preset/schemas/speckit.behavior.data-fixtures.intent.v1.schema.json
           grep -q "Full-Spectrum Projection" .claude/skills/speckit-specify/SKILL.md
           ! grep -q "Create Spec Quality Checklist" .claude/skills/speckit-specify/SKILL.md
-          grep -q "Cross-Domain Ambiguity Map" .claude/skills/speckit-clarify/SKILL.md
+          grep -q "Shared-Root Ambiguity Map" .claude/skills/speckit-clarify/SKILL.md
           grep -q "X0 — Feature Plan Control" .claude/skills/speckit-plan/SKILL.md
           grep -q "PLAN_OUTPUT_READY" .claude/skills/speckit-tasks/SKILL.md
           grep -q "Cross-Command Consistency Gates" .claude/skills/speckit-analyze/SKILL.md

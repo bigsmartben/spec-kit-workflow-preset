@@ -3632,11 +3632,13 @@ class ReleaseBoundaryTests(unittest.TestCase):
             "specify preset resolve plan-template",
             "test -f .claude/skills/speckit-implement/SKILL.md",
             "test ! -e .specify/presets/workflow-preset/commands/speckit.implement.md",
+            'grep -q "Shared-Root Ambiguity Map" .claude/skills/speckit-clarify/SKILL.md',
             "validators/speckit_plan_contract.py",
             "tests/fixtures/plan_bundles/minimal_repository.json",
             "tests/fixtures/plan_bundles/ui_only.json",
         ):
             self.assertIn(term, workflow)
+        self.assertNotIn("Cross-Domain Ambiguity Map", workflow)
 
     def test_public_docs_do_not_claim_preset_implement_ownership(self) -> None:
         for document in (read(README), read(GOVERNANCE), read(AGENTS)):
