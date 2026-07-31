@@ -10,6 +10,8 @@ This document defines the ownership boundaries for `workflow-preset`.
 - `schemas/` contains machine-readable behavior contracts.
 - `validators/speckit_behavior_contract.py` contains pure in-memory behavior
   cross-field checks.
+- `validators/speckit_requirement_gate_contract.py` contains pure in-memory
+  canonical Requirement Gate, Clarify reconciliation, and Plan preflight checks.
 - `tests/test_preset_contract.py` is the executable preset contract.
 
 ## Preset Boundary
@@ -73,9 +75,9 @@ them, and they do not become a Plan-local conformance gate.
 | Stage | Owner | Durable output |
 |---|---|---|
 | `/speckit.constitution` | preset replacement | independently authorized Constitution and project Architecture outputs |
-| `/speckit.specify` | preset replacement | full-spectrum WHAT/WHY content in `spec.md` |
-| `/speckit.clarify` | preset replacement | accepted product decisions in `spec.md` |
-| `/speckit.checklist` | preset wrapper | unanswered requirement-writing questions |
+| `/speckit.specify` | preset replacement | full-spectrum WHAT/WHY content and stable semantic IDs in `spec.md` |
+| `/speckit.clarify` | preset replacement | accepted product decisions in `spec.md`; current evaluation/derived state in the one Requirement Gate |
+| `/speckit.checklist` | preset wrapper | one semantic-grouped `checklists/requirements.md` containing six logical Gates |
 | `/speckit.plan` | preset wrapper | design, behavior contracts, and validation design |
 | `/speckit.tasks` | preset wrapper | executable checklist in `tasks.md` |
 | `/speckit.analyze` | preset wrapper | read-only cross-command consistency findings |
@@ -95,7 +97,10 @@ protocol, manual execution queue, or implementation validator.
 The workflow is a producer-to-consumer pipeline:
 
 ```text
-spec.md + optional independent requirement-writing checklists
+spec.md with stable semantic refs
+    -> one checklists/requirements.md with six logical Gates
+    -> Clarify decision write + gate reconciliation
+    -> zero-write Plan requirement-gate preflight
     -> X0 plan control
     -> X1 shared decisions
     -> X2-A domain/object/interface + X2-B UI/UX + X2-C Test contracts
@@ -107,26 +112,64 @@ spec.md + optional independent requirement-writing checklists
 Tasks maps upstream artifacts into checklist items. It must not create another
 planning system or execution protocol.
 
-## Requirement Command Independence
+## Requirement Command Ownership
 
-Specify, Clarify, and Checklist are independent:
+Specify owns product projection, Checklist owns the question set, and Clarify
+owns accepted product decisions plus post-decision gate reconciliation:
 
 | Command | Writes | Does not own |
 |---|---|---|
-| Specify | one `spec.md` plus official feature bootstrap metadata | checklists, completeness/readiness, ID validation |
-| Clarify | accepted decisions in `spec.md` | checklist recomputation, source acquisition, cross-artifact checks |
-| Checklist | `checklists/<focus>.md` questions | answers, spec repair, readiness aggregation |
+| Specify | one `spec.md` plus official feature bootstrap metadata; stable semantic IDs and their replacement/retirement relations | checklists, completeness/readiness, Check/Blocker evaluation |
+| Checklist | one canonical `checklists/requirements.md` | answers, spec repair, other checklist files, downstream design |
+| Clarify | accepted decisions in `spec.md`; current Check evidence, shared Blockers, Revision, Summary, and readiness in existing canonical `requirements.md` | new checklist questions, malformed-layout repair, source acquisition, downstream design |
 
-The full-spectrum `spec-template` supplies optional carriers for functional,
-NFR, UX, UI, visual, security/privacy, data/integration, dependency, boundary,
-assumption, exclusion, source, unresolved-decision, source-blocker, and
-measurable outcome content. A carrier's presence is not a completeness claim.
+The full-spectrum `spec-template` supplies optional, stable-ID carriers for
+functional, NFR, UX, UI, visual, security/privacy, data/integration,
+dependency, boundary, assumption, exclusion, source, unresolved-decision,
+source-blocker, and measurable outcome content. IDs follow product meaning:
+wording-only edits preserve them; split, merge, retirement, and N/A retain
+explicit lifecycle records. A carrier's presence is not a completeness claim.
 
 Specify and Clarify are replacement commands because active Core side effects
-would otherwise create or re-evaluate `checklists/requirements.md`. Their
-replacement contracts preserve user input, feature/path resolution, extension
-hooks, local write safety, and completion reporting. Checklist remains a Core
-wrapper and produces only unanswered question-form checks.
+would otherwise create or re-evaluate `checklists/requirements.md` outside the
+preset contract. Their replacement contracts preserve user input, feature/path
+resolution, extension hooks, local write safety, and completion reporting.
+Checklist remains a Core wrapper but supersedes Core's multi-file write target.
+With or without focus it atomically rebuilds only
+`checklists/requirements.md`. The physical main structure is keyed by stable
+Spec semantic ref. Cross-Gate Check records and shared root-cause Blockers live
+only inside those groups. Every Check retains its template Rule key, and PASS
+evidence resolves its current Spec refs as `spec.md#<Spec semantic ref>`. The
+six logical Gates are `requirements`, `behavior`,
+`ux`, `security`, `nfr`, and `visual`; their Summary carries only
+applicability/status, refs, and counts, never duplicated questions or product
+answers.
+
+One semantic root cause can block several Checks and Gates. A Spec ref can also
+have multiple distinct root causes. Check IDs and Blocker IDs are therefore
+many-to-one, not mechanically paired. Blockers retain class, owner, affected
+Checks, and split/merge/retirement history. Clarify asks once per OPEN
+`product-decision` Blocker, updates the Spec first, then synchronizes the
+canonical Gate. Even a zero-question closeout re-evaluates all groups and
+refreshes the exact Spec SHA-256. Missing/malformed Gate structure is preserved
+and routed to Checklist; source-evidence Blockers retain their original owner.
+This closes state directly without a `Clarify -> Checklist -> Clarify` loop.
+
+Plan runs a read-only path resolver and consumes only current `spec.md` plus the
+one canonical `requirements.md`. Before hooks, template materialization, X0, or
+any Plan write, it recomputes Revision, references, all six Summary rows, and
+Planning Readiness. Any mismatch emits
+`REQUIREMENT_GATE_PREFLIGHT_BLOCKED` and produces zero Plan writes. Plan never
+repairs upstream state or calls an upstream command. No `planning-readiness.md`
+exists.
+
+Existing advisory files and the obsolete six-file Domain layout are preserved
+byte-for-byte but ignored by Checklist, Clarify, Plan, and Planning Readiness.
+They are never answer sources or fallback authority.
+
+“Zero Blocker” in Planning Readiness means no `OPEN` current root cause.
+Resolved, retired, and superseded Blocker rows are traceability history; no
+current BLOCKED Check may reference them.
 
 Examples:
 
@@ -374,6 +417,22 @@ The Tasks validator's in-memory candidates use transient `action_classes` to
 separate implementation, functional validation, forbidden visual execution,
 and Final Code Review. This metadata exists only for contract tests; it is not
 written to `tasks.md` and is not an execution manifest or transfer protocol.
+
+`validators/speckit_requirement_gate_contract.py` is likewise a pure in-memory
+test helper. It models the one canonical bundle, stable Spec/Check/Blocker
+references, shared root causes, strictly derived Six-Gate Summary and Planning
+Readiness, partial/full/zero-question clarification, stale Revision
+replacement, ID lifecycle, legacy selection, and read-only Plan preflight
+without parsing or writing Markdown. Stable findings include
+`REQUIREMENT_GATE_SPEC_REF_UNKNOWN`,
+`REQUIREMENT_GATE_SPEC_REF_MISSING`,
+`REQUIREMENT_GATE_LAYOUT_EXTRA_FIELD`,
+`REQUIREMENT_GATE_CHECK_EVIDENCE_INVALID`,
+`REQUIREMENT_GATE_BLOCKER_CROSS_GROUP`,
+`REQUIREMENT_GATE_BLOCKER_AFFECTED_CHECK_MISMATCH`,
+`REQUIREMENT_GATE_SUMMARY_DRIFT`,
+`PLANNING_READINESS_DERIVATION_INVALID`, and
+`REQUIREMENT_GATE_PREFLIGHT_BLOCKED`.
 
 ## Cross-Agent Rules
 

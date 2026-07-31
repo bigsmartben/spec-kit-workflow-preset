@@ -20,9 +20,9 @@ The Constitution is the sole governance SSOT for the SDD workflow:
 | Command | Owns | Durable write boundary |
 |---|---|---|
 | Constitution | workflow governance and repository Architecture generation contracts | `constitution.md`, independently authorized `architecture.md` |
-| Specify | WHAT/WHY requirements | `spec.md` |
-| Clarify | accepted product decisions | `spec.md` |
-| Checklist | requirement-writing quality questions | `checklists/<focus>.md` |
+| Specify | WHAT/WHY requirements plus stable semantic ID lifecycle | `spec.md` |
+| Clarify | accepted product decisions plus canonical Requirement Gate reconciliation | `spec.md`; current evaluation/derived state in existing `checklists/requirements.md` |
+| Checklist | six logical Gate dimensions grouped by Spec semantic ref | only `checklists/requirements.md` |
 | Plan | feature technical, UI/UX, and Test design | feature Plan artifacts |
 | Tasks | concrete path binding and ordered checklist work | `tasks.md` |
 | Analyze | read-only cross-command consistency | none |

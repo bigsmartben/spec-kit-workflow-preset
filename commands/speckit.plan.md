@@ -11,7 +11,9 @@ The X labels are preset-internal milestones nested inside the official Core
 Plan lifecycle:
 
 ```text
-Core setup + plan-template materialization -> X0
+read-only path resolution + Requirement Gate preflight
+  -> Core pre-execution hooks
+  -> Core setup + plan-template materialization -> X0
 Core Phase 0 Outline & Research           -> X1
 Core Phase 1 Design & Contracts           -> X2 and X3
 Core post-design Constitution re-check    -> unchanged
@@ -21,7 +23,66 @@ Preset closeout before completion report  -> X4
 Preserve Core user input, setup scripts, Technical Context, Constitution Check,
 pre/post hooks, Phase 0, Phase 1, and completion behavior in their official
 order. Do not add, remove, rename, reorder, duplicate, or reinterpret a Core
-phase or gate. Do not re-run Checklist or aggregate Planning Readiness.
+phase or gate. Do not re-run Checklist or Clarify and do not write checklist
+state.
+
+## Canonical Requirement Gate Preflight
+
+Complete this preflight before `hooks.before_plan`, Core setup without
+`--paths-only`, plan-template materialization, directory creation, X0, or any
+other Plan write:
+
+1. Run the inherited setup script once in its official
+   `--json --paths-only` / `-Json -PathsOnly` mode. This is read-only feature
+   and path resolution; it must not create the feature directory or materialize
+   `plan.md`.
+2. Read the resolved current `spec.md` and only
+   `checklists/requirements.md`. Do not scan or aggregate another checklist.
+3. Compute SHA-256 over the exact Spec bytes as
+   `sha256:<64 lowercase hex characters>` and reject any other Revision shape.
+4. Require `Contract: speckit.requirement-gate.v1`, one File Metadata block,
+   one Semantic Requirement Groups section, one Six-Gate Summary, and one
+   Planning Readiness record.
+5. Validate unique/resolvable Spec refs, Check IDs, Blocker IDs, and affected
+   Check refs. Every Check has one template Rule key, one Gate, one atomic
+   concern, and PASS evidence in `spec.md#<Spec semantic ref>` form that covers
+   its current Spec refs.
+6. Require exactly one Summary row for each logical Gate:
+   `requirements`, `behavior`, `ux`, `security`, `nfr`, and `visual`.
+7. Recompute the six rows and Planning Readiness structurally. Do not trust
+   stored status text independently.
+
+PASS requires the file Revision to equal the current Spec digest, every
+applicable Gate to be `PASS`, every N/A Gate to have a concrete current
+Spec-backed reason, every passing Check to cite current Spec evidence, zero
+unresolved or orphaned refs, an empty current Blocker inventory, and strictly
+derived `Planning Readiness: PASS`.
+
+The current Blocker inventory contains `OPEN` root causes only. Historical
+`RESOLVED`, `RETIRED`, or `SUPERSEDED` lifecycle rows may remain for
+traceability, but no current Check may reference them and they do not count as
+open Blockers.
+
+Any missing/malformed/stale/blocked state emits
+`REQUIREMENT_GATE_PREFLIGHT_BLOCKED` with the smallest reason and stops with
+zero Plan writes. Do not run hooks, refresh an old Plan, create a placeholder
+Plan, modify either upstream file, or call/simulate Checklist or Clarify.
+Product-decision Blockers route to Clarify, Gate structure to Checklist,
+source-evidence to its recorded owner, and wrapper ordering incompatibility to
+`REQUIREMENT_GATE_CORE_WRAPPER_INCOMPATIBLE`.
+
+Only after PASS, resume the inherited Core Plan lifecycle at its pre-execution
+hooks; after those hooks, run the first write-bearing setup step, Phase 0,
+Phase 1, post-design Constitution re-check, post-execution hooks, and completion
+in their official order. The embedded Core
+multi-checklist preflight is superseded by this canonical preflight and must not
+execute a second scan. If wrapper composition cannot place this section before
+Core's first write, stop with the explicit compatibility Blocker instead of
+checking after materialization.
+
+Plan validates producer-owned structure/current state only; it never answers a
+Gate question, interprets product semantics anew, updates a checklist, or
+creates `planning-readiness.md`.
 
 ## Deterministic Execution Spine
 
@@ -59,9 +120,10 @@ depends on it.
 
 ## External Input Boundary
 
-Authoritative upstream inputs are limited to `spec.md`,
+Authoritative product and technical inputs are limited to `spec.md`,
 `.specify/memory/constitution.md`, `.specify/memory/architecture.md`, and
-current repository facts. “Read only” does not prohibit reading packaged
+current repository facts. Planning Readiness checklists are read-only gate
+evidence, never product or design inputs. “Read only” does not prohibit reading packaged
 templates/schemas or the current Plan stage's already-generated artifacts for
 validation and reconciliation. Planning has one strategy for every repository:
 
@@ -396,6 +458,19 @@ presented as a decision. Otherwise it is `BLOCKED` with the failed Gate and
 blocker evidence. It validates Plan outputs only.
 
 {CORE_TEMPLATE}
+
+## Authoritative Core Preflight Merge Rule
+
+After wrapper composition, the Canonical Requirement Gate Preflight above
+replaces only Core's inherited multi-file Requirement Gate preflight. Core user
+input, path-only resolution, write-bearing setup, hooks, Phase 0, Phase 1,
+post-design Constitution re-check, and completion remain in their official
+relative order. The effective merged command must have this order:
+
+```text
+path-only resolution -> canonical preflight -> Core pre-execution hooks
+  -> Core write-bearing setup
+```
 
 ## Preset Completion Addition
 

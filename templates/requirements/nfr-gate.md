@@ -1,8 +1,14 @@
-# NFR Requirements Writing Checklist: [FEATURE]
+# NFR Gate Rule Fragment
 
-- [ ] CHK-NFR-001 Are applicable performance expectations measurable on named user-visible paths? [Measurability]
-- [ ] CHK-NFR-002 Are reliability, recovery, security/privacy, accessibility, and compatibility expectations stated or specifically N/A? [Completeness]
-- [ ] CHK-NFR-003 Are thresholds, populations, environments, and observation windows unambiguous? [Clarity]
-- [ ] CHK-NFR-004 Do NFRs avoid prescribing implementation unless it is an authorized constraint? [Abstraction]
+This is a logical-Gate rule fragment assembled into the one canonical
+`checklists/requirements.md`; it is not an independent file contract.
 
-Use citations or `[Gap]`. Do not calculate readiness.
+| Rule key | Gate | Atomic concern / question pattern |
+|---|---|---|
+| NFR-MEASURE | nfr | Are applicable quality expectations measurable on named observable paths? |
+| NFR-COVERAGE | nfr | Are reliability, recovery, security/privacy, accessibility, and compatibility outcomes specified or concretely N/A? |
+| NFR-CONTEXT | nfr | Are thresholds, populations, environments, and observation windows unambiguous? |
+| NFR-ABSTRACTION | nfr | Does the requirement avoid prescribing implementation unless it is an authorized constraint? |
+
+Generate stable Checks by Spec ref plus concern. Reuse a shared Blocker when
+multiple Gates expose the same missing product fact.

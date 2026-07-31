@@ -12,10 +12,10 @@ core（核心命令）负责。
 | 命令 | 本预设的职责 | 写入边界 |
 |---|---|---|
 | `/speckit.constitution` | 分离治理规则与仓库技术架构 | `constitution.md`、`architecture.md` |
-| `/speckit.specify` | 编写完整 WHAT/WHY 需求 | `spec.md` |
-| `/speckit.clarify` | 按影响 × 不确定性消除产品歧义 | 仅 `spec.md` |
-| `/speckit.checklist` | 用问题形式检查需求写作质量 | `checklists/*.md` |
-| `/speckit.plan` | 在 Core Plan 生命周期内完成 X0–X4 | Plan 设计产物 |
+| `/speckit.specify` | 编写完整 WHAT/WHY 需求与稳定语义 ID | `spec.md` |
+| `/speckit.clarify` | 按共享根因只问一次，并同步复核规划就绪状态 | `spec.md`、已有的 `checklists/requirements.md` |
+| `/speckit.checklist` | 生成单一 Requirement Gate（需求门禁），内含六个逻辑维度 | 仅 `checklists/requirements.md` |
+| `/speckit.plan` | 在任何写入前只读通过需求门禁，再完成 X0–X4 | Plan 设计产物 |
 | `/speckit.tasks` | 把已批准的 Plan 记录映射成可执行任务 | 仅 `tasks.md` |
 | `/speckit.analyze` | 只读审计跨命令追踪链 | 不写文件 |
 | `/speckit.implement` | 由 Spec Kit core 执行 `tasks.md` | 本预设无覆盖 |
@@ -25,7 +25,7 @@ core（核心命令）负责。
 ```text
 Constitution + Architecture
             ↓
-     Spec → Clarify → Checklist
+     Spec → Checklist → Clarify
             ↓
    Core Plan（内含 X0–X4）
             ↓
@@ -41,8 +41,31 @@ Single Source of Truth）。功能需求、非功能需求、UX/UI、视觉、�
 数据、集成、依赖、边界、假设和排除项都使用可选载体；不适用时明确写
 N/A。
 
-`/speckit.specify` 与 `/speckit.clarify` 不生成或修改 checklist。
-`/speckit.checklist` 只提出可回答的问题，不把实现方案写回需求。
+`/speckit.checklist` 只生成一个 `checklists/requirements.md`。文件按
+Spec semantic ref（规范语义标识）分组；requirements、behavior、UX、
+security、NFR、visual 是六个逻辑 Gate（门禁维度），不是六份文件。每个
+Check（检查项）只保存在语义组内，Six-Gate Summary（六门禁汇总）只保存状态、
+引用和数量，不复制问题或产品答案。每个 Check 还保留模板 Rule key（规则键）；
+PASS 证据用 `spec.md#<语义标识>` 指向当前 Spec。
+
+例如，`FR-017` 的“谁能授权注销”可能同时影响 Requirements、Behavior 和
+Security 三个 Check，但它们共同引用一个 `BLK-FR-017-01` 根因；Clarify
+只问一次。若“删除哪些云端数据”是另一个缺口，则保留第二个 Blocker，不会因为
+都属于 `FR-017` 而误合并。
+
+Specify 的 ID 跟随产品语义，不跟随行号或措辞。只改写文字时保留 ID；拆分、
+合并、退休或 N/A 都记录迁移关系。Clarify 先把答案写回 `spec.md`，再刷新
+Check 证据、共享 Blocker、`Spec Revision`、六门禁汇总与 Planning Readiness
+（规划就绪状态）。即使零问题也会复核陈旧 Revision。
+
+Plan 只读取当前 `spec.md` 和这一个 `requirements.md`。门禁必须在 hooks、
+Plan 模板实例化和任何 X0–X4 写入之前通过；Revision 陈旧、任一 Gate
+BLOCKED、残留 OPEN Blocker 或引用畸形都会以零 Plan 写入停止。已解决、退休或
+被替代的 Blocker 只保留为生命周期历史，不属于当前 Blocker inventory（清单）。
+不会生成单独的 `planning-readiness.md`。
+
+旧 advisory checklist（建议性清单）和错误的六文件领域布局会原样保留，但
+Checklist、Clarify 与 Plan 都忽略它们，也不会从中导入产品答案。
 
 例如：退款需求可以同时声明 `FR-001`（退款规则）、`NFR-001`（响应时间）和
 `UI-001`（加载/成功/失败状态）；若已供应的设计说明缺少结账失败态证据，

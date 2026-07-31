@@ -3,6 +3,9 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -17,6 +20,20 @@ from validators.speckit_analyze_contract import (
 )
 from validators.speckit_behavior_contract import validate_behavior_contract_bundle
 from validators.speckit_plan_contract import validate_plan_artifact_bundle
+from validators.speckit_requirement_gate_contract import (
+    CANONICAL_REQUIREMENT_GATE_PATH,
+    REQUIREMENT_GATE_CONTRACT,
+    REQUIREMENT_RULE_GATES,
+    STANDARD_REQUIREMENT_GATES,
+    clarification_candidates,
+    inspect_core_wrapper_contract,
+    inspect_requirement_gate_bundle,
+    preflight_requirement_gate,
+    rebuild_requirement_gate,
+    reconcile_requirement_gate,
+    select_authoritative_requirement_gate,
+    validate_id_lifecycle,
+)
 from validators.speckit_spec_contract import (
     ADAPTATION_DIMENSIONS,
     CONFLICT_PRECEDENCE,
@@ -46,6 +63,7 @@ AGENTS = ROOT / "AGENTS.md"
 CROSS_AGENT = ROOT / "tests" / "contracts" / "speckit-cross-agent-protocol.md"
 ARTIFACT_WORKFLOW = ROOT / ".github" / "workflows" / "preset-artifact.yml"
 PLAN_BUNDLE_FIXTURES = ROOT / "tests" / "fixtures" / "plan_bundles"
+REQUIREMENT_GATE_FIXTURES = ROOT / "tests" / "fixtures" / "requirement_gates"
 
 
 def read(path: Path) -> str:
@@ -67,6 +85,110 @@ def replace_string_values(value, old: str, new: str):
     if isinstance(value, str):
         return value.replace(old, new)
     return value
+
+
+def requirement_gate_bundle(
+    *,
+    revision: str = f"sha256:{'c' * 64}",
+    blocked_gates: tuple[str, ...] = (),
+    blocker_class: str = "product-decision",
+) -> dict:
+    gate_contract = {
+        "requirements": ("REQ", "DOM-SCOPE"),
+        "behavior": ("BEH", "BEH-OBSERVABLE"),
+        "ux": ("UX", "UX-JOURNEY"),
+        "security": ("SEC", "DOM-ACTOR-STATE"),
+        "nfr": ("NFR", "NFR-MEASURE"),
+        "visual": ("VIS", "UI-EVIDENCE"),
+    }
+    blocker_id = "BLK-FR-017-01"
+    checks = []
+    for gate in STANDARD_REQUIREMENT_GATES:
+        gate_code, rule_key = gate_contract[gate]
+        check_id = f"CHK-{gate_code}-001"
+        blocked = gate in blocked_gates
+        checks.append(
+            {
+                "id": check_id,
+                "rule_key": rule_key,
+                "gate": gate,
+                "concern": f"{gate} atomic quality",
+                "spec_refs": ["FR-017"],
+                "status": "BLOCKED" if blocked else "PASS",
+                "evidence_refs": [] if blocked else ["spec.md#FR-017"],
+                "blocker_ref": blocker_id if blocked else None,
+            }
+        )
+    affected = sorted(
+        check["id"] for check in checks if check["status"] == "BLOCKED"
+    )
+    blockers = []
+    if affected:
+        blockers.append(
+            {
+                "id": blocker_id,
+                "primary_spec_ref": "FR-017",
+                "semantic_key": "authorization-subject",
+                "gap": "The actor allowed to authorize the action is unresolved.",
+                "affected_check_ids": affected,
+                "class": blocker_class,
+                "owner": (
+                    "clarify" if blocker_class == "product-decision" else "source-owner"
+                ),
+                "status": "OPEN",
+                "replacement_refs": [],
+            }
+        )
+    summary = []
+    for gate in STANDARD_REQUIREMENT_GATES:
+        gate_checks = [check for check in checks if check["gate"] == gate]
+        gate_blockers = sorted(
+            {
+                check["blocker_ref"]
+                for check in gate_checks
+                if check["blocker_ref"] is not None
+            }
+        )
+        summary.append(
+            {
+                "gate": gate,
+                "applicability": "APPLICABLE",
+                "applicability_reason": None,
+                "status": (
+                    "PASS"
+                    if all(check["status"] == "PASS" for check in gate_checks)
+                    else "BLOCKED"
+                ),
+                "check_refs": sorted(check["id"] for check in gate_checks),
+                "blocker_refs": gate_blockers,
+                "check_count": len(gate_checks),
+                "blocker_count": len(gate_blockers),
+            }
+        )
+    readiness = "BLOCKED" if affected else "PASS"
+    return {
+        "path": CANONICAL_REQUIREMENT_GATE_PATH,
+        "metadata": {
+            "stage": "requirements",
+            "contract": REQUIREMENT_GATE_CONTRACT,
+            "spec_revision": revision,
+            "planning_readiness": readiness,
+        },
+        "semantic_groups": [
+            {
+                "spec_ref": "FR-017",
+                "checks": checks,
+                "blockers": blockers,
+                "manual_notes": "preserve me",
+            }
+        ],
+        "gate_summary": summary,
+        "planning_readiness": {
+            "status": readiness,
+            "spec_revision": revision,
+            "blocker_refs": [blocker_id] if affected else [],
+        },
+    }
 
 
 def minimal_test_conditions(*, technique: str = "contract_testing") -> dict:
@@ -573,6 +695,17 @@ class ManifestAndGovernanceTests(unittest.TestCase):
         ):
             self.assertEqual("wrap", entries[wrapped]["strategy"])
 
+        self.assertIn("stable-ID", entries["spec-template"]["description"])
+        self.assertIn(
+            "one semantic-grouped requirements.md",
+            entries["speckit.checklist"]["description"],
+        )
+        self.assertIn("synchronize", entries["speckit.clarify"]["description"])
+        self.assertIn(
+            "Hard-gate the canonical requirements.md",
+            entries["speckit.plan"]["description"],
+        )
+
     def test_governance_uses_one_authority_and_gate_vocabulary(self) -> None:
         documents = (read(GOVERNANCE), read(AGENTS), read(CROSS_AGENT))
         for document in documents:
@@ -582,11 +715,17 @@ class ManifestAndGovernanceTests(unittest.TestCase):
 
         governance = documents[0]
         self.assertIn("Authority And Gate Ownership", governance)
-        self.assertIn("Requirement Command Independence", governance)
+        self.assertIn("Requirement Command Ownership", governance)
         self.assertIn("X0–X4 Planning Artifact Boundaries", governance)
         self.assertIn("Tasks As A Pure Plan Mapper", governance)
         self.assertIn("Analyze Cross-Command Audit", governance)
         self.assertIn("Source Reference Contract", governance)
+        self.assertIn("Clarify -> Checklist -> Clarify", governance)
+        self.assertIn("speckit_requirement_gate_contract.py", governance)
+        self.assertIn(
+            "“Zero Blocker” in Planning Readiness means no `OPEN`",
+            governance,
+        )
         self.assertIn(
             "SRC-* + UI/VIS/RST/PXR/PXT/PEX/ADP refs",
             governance,
@@ -704,15 +843,30 @@ class RequirementCommandTests(unittest.TestCase):
             "Dependencies and Boundaries",
             "Assumptions",
             "Exclusions",
+            "Semantic ID Lifecycle",
             "Source References",
             "Unresolved Product Decisions",
             "Source Evidence Blockers",
             "Clarifications",
         ):
             self.assertIn(heading, template)
-        for prefix in ("FR-", "NFR-", "UX-", "UI-", "VIS-"):
+        for prefix in (
+            "FR-",
+            "NFR-",
+            "UX-",
+            "UI-",
+            "VIS-",
+            "SEC-",
+            "DAT-",
+            "DEP-",
+            "BND-",
+            "ASM-",
+            "EXC-",
+        ):
             self.assertIn(prefix, template)
         self.assertIn("content carrier, not a completeness checklist", template)
+        self.assertIn("Every item names its current stable semantic refs", template)
+        self.assertIn("affected stable\n  local refs", template)
 
     def test_source_reference_template_has_one_source_neutral_shape(self) -> None:
         template = read(TEMPLATES / "spec-template.md")
@@ -747,6 +901,8 @@ class RequirementCommandTests(unittest.TestCase):
             "Bounded Supplied Input Contract",
             "Full-Spectrum Projection",
             "feature-local WHAT/WHY SSOT",
+            "stable semantic ref",
+            "preserve an ID for meaning-preserving edits",
             "Do not compute completeness",
         ):
             self.assertIn(term, command)
@@ -824,32 +980,1090 @@ class RequirementCommandTests(unittest.TestCase):
         ):
             self.assertIn(checklist_id, checklist)
 
-    def test_clarify_writes_only_spec_and_uses_cross_domain_priority(self) -> None:
+    def test_clarify_reconciles_one_gate_by_shared_root_cause(self) -> None:
         command = read(COMMANDS / "speckit.clarify.md")
         for term in (
             "strategy: replace",
             "Run `{SCRIPT}` once",
-            "Read and write only `FEATURE_SPEC`",
+            "Two-File Ownership",
             "impact × uncertainty",
             "exactly one at a time",
             "## Clarifications",
-            "Local Validation After Every Write",
+            "Local Validation After Every Spec Write",
+            "Mandatory Closeout Reconciliation",
+            "speckit.requirement-gate.v1",
+            "Three Gate Checks referencing one Blocker produce one question",
+            "REQUIREMENT_GATE_LEGACY_LAYOUT",
+            "stale/unsynchronized",
         ):
             self.assertIn(term, command)
         self.assertNotIn("{CORE_TEMPLATE}", command)
-        self.assertNotIn("checklists/requirements.md", command)
+        self.assertIn("existing `FEATURE_DIR/checklists/requirements.md`", command)
+        self.assertIn("does not create a missing Gate", command)
 
-    def test_checklist_generates_unanswered_questions_only(self) -> None:
+    def test_checklist_generates_one_semantic_grouped_gate(self) -> None:
         command = read(COMMANDS / "speckit.checklist.md")
         self.assertIn("{CORE_TEMPLATE}", command)
-        self.assertIn("question-form", command)
-        self.assertIn("Generated items remain unchecked questions", command)
+        self.assertIn("exactly FEATURE_DIR/checklists/requirements.md", command)
+        self.assertIn("Semantic Requirement Groups", command)
+        self.assertIn("shared root-cause Blocker", command)
+        self.assertIn("Six-Gate Summary", command)
+        self.assertIn("Planning Readiness", command)
+        self.assertIn("REQUIREMENT_GATE_CORE_WRAPPER_INCOMPATIBLE", command)
+        self.assertIn("REQUIREMENT_GATE_LEGACY_LAYOUT", command)
+        self.assertIn("never selects a filename", command)
         self.assertIn("MUST NOT modify `spec.md`", command)
+        self.assertIn("never become runtime files", command)
+        self.assertIn("do not execute any\nembedded Core step", command)
+        self.assertIn("Rule key", command)
+        self.assertIn("spec.md#<Spec semantic ref>", command)
         for path in (TEMPLATES / "requirements").glob("*.md"):
             template = read(path)
-            self.assertRegex(template, r"- \[ \] CHK-")
-            self.assertNotIn("PASS | BLOCKED", template)
-            self.assertNotIn("Readiness Matrix", template)
+            self.assertIn("fragment", template.casefold())
+            self.assertNotIn("**Stage**:", template)
+            self.assertNotIn("**Spec Revision**:", template)
+
+    def test_requirement_fragments_have_unique_rule_keys_and_cover_six_gates(
+        self,
+    ) -> None:
+        rule_keys: list[str] = []
+        covered_gates: set[str] = set()
+        parsed_rule_gates: dict[str, set[str]] = {}
+        for path in sorted((TEMPLATES / "requirements").glob("*.md")):
+            for line in read(path).splitlines():
+                cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+                if (
+                    len(cells) != 3
+                    or not re.fullmatch(r"[A-Z]+(?:-[A-Z]+)+", cells[0])
+                ):
+                    continue
+                rule_keys.append(cells[0])
+                gates = {
+                    gate.strip() for gate in cells[1].split("/") if gate.strip()
+                }
+                parsed_rule_gates[cells[0]] = gates
+                covered_gates.update(gates)
+
+        self.assertEqual(len(rule_keys), len(set(rule_keys)))
+        self.assertEqual(set(STANDARD_REQUIREMENT_GATES), covered_gates)
+        self.assertEqual(set(REQUIREMENT_RULE_GATES), set(rule_keys))
+        self.assertEqual(REQUIREMENT_RULE_GATES, parsed_rule_gates)
+
+    def test_plan_preflights_one_gate_before_any_write(self) -> None:
+        command = read(COMMANDS / "speckit.plan.md")
+        for term in (
+            "Canonical Requirement Gate Preflight",
+            "--json --paths-only",
+            "Read the resolved current `spec.md` and only",
+            "`checklists/requirements.md`",
+            "speckit.requirement-gate.v1",
+            "REQUIREMENT_GATE_PREFLIGHT_BLOCKED",
+            "zero Plan writes",
+            "REQUIREMENT_GATE_CORE_WRAPPER_INCOMPATIBLE",
+            "path-only resolution -> canonical preflight -> Core pre-execution hooks",
+        ):
+            self.assertIn(term, command)
+        self.assertIn("must not\nexecute a second scan", command)
+
+
+class RequirementGateReconciliationTests(unittest.TestCase):
+    CURRENT_REVISION = f"sha256:{'c' * 64}"
+
+    def inspect(self, bundle: dict, *, require_ready: bool = False) -> dict:
+        return inspect_requirement_gate_bundle(
+            bundle,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            require_ready=require_ready,
+        )
+
+    def test_canonical_ready_bundle_is_valid_and_strictly_derived(self) -> None:
+        result = self.inspect(requirement_gate_bundle(), require_ready=True)
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual([], result["findings"])
+        self.assertEqual(6, len(result["derived_gate_summary"]))
+        self.assertEqual(
+            "PASS", result["derived_planning_readiness"]["status"]
+        )
+
+    def test_revision_rule_key_and_current_spec_evidence_are_structural(self) -> None:
+        invalid_revision = requirement_gate_bundle(revision="sha256:not-a-digest")
+        codes = {
+            finding["code"] for finding in self.inspect(invalid_revision)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_METADATA_MALFORMED", codes)
+
+        missing_rule = requirement_gate_bundle()
+        missing_rule["semantic_groups"][0]["checks"][0].pop("rule_key")
+        codes = {
+            finding["code"] for finding in self.inspect(missing_rule)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_CHECK_MALFORMED", codes)
+
+        wrong_rule_gate = requirement_gate_bundle()
+        wrong_rule_gate["semantic_groups"][0]["checks"][0][
+            "rule_key"
+        ] = "UI-EVIDENCE"
+        codes = {
+            finding["code"]
+            for finding in self.inspect(wrong_rule_gate)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_CHECK_MALFORMED", codes)
+
+        foreign_evidence = requirement_gate_bundle()
+        foreign_evidence["semantic_groups"][0]["checks"][0]["evidence_refs"] = [
+            "README.md#FR-017"
+        ]
+        codes = {
+            finding["code"] for finding in self.inspect(foreign_evidence)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_CHECK_EVIDENCE_INVALID", codes)
+
+        wrong_ref = requirement_gate_bundle()
+        wrong_ref["semantic_groups"][0]["checks"][0]["evidence_refs"] = [
+            "spec.md#FR-404"
+        ]
+        codes = {finding["code"] for finding in self.inspect(wrong_ref)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_CHECK_EVIDENCE_INVALID", codes)
+
+        duplicated_spec_ref = requirement_gate_bundle()
+        duplicated_spec_ref["semantic_groups"][0]["checks"][0]["spec_refs"].append(
+            "FR-017"
+        )
+        codes = {
+            finding["code"]
+            for finding in self.inspect(duplicated_spec_ref)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_CHECK_MALFORMED", codes)
+
+    def test_canonical_layout_rejects_answer_copies_and_missing_semantic_groups(
+        self,
+    ) -> None:
+        copied_answer = requirement_gate_bundle()
+        copied_answer["semantic_groups"][0]["checks"][0][
+            "accepted_answer"
+        ] = "Only administrators may authorize deletion."
+        codes = {
+            finding["code"] for finding in self.inspect(copied_answer)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_LAYOUT_EXTRA_FIELD", codes)
+
+        missing_group = inspect_requirement_gate_bundle(
+            requirement_gate_bundle(),
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017", "SEC-001"},
+        )
+        self.assertIn(
+            "REQUIREMENT_GATE_SPEC_REF_MISSING",
+            {finding["code"] for finding in missing_group["findings"]},
+        )
+
+    def test_checklist_first_focus_and_rerun_build_one_idempotent_bundle(self) -> None:
+        source = requirement_gate_bundle(blocked_gates=("requirements",))
+        applicability = {
+            record["gate"]: (
+                record["applicability"],
+                record.get("applicability_reason"),
+            )
+            for record in source["gate_summary"]
+        }
+        groups = deepcopy(source["semantic_groups"])
+        groups[0]["manual_notes"] = "manual\nnotes\nstay byte-for-byte"
+
+        first = rebuild_requirement_gate(
+            spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            semantic_groups=groups,
+            applicability=applicability,
+        )
+        focused = rebuild_requirement_gate(
+            spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            semantic_groups=groups,
+            applicability=applicability,
+            focus="security",
+        )
+        rerun_groups = deepcopy(groups)
+        rerun_groups[0].pop("manual_notes")
+        rerun = rebuild_requirement_gate(
+            spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            semantic_groups=rerun_groups,
+            applicability=applicability,
+            previous_bundle=first,
+        )
+
+        self.assertEqual(CANONICAL_REQUIREMENT_GATE_PATH, first["path"])
+        self.assertEqual(first, focused)
+        self.assertEqual(first, rerun)
+        self.assertEqual(
+            "manual\nnotes\nstay byte-for-byte",
+            rerun["semantic_groups"][0]["manual_notes"],
+        )
+        self.assertEqual(
+            [check["id"] for check in first["semantic_groups"][0]["checks"]],
+            [check["id"] for check in rerun["semantic_groups"][0]["checks"]],
+        )
+
+        wording_only = deepcopy(groups)
+        wording_only[0]["checks"][0]["concern"] = (
+            "requirements atomic quality, wording clarified"
+        )
+        rewritten = rebuild_requirement_gate(
+            spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            semantic_groups=wording_only,
+            applicability=applicability,
+            previous_bundle=first,
+        )
+        self.assertEqual(
+            first["semantic_groups"][0]["checks"][0]["id"],
+            rewritten["semantic_groups"][0]["checks"][0]["id"],
+        )
+
+    def test_one_root_cause_is_shared_across_three_gates_and_one_question(self) -> None:
+        bundle = requirement_gate_bundle(
+            blocked_gates=("requirements", "behavior", "security")
+        )
+        self.assertEqual("PASS", self.inspect(bundle)["status"])
+        candidates = clarification_candidates(bundle)
+        self.assertEqual(1, len(candidates))
+        self.assertEqual(
+            ["CHK-BEH-001", "CHK-REQ-001", "CHK-SEC-001"],
+            candidates[0]["affected_check_ids"],
+        )
+
+    def test_two_distinct_root_causes_under_one_spec_ref_do_not_merge(self) -> None:
+        bundle = requirement_gate_bundle(blocked_gates=("requirements",))
+        group = bundle["semantic_groups"][0]
+        ux_check = next(check for check in group["checks"] if check["gate"] == "ux")
+        ux_check.update(
+            status="BLOCKED",
+            evidence_refs=[],
+            blocker_ref="BLK-FR-017-02",
+        )
+        group["blockers"].append(
+            {
+                "id": "BLK-FR-017-02",
+                "primary_spec_ref": "FR-017",
+                "semantic_key": "deletion-scope",
+                "gap": "Deletion scope is unresolved.",
+                "affected_check_ids": ["CHK-UX-001"],
+                "class": "product-decision",
+                "owner": "clarify",
+                "status": "OPEN",
+                "replacement_refs": [],
+            }
+        )
+        ux_summary = next(
+            item for item in bundle["gate_summary"] if item["gate"] == "ux"
+        )
+        ux_summary.update(
+            status="BLOCKED",
+            blocker_refs=["BLK-FR-017-02"],
+            blocker_count=1,
+        )
+        bundle["planning_readiness"]["blocker_refs"] = [
+            "BLK-FR-017-01",
+            "BLK-FR-017-02",
+        ]
+        self.assertEqual("PASS", self.inspect(bundle)["status"])
+        self.assertEqual(2, len(clarification_candidates(bundle)))
+
+    def test_same_topic_under_different_spec_refs_does_not_merge(self) -> None:
+        first = requirement_gate_bundle(blocked_gates=("requirements",))
+        second_group = deepcopy(first["semantic_groups"][0])
+        second_group["spec_ref"] = "FR-018"
+        second_group["checks"] = [deepcopy(second_group["checks"][0])]
+        second_group["checks"][0].update(
+            id="CHK-REQ-018",
+            spec_refs=["FR-018"],
+            blocker_ref="BLK-FR-018-01",
+        )
+        second_group["blockers"][0].update(
+            id="BLK-FR-018-01",
+            primary_spec_ref="FR-018",
+            affected_check_ids=["CHK-REQ-018"],
+        )
+        first["semantic_groups"].append(second_group)
+        candidates = clarification_candidates(first)
+        self.assertEqual(
+            ["BLK-FR-017-01", "BLK-FR-018-01"],
+            [candidate["blocker_id"] for candidate in candidates],
+        )
+
+        invalid_merge = deepcopy(first)
+        second = invalid_merge["semantic_groups"][1]
+        second["checks"][0]["blocker_ref"] = "BLK-FR-017-01"
+        second["blockers"] = []
+        invalid_merge["semantic_groups"][0]["blockers"][0][
+            "affected_check_ids"
+        ].append("CHK-REQ-018")
+        result = inspect_requirement_gate_bundle(
+            invalid_merge,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017", "FR-018"},
+        )
+        self.assertIn(
+            "REQUIREMENT_GATE_BLOCKER_CROSS_GROUP",
+            {finding["code"] for finding in result["findings"]},
+        )
+
+    def test_clarify_candidate_queue_is_capped_at_five_root_causes(self) -> None:
+        groups = []
+        for index in range(1, 7):
+            spec_ref = f"FR-{index:03d}"
+            groups.append(
+                {
+                    "spec_ref": spec_ref,
+                    "blockers": [
+                        {
+                            "id": f"BLK-{index:03d}",
+                            "primary_spec_ref": spec_ref,
+                            "semantic_key": f"root-{index}",
+                            "gap": f"Decision {index} is unresolved.",
+                            "affected_check_ids": [f"CHK-{index:03d}"],
+                            "class": "product-decision",
+                            "status": "OPEN",
+                        }
+                    ],
+                }
+            )
+        candidates = clarification_candidates(
+            {"semantic_groups": groups},
+            priority_by_blocker={
+                "BLK-006": (5, 5),
+                "BLK-005": (4, 4),
+                "BLK-004": (3, 3),
+                "BLK-003": (2, 2),
+                "BLK-002": (1, 1),
+                "BLK-001": (0, 0),
+            },
+        )
+        self.assertEqual(5, len(candidates))
+        self.assertEqual(
+            ["BLK-006", "BLK-005", "BLK-004", "BLK-003", "BLK-002"],
+            [candidate["blocker_id"] for candidate in candidates],
+        )
+
+    def test_pass_evidence_and_blocker_are_mutually_exclusive(self) -> None:
+        bundle = requirement_gate_bundle()
+        bundle["semantic_groups"][0]["checks"][0][
+            "blocker_ref"
+        ] = "BLK-FR-017-01"
+        codes = {finding["code"] for finding in self.inspect(bundle)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_CHECK_RESULT_INVALID", codes)
+
+    def test_duplicate_semantic_root_cause_is_rejected(self) -> None:
+        bundle = requirement_gate_bundle(blocked_gates=("requirements",))
+        duplicate = deepcopy(bundle["semantic_groups"][0]["blockers"][0])
+        duplicate["id"] = "BLK-FR-017-DUP"
+        bundle["semantic_groups"][0]["blockers"].append(duplicate)
+        codes = {finding["code"] for finding in self.inspect(bundle)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_BLOCKER_ROOT_DUPLICATE", codes)
+
+    def test_shared_blocker_affected_refs_must_match_all_inbound_checks(self) -> None:
+        bundle = requirement_gate_bundle(
+            blocked_gates=("requirements", "behavior", "security")
+        )
+        bundle["semantic_groups"][0]["blockers"][0]["affected_check_ids"] = [
+            "CHK-REQ-001"
+        ]
+        codes = {finding["code"] for finding in self.inspect(bundle)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_BLOCKER_AFFECTED_CHECK_MISMATCH", codes)
+
+    def test_duplicate_or_orphan_refs_are_stably_rejected(self) -> None:
+        duplicate = requirement_gate_bundle()
+        duplicate["semantic_groups"][0]["checks"].append(
+            deepcopy(duplicate["semantic_groups"][0]["checks"][0])
+        )
+        codes = {finding["code"] for finding in self.inspect(duplicate)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_CHECK_DUPLICATE", codes)
+
+        orphan = requirement_gate_bundle(blocked_gates=("requirements",))
+        orphan["semantic_groups"][0]["checks"][0]["blocker_ref"] = "BLK-UNKNOWN"
+        codes = {finding["code"] for finding in self.inspect(orphan)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_BLOCKER_UNKNOWN", codes)
+
+        duplicate_group = requirement_gate_bundle()
+        duplicate_group["semantic_groups"].append(
+            deepcopy(duplicate_group["semantic_groups"][0])
+        )
+        codes = {
+            finding["code"] for finding in self.inspect(duplicate_group)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_SPEC_REF_DUPLICATE", codes)
+
+        duplicate_blocker = requirement_gate_bundle(
+            blocked_gates=("requirements",)
+        )
+        duplicate_blocker["semantic_groups"][0]["blockers"].append(
+            deepcopy(duplicate_blocker["semantic_groups"][0]["blockers"][0])
+        )
+        codes = {
+            finding["code"]
+            for finding in self.inspect(duplicate_blocker)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_BLOCKER_DUPLICATE", codes)
+
+        unknown_spec = requirement_gate_bundle()
+        unknown_spec["semantic_groups"][0]["spec_ref"] = "FR-404"
+        codes = {
+            finding["code"] for finding in self.inspect(unknown_spec)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_SPEC_REF_UNKNOWN", codes)
+
+        wrong_class = requirement_gate_bundle(blocked_gates=("security",))
+        wrong_class["semantic_groups"][0]["blockers"][0]["class"] = (
+            "provider-evidence"
+        )
+        codes = {
+            finding["code"] for finding in self.inspect(wrong_class)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_BLOCKER_CLASS_INVALID", codes)
+
+        wrong_owner = requirement_gate_bundle(blocked_gates=("security",))
+        wrong_owner["semantic_groups"][0]["blockers"][0]["owner"] = "checklist"
+        codes = {
+            finding["code"] for finding in self.inspect(wrong_owner)["findings"]
+        }
+        self.assertIn("REQUIREMENT_GATE_BLOCKER_OWNER_INVALID", codes)
+
+    def test_summary_missing_duplicate_and_drift_are_rejected(self) -> None:
+        missing = requirement_gate_bundle()
+        missing["gate_summary"].pop()
+        codes = {finding["code"] for finding in self.inspect(missing)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_SUMMARY_MISSING", codes)
+
+        duplicate = requirement_gate_bundle()
+        duplicate["gate_summary"].append(deepcopy(duplicate["gate_summary"][0]))
+        codes = {finding["code"] for finding in self.inspect(duplicate)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_SUMMARY_DUPLICATE", codes)
+
+        drift = requirement_gate_bundle()
+        drift["gate_summary"][0]["check_count"] = 99
+        codes = {finding["code"] for finding in self.inspect(drift)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_SUMMARY_DRIFT", codes)
+
+    def test_not_applicable_gate_requires_current_reason(self) -> None:
+        bundle = requirement_gate_bundle()
+        group = bundle["semantic_groups"][0]
+        group["checks"] = [
+            check for check in group["checks"] if check["gate"] != "visual"
+        ]
+        visual = next(
+            item for item in bundle["gate_summary"] if item["gate"] == "visual"
+        )
+        visual.update(
+            applicability="NOT_APPLICABLE",
+            applicability_reason=None,
+            status="PASS",
+            check_refs=[],
+            blocker_refs=[],
+            check_count=0,
+            blocker_count=0,
+        )
+        codes = {finding["code"] for finding in self.inspect(bundle)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_APPLICABILITY_REASON_MISSING", codes)
+        visual["applicability_reason"] = "This feature has no visible surface."
+        codes = {finding["code"] for finding in self.inspect(bundle)["findings"]}
+        self.assertIn("REQUIREMENT_GATE_APPLICABILITY_REASON_MISSING", codes)
+        visual["applicability_reason"] = (
+            "FR-017 explicitly has no user-visible surface."
+        )
+        self.assertEqual("PASS", self.inspect(bundle)["status"])
+
+    def test_partial_clarification_preserves_one_shared_blocker(self) -> None:
+        bundle = requirement_gate_bundle(
+            blocked_gates=("requirements", "behavior", "security")
+        )
+        evidence = {
+            check["id"]: ["spec.md#FR-017"]
+            for check in bundle["semantic_groups"][0]["checks"]
+            if check["gate"] != "security"
+        }
+        result = reconcile_requirement_gate(
+            bundle,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )
+        self.assertEqual("BLOCKED", result["status"])
+        self.assertEqual(1, len(result["candidates"]))
+        blocker = result["updated"]["semantic_groups"][0]["blockers"][0]
+        self.assertEqual(["CHK-SEC-001"], blocker["affected_check_ids"])
+        requirements_summary = next(
+            item
+            for item in result["updated"]["gate_summary"]
+            if item["gate"] == "requirements"
+        )
+        self.assertEqual("PASS", requirements_summary["status"])
+
+    def test_one_answer_closes_multiple_checks_and_all_gates(self) -> None:
+        bundle = requirement_gate_bundle(
+            blocked_gates=("requirements", "behavior", "security")
+        )
+        evidence = {
+            check["id"]: ["spec.md#FR-017"]
+            for check in bundle["semantic_groups"][0]["checks"]
+        }
+        result = reconcile_requirement_gate(
+            bundle,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual([], result["candidates"])
+        blocker = result["updated"]["semantic_groups"][0]["blockers"][0]
+        self.assertEqual("RESOLVED", blocker["status"])
+        self.assertEqual([], blocker["affected_check_ids"])
+
+    def test_zero_question_closeout_refreshes_stale_revision(self) -> None:
+        bundle = requirement_gate_bundle(revision=f"sha256:{'5' * 64}")
+        evidence = {
+            check["id"]: ["spec.md#FR-017"]
+            for check in bundle["semantic_groups"][0]["checks"]
+        }
+        result = reconcile_requirement_gate(
+            bundle,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual(
+            self.CURRENT_REVISION,
+            result["updated"]["metadata"]["spec_revision"],
+        )
+        self.assertEqual(
+            self.CURRENT_REVISION,
+            result["updated"]["planning_readiness"]["spec_revision"],
+        )
+
+    def test_reconciliation_rerun_is_idempotent(self) -> None:
+        bundle = requirement_gate_bundle(
+            blocked_gates=("requirements", "behavior", "security")
+        )
+        evidence = {
+            check["id"]: ["spec.md#FR-017"]
+            for check in bundle["semantic_groups"][0]["checks"]
+        }
+        first = reconcile_requirement_gate(
+            bundle,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )["updated"]
+        second = reconcile_requirement_gate(
+            first,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )["updated"]
+        self.assertEqual(first, second)
+
+    def test_missing_or_malformed_gate_is_not_created_or_rewritten(self) -> None:
+        missing = reconcile_requirement_gate(
+            None,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check={},
+        )
+        self.assertIsNone(missing["updated"])
+        self.assertEqual("REQUIREMENT_GATE_MISSING", missing["findings"][0]["code"])
+
+        malformed = reconcile_requirement_gate(
+            {"path": CANONICAL_REQUIREMENT_GATE_PATH},
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check={},
+        )
+        self.assertIsNone(malformed["updated"])
+        self.assertEqual(
+            "REQUIREMENT_GATE_MALFORMED", malformed["findings"][0]["code"]
+        )
+
+        duplicate = requirement_gate_bundle()
+        duplicate["semantic_groups"][0]["checks"].append(
+            deepcopy(duplicate["semantic_groups"][0]["checks"][0])
+        )
+        before = deepcopy(duplicate)
+        malformed_duplicate = reconcile_requirement_gate(
+            duplicate,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check={},
+        )
+        self.assertIsNone(malformed_duplicate["updated"])
+        self.assertEqual(before, duplicate)
+        self.assertIn(
+            "REQUIREMENT_GATE_CHECK_DUPLICATE",
+            {finding["code"] for finding in malformed_duplicate["findings"]},
+        )
+
+    def test_reconciliation_never_hides_new_missing_evidence(self) -> None:
+        original = requirement_gate_bundle()
+        result = reconcile_requirement_gate(
+            original,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check={},
+        )
+        self.assertEqual("BLOCKED", result["status"])
+        self.assertIsNone(result["updated"])
+        self.assertEqual("PASS", original["planning_readiness"]["status"])
+        self.assertIn(
+            "REQUIREMENT_GATE_RECONCILIATION_BLOCKER_REQUIRED",
+            {finding["code"] for finding in result["findings"]},
+        )
+
+    def test_source_evidence_blocker_never_becomes_product_question(self) -> None:
+        bundle = requirement_gate_bundle(
+            blocked_gates=("visual",),
+            blocker_class="source-evidence",
+        )
+        self.assertEqual([], clarification_candidates(bundle))
+        evidence = {
+            check["id"]: ["spec.md#FR-017"]
+            for check in bundle["semantic_groups"][0]["checks"]
+            if check["gate"] != "visual"
+        }
+        reconciled = reconcile_requirement_gate(
+            bundle,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )
+        blocker = reconciled["updated"]["semantic_groups"][0]["blockers"][0]
+        self.assertEqual("source-evidence", blocker["class"])
+        self.assertEqual("source-owner", blocker["owner"])
+        self.assertEqual([], reconciled["candidates"])
+
+    def test_interrupted_second_write_recovers_from_stale_gate_only(self) -> None:
+        stale_gate = requirement_gate_bundle(
+            revision=f"sha256:{'5' * 64}",
+            blocked_gates=("requirements", "behavior", "security"),
+        )
+        stale_snapshot = deepcopy(stale_gate)
+        evidence = {
+            check["id"]: ["spec.md#FR-017"]
+            for check in stale_gate["semantic_groups"][0]["checks"]
+        }
+        failed_sync_state = preflight_requirement_gate(
+            stale_gate,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+        )
+        self.assertEqual("BLOCKED", failed_sync_state["status"])
+        self.assertEqual(0, failed_sync_state["write_count"])
+        self.assertIn(
+            "REQUIREMENT_GATE_SPEC_REVISION_STALE",
+            {finding["code"] for finding in failed_sync_state["findings"]},
+        )
+        recovered = reconcile_requirement_gate(
+            stale_gate,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=evidence,
+        )
+        self.assertEqual("PASS", recovered["status"])
+        self.assertEqual(stale_snapshot, stale_gate)
+        self.assertEqual(
+            self.CURRENT_REVISION,
+            recovered["updated"]["metadata"]["spec_revision"],
+        )
+        self.assertEqual([], recovered["candidates"])
+
+    def test_legacy_and_advisory_files_are_ignored_byte_for_byte(self) -> None:
+        canonical = requirement_gate_bundle()
+        advisory = {
+            "path": "checklists/copy.md",
+            "bytes": "manual advisory content",
+        }
+        legacy = {
+            "path": "checklists/behavior.md",
+            "bytes": "legacy product answer must not be imported",
+        }
+        result = select_authoritative_requirement_gate(
+            [canonical, advisory, legacy]
+        )
+        self.assertIs(canonical, result["authoritative"])
+        self.assertEqual([advisory, legacy], result["ignored"])
+        self.assertEqual(
+            ["REQUIREMENT_GATE_LEGACY_LAYOUT"],
+            [finding["code"] for finding in result["findings"]],
+        )
+
+    def test_plan_preflight_is_read_only_and_blocks_stale_or_open_gate(self) -> None:
+        stale = preflight_requirement_gate(
+            requirement_gate_bundle(revision=f"sha256:{'5' * 64}"),
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+        )
+        self.assertEqual("BLOCKED", stale["status"])
+        self.assertEqual(0, stale["write_count"])
+        self.assertFalse(stale["hooks_started"])
+        self.assertFalse(stale["core_setup_started"])
+        self.assertIsNone(stale["next_step"])
+        self.assertIn(
+            "REQUIREMENT_GATE_SPEC_REVISION_STALE",
+            {finding["code"] for finding in stale["findings"]},
+        )
+        self.assertIn(
+            "PLANNING_READINESS_DERIVATION_INVALID",
+            {finding["code"] for finding in stale["findings"]},
+        )
+
+        open_gate = preflight_requirement_gate(
+            requirement_gate_bundle(blocked_gates=("behavior",)),
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+        )
+        self.assertEqual("BLOCKED", open_gate["status"])
+        self.assertEqual(0, open_gate["write_count"])
+        self.assertIn(
+            "REQUIREMENT_GATE_PREFLIGHT_BLOCKED",
+            {finding["code"] for finding in open_gate["findings"]},
+        )
+
+    def test_plan_preflight_zero_writes_for_every_named_failure_class(self) -> None:
+        cases: list[dict] = []
+
+        n_a_without_reason = requirement_gate_bundle()
+        group = n_a_without_reason["semantic_groups"][0]
+        group["checks"] = [
+            check for check in group["checks"] if check["gate"] != "visual"
+        ]
+        visual = next(
+            row for row in n_a_without_reason["gate_summary"]
+            if row["gate"] == "visual"
+        )
+        visual.update(
+            applicability="NOT_APPLICABLE",
+            applicability_reason=None,
+            status="PASS",
+            check_refs=[],
+            blocker_refs=[],
+            check_count=0,
+            blocker_count=0,
+        )
+        cases.append(n_a_without_reason)
+
+        malformed_ref = requirement_gate_bundle()
+        malformed_ref["semantic_groups"][0]["checks"][0]["spec_refs"] = ["FR-404"]
+        cases.append(malformed_ref)
+
+        placeholder = requirement_gate_bundle()
+        placeholder["semantic_groups"][0]["checks"][0]["concern"] = (
+            "TODO define authorization quality"
+        )
+        cases.append(placeholder)
+
+        residual_open_blocker = requirement_gate_bundle()
+        residual_open_blocker["semantic_groups"][0]["blockers"].append(
+            {
+                "id": "BLK-FR-017-RESIDUAL",
+                "primary_spec_ref": "FR-017",
+                "semantic_key": "residual-open-root",
+                "gap": "An OPEN root cause remains after PASS text.",
+                "affected_check_ids": ["CHK-REQ-001"],
+                "class": "product-decision",
+                "owner": "clarify",
+                "status": "OPEN",
+                "replacement_refs": [],
+            }
+        )
+        cases.append(residual_open_blocker)
+
+        old_plan = {
+            "plan.md": "old plan bytes",
+            "research.md": "old research bytes",
+        }
+        old_plan_snapshot = deepcopy(old_plan)
+        for bundle in cases:
+            bundle_snapshot = deepcopy(bundle)
+            result = preflight_requirement_gate(
+                bundle,
+                current_spec_revision=self.CURRENT_REVISION,
+                all_spec_refs={"FR-017"},
+            )
+            self.assertEqual("BLOCKED", result["status"])
+            self.assertEqual(0, result["write_count"])
+            self.assertFalse(result["hooks_started"])
+            self.assertFalse(result["core_setup_started"])
+            self.assertIsNone(result["next_step"])
+            self.assertIn(
+                "REQUIREMENT_GATE_PREFLIGHT_BLOCKED",
+                {finding["code"] for finding in result["findings"]},
+            )
+            self.assertEqual(bundle_snapshot, bundle)
+            self.assertEqual(old_plan_snapshot, old_plan)
+
+    def test_issue_50_revision_gap_fixture_closes_only_after_full_sync(self) -> None:
+        fixture = load_json(
+            REQUIREMENT_GATE_FIXTURES / "issue_50_revision_gap.json"
+        )
+        self.assertEqual(2, len(clarification_candidates(fixture)))
+
+        partial_evidence = {
+            "CHK-REQ-017": ["spec.md#FR-017"],
+            "CHK-BEH-017": ["spec.md#FR-017"],
+            "CHK-SEC-017": ["spec.md#FR-017"],
+            "CHK-NFR-017": ["spec.md#FR-017"],
+            "CHK-VIS-017": ["spec.md#FR-017"],
+        }
+        partial = reconcile_requirement_gate(
+            fixture,
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=partial_evidence,
+        )
+        self.assertEqual("BLOCKED", partial["status"])
+        self.assertEqual(1, len(partial["candidates"]))
+        blocked_preflight = preflight_requirement_gate(
+            partial["updated"],
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+        )
+        self.assertEqual("BLOCKED", blocked_preflight["status"])
+        self.assertEqual(0, blocked_preflight["write_count"])
+
+        full_evidence = dict(partial_evidence)
+        full_evidence["CHK-UX-017"] = ["spec.md#FR-017"]
+        full = reconcile_requirement_gate(
+            partial["updated"],
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+            current_evidence_by_check=full_evidence,
+        )
+        self.assertEqual("PASS", full["status"])
+        ready_preflight = preflight_requirement_gate(
+            full["updated"],
+            current_spec_revision=self.CURRENT_REVISION,
+            all_spec_refs={"FR-017"},
+        )
+        self.assertEqual("PASS", ready_preflight["status"])
+        self.assertEqual(0, ready_preflight["write_count"])
+        self.assertEqual("CORE_PRE_EXECUTION_HOOKS", ready_preflight["next_step"])
+        self.assertFalse(ready_preflight["hooks_started"])
+        self.assertFalse(ready_preflight["core_setup_started"])
+
+    def test_spec_and_blocker_id_split_merge_retire_are_traceable(self) -> None:
+        spec_records = [
+            {
+                "id": "FR-001",
+                "status": "REPLACED",
+                "replacement_refs": ["FR-002", "FR-003"],
+                "reason": "Split two meanings.",
+            },
+            {
+                "id": "FR-002",
+                "status": "ACTIVE",
+                "replacement_refs": [],
+            },
+            {
+                "id": "FR-003",
+                "status": "RETIRED",
+                "replacement_refs": [],
+                "reason": "No longer in scope.",
+            },
+            {
+                "id": "FR-004",
+                "status": "REPLACED",
+                "replacement_refs": ["FR-002"],
+                "reason": "Merged into the current authorization rule.",
+            },
+        ]
+        validate_id_lifecycle(spec_records, kind="Spec")
+
+        blocker_records = [
+            {
+                "id": "BLK-001",
+                "status": "SUPERSEDED",
+                "replacement_refs": ["BLK-003"],
+            },
+            {
+                "id": "BLK-002",
+                "status": "SUPERSEDED",
+                "replacement_refs": ["BLK-003"],
+            },
+            {
+                "id": "BLK-003",
+                "status": "OPEN",
+                "replacement_refs": [],
+            },
+            {
+                "id": "BLK-004",
+                "status": "RETIRED",
+                "replacement_refs": [],
+                "reason": "The referenced product scope was retired.",
+            },
+        ]
+        validate_id_lifecycle(blocker_records, kind="Blocker")
+
+        with self.assertRaisesRegex(ValueError, "unknown successor"):
+            validate_id_lifecycle(
+                [
+                    {
+                        "id": "BLK-001",
+                        "status": "SUPERSEDED",
+                        "replacement_refs": ["BLK-404"],
+                    }
+                ],
+                kind="Blocker",
+            )
+
+        with self.assertRaisesRegex(ValueError, "replacement cycle"):
+            validate_id_lifecycle(
+                [
+                    {
+                        "id": "FR-010",
+                        "status": "REPLACED",
+                        "replacement_refs": ["FR-011"],
+                    },
+                    {
+                        "id": "FR-011",
+                        "status": "REPLACED",
+                        "replacement_refs": ["FR-010"],
+                    },
+                ],
+                kind="Spec",
+            )
+
+    def test_wrapper_capability_failure_is_an_explicit_blocker(self) -> None:
+        compatible = inspect_core_wrapper_contract(
+            checklist_output_paths=[CANONICAL_REQUIREMENT_GATE_PATH],
+            plan_events=[
+                {"name": "path-resolution", "writes": False},
+                {"name": "canonical-preflight", "writes": False},
+                {"name": "before-plan-hook", "hook": True, "writes": False},
+                {"name": "core-setup", "writes": True},
+            ],
+        )
+        self.assertEqual("PASS", compatible["status"])
+
+        extra_output = inspect_core_wrapper_contract(
+            checklist_output_paths=[
+                CANONICAL_REQUIREMENT_GATE_PATH,
+                "checklists/security.md",
+            ],
+            plan_events=[
+                {"name": "path-resolution", "writes": False},
+                {"name": "canonical-preflight", "writes": False},
+                {"name": "core-setup", "writes": True},
+            ],
+        )
+        write_first = inspect_core_wrapper_contract(
+            checklist_output_paths=[CANONICAL_REQUIREMENT_GATE_PATH],
+            plan_events=[
+                {"name": "path-resolution", "writes": False},
+                {"name": "core-setup", "writes": True},
+                {"name": "canonical-preflight", "writes": False},
+            ],
+        )
+        for result in (extra_output, write_first):
+            self.assertEqual("BLOCKED", result["status"])
+            self.assertEqual(
+                {"REQUIREMENT_GATE_CORE_WRAPPER_INCOMPATIBLE"},
+                {finding["code"] for finding in result["findings"]},
+            )
+
+
+class CoreWrapperInstallationTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("specify"), "specify CLI is not on PATH")
+    def test_installed_composition_enforces_single_output_and_write_first_gate(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            source = temp_root / "source"
+            project = temp_root / "project"
+            shutil.copytree(
+                ROOT,
+                source,
+                ignore=shutil.ignore_patterns(".git", ".venv", "__pycache__"),
+            )
+            subprocess.run(
+                [
+                    "specify",
+                    "init",
+                    str(project),
+                    "--integration",
+                    "codex",
+                    "--ignore-agent-tools",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                ["specify", "preset", "remove", "workflow-preset"],
+                cwd=project,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                ["specify", "preset", "add", "--dev", str(source)],
+                cwd=project,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            composed = (
+                project
+                / ".specify"
+                / "presets"
+                / "workflow-preset"
+                / ".composed"
+            )
+            checklist = read(composed / "speckit.checklist.md")
+            plan = read(composed / "speckit.plan.md")
+
+            self.assertNotIn("{CORE_TEMPLATE}", checklist)
+            self.assertLess(
+                checklist.index("## Preset Checklist Ownership"),
+                checklist.index("## User Input"),
+            )
+            self.assertLess(
+                checklist.index("Create or recompute `FEATURE_DIR/checklists/<domain>.md`"),
+                checklist.index("## Authoritative Core Conflict Resolution"),
+            )
+            self.assertIn(
+                "do not execute any\nembedded Core step that creates "
+                "Domain/advisory/focus checklist files",
+                checklist,
+            )
+            self.assertIn(
+                "any $ARGUMENTS focus\n  -> exactly "
+                "FEATURE_DIR/checklists/requirements.md",
+                checklist,
+            )
+
+            canonical_preflight = plan.index(
+                "## Canonical Requirement Gate Preflight"
+            )
+            inherited_preflight = plan.index("## Requirement Gate Preflight")
+            pre_execution_hooks = plan.index("## Pre-Execution Checks")
+            first_write = plan.index("1. **Materialize plan**")
+            self.assertLess(canonical_preflight, inherited_preflight)
+            self.assertLess(inherited_preflight, pre_execution_hooks)
+            self.assertLess(pre_execution_hooks, first_write)
+            for core_marker in (
+                "### Phase 0: Outline & Research",
+                "### Phase 1: Design & Contracts",
+                "Re-evaluate Constitution Check post-design",
+                "## Mandatory Post-Execution Hooks",
+                "## Completion Report",
+            ):
+                self.assertIn(core_marker, plan)
+            self.assertIn(
+                "path-only resolution -> canonical preflight "
+                "-> Core pre-execution hooks\n  -> Core write-bearing setup",
+                plan,
+            )
 
 
 class UISpecContractTests(unittest.TestCase):

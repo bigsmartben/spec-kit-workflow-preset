@@ -173,23 +173,39 @@ UI/UX delivery design, not this specification.
 
 ### Security and Privacy
 
-- [Requirement, constraint, assumption, or specific N/A reason.]
+- **SEC-001**: [Observable security/privacy requirement, constraint, or specific N/A reason.]
 
 ### Data and Integration Constraints
 
-- [Data semantics, external dependency, boundary, failure, compatibility, or specific N/A reason.]
+- **DAT-001**: [Data semantics, lifecycle, failure, compatibility, or specific N/A reason.]
 
 ### Dependencies and Boundaries
 
-- [Owned/non-owned scope and external dependency.]
+- **DEP-001**: [External dependency, observable failure behavior, or explicit N/A.]
+- **BND-001**: [Owned/non-owned product boundary and observable responsibility.]
 
 ## Assumptions
 
-- [Documented default that is not presented as confirmed fact.]
+- **ASM-001**: [Documented default that is not presented as confirmed fact.]
 
 ## Exclusions
 
-- [Explicitly out-of-scope outcome.]
+- **EXC-001**: [Explicitly out-of-scope outcome.]
+
+## Semantic ID Lifecycle
+
+Stable refs follow product meaning rather than wording, heading, or line
+position. List only changed/non-active identities; an unchanged active ref
+remains in its owning section.
+
+| Semantic ref | Lifecycle | Successor/current refs | Concrete reason | Last applicable meaning |
+|---|---|---|---|---|
+| FR-000 | [REPLACED / RETIRED / NOT_APPLICABLE] | [One or more current refs, or `None`.] | [Split, merge, retirement, or N/A reason.] | [Prior atomic WHAT/WHY meaning.] |
+
+Meaning-preserving wording changes keep the same ID. A split preserves the old
+ID with every successor; a merge chooses one current ID and maps the others to
+it. Retired or N/A refs remain traceable with a reason. Never silently reuse an
+old ID for different semantics.
 
 ## Source References
 
@@ -199,24 +215,27 @@ content/facts and cited evidence locators, never on the locator alone.
 
 | SRC ref | Role | Opaque locator / description | Revision / identity | Bounded feature scope | Supplied content / facts | Projected requirement refs | Status / blocker |
 |---|---|---|---|---|---|---|---|
-| SRC-001 | requirement-input | [Conversation direction, document, reference, or description.] | [Optional supplied identity or `Not supplied`.] | [Current feature slice.] | [Supplied WHAT/WHY facts, evidence packet refs, or `None`.] | [FR/NFR/UX/UI/VIS refs, or `None`.] | [projected / retained / NEEDS CLARIFICATION / BLOCKED with stable reason.] |
+| SRC-001 | requirement-input | [Conversation direction, document, reference, or description.] | [Optional supplied identity or `Not supplied`.] | [Current feature slice.] | [Supplied WHAT/WHY facts, evidence packet refs, or `None`.] | [FR/NFR/UX/UI/VIS/SEC/DAT/DEP/BND/ASM/EXC refs, or `None`.] | [projected / retained / NEEDS CLARIFICATION / BLOCKED with stable reason.] |
 
 Allowed roles are exactly `requirement-input`, `visual-input`,
 `technical-evidence`, and `context-only`. `context-only` and
-`technical-evidence` do not support normative `FR/NFR/UX/UI/VIS` projection.
-`visual-input` may project only `UI-*` and `VIS-*`. A broad source without a
+`technical-evidence` do not support normative stable requirement projection.
+`visual-input` may project only `UI-*` and `VIS-*`; the other requirement
+families require `requirement-input`. A broad source without a
 safe feature slice stays blocked or needs clarification; it is not imported in
 full. A row with no supplied content/facts stays
 `BLOCKED: SRC_EVIDENCE_MISSING` and has no projected requirement refs.
 
 ## Unresolved Product Decisions
 
-- [NEEDS CLARIFICATION: high-impact product decision, or `None`.]
+- **Affected refs: FR-001** — [NEEDS CLARIFICATION: high-impact product
+  decision, or `None`. Every item names its current stable semantic refs.]
 
 ## Source Evidence Blockers
 
-- [SRC ref + missing evidence + affected local refs, or `None`. The matching
-  Source References row remains the canonical status.]
+- **Affected refs: UI-001** — [SRC ref + missing evidence + affected stable
+  local refs, or `None`. The matching Source References row remains the
+  canonical status.]
 
 ## Clarifications
 

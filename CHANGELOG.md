@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Replaced the six-file Requirement Gate layout with one canonical
+  `checklists/requirements.md`, physically grouped by stable Spec semantic refs
+  and containing six strictly derived logical Gate summaries.
+- Added shared root-cause Blockers, stable Spec/Blocker split-merge-retirement
+  lifecycle, one-question Clarify aggregation, partial/full/zero-question
+  synchronization, and preserved non-authoritative legacy/advisory files.
+- Moved the canonical Gate preflight before hooks, Core write-bearing setup, and
+  Plan template materialization; stale, malformed, or blocked input now stops
+  with zero Plan writes and no `planning-readiness.md`.
+- Added a self-contained Issue #50 Revision-gap fixture plus installed Core
+  wrapper composition smoke coverage.
+- Hardened the in-memory Gate contract with exact SHA-256 syntax, template Rule
+  keys, current-Spec evidence/N/A references, closed canonical fields,
+  placeholder rejection, complete semantic-group coverage, deterministic
+  Clarify recovery, wrapper compatibility findings, and explicit Spec/Blocker
+  lifecycle tests.
+
 ## 3.2.0 - 2026-07-30
 
 - Added one canonical `UI-*` specification model with deterministic source,
