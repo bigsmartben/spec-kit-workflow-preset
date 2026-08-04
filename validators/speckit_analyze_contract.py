@@ -28,8 +28,14 @@ SOURCE_ROLES = {
     "context-only",
 }
 
-NORMATIVE_REQUIREMENT_PREFIXES = ("FR-", "NFR-", "UX-", "UI-", "VIS-")
-VISUAL_REQUIREMENT_PREFIXES = ("UI-", "VIS-")
+CANONICAL_UI_PREFIXES = (
+    "UIAX-", "UIAC-", "UIP-", "UIR-", "UIC-", "UID-", "UIS-", "UIV-",
+    "UIW-", "UIT-", "UIA-", "UIM-", "UIE-", "UIN-",
+)
+NORMATIVE_REQUIREMENT_PREFIXES = (
+    "FR-", "NFR-", "UX-", "UI-", "VIS-", *CANONICAL_UI_PREFIXES
+)
+VISUAL_REQUIREMENT_PREFIXES = ("UI-", "VIS-", *CANONICAL_UI_PREFIXES)
 SOURCE_ROW_FIELDS = {
     "ref",
     "role",
@@ -398,6 +404,8 @@ def audit_cross_command_consistency(snapshot: dict[str, Any]) -> list[dict[str, 
     """Return deterministic blocker findings without mutating the snapshot."""
 
     findings = audit_source_reference_contract(snapshot)
+    if "canonical_objects" in snapshot.get("spec", {}):
+        findings.extend(audit_canonical_ui_chain(snapshot))
     architecture = snapshot.get("architecture", {})
     plan = snapshot.get("plan", {})
     tasks = snapshot.get("tasks", {})
@@ -475,6 +483,206 @@ def audit_cross_command_consistency(snapshot: dict[str, Any]) -> list[dict[str, 
                 source=f"plan:{plan.get('mu_scope')}",
                 target="tasks.md:M+U",
                 evidence=str(tasks.get("mu_scope")),
+                owner="speckit.tasks",
+            )
+        )
+
+    return findings
+
+
+def audit_canonical_ui_chain(snapshot: dict[str, Any]) -> list[dict[str, str]]:
+    """Audit UI/VIS -> Canonical -> X2-B -> Tasks -> Final Review locally."""
+
+    findings: list[dict[str, str]] = []
+    spec = snapshot.get("spec", {})
+    plan = snapshot.get("plan", {})
+    tasks = snapshot.get("tasks", {})
+    objects = spec.get("canonical_objects", [])
+    if not isinstance(objects, list):
+        return [
+            _finding(
+                "CANONICAL_UI_CONTRACT_INVALID",
+                source="spec.md#Canonical-UI-Specification",
+                target="Canonical UI object registry",
+                evidence="canonical_objects must be a list",
+                owner="speckit.specify",
+            )
+        ]
+
+    object_ids = [
+        str(item.get("id", "")) for item in objects if isinstance(item, dict)
+    ]
+    known_ids = set(object_ids)
+    for object_id in sorted({ref for ref in object_ids if object_ids.count(ref) > 1}):
+        findings.append(
+            _finding(
+                "CANONICAL_UI_REF_DUPLICATE",
+                source=f"spec.md:{object_id}",
+                target="Canonical UI object registry",
+                evidence="stable Canonical UI ID is duplicated",
+                owner="speckit.specify",
+            )
+        )
+    objects_by_id = {
+        str(item.get("id")): item
+        for item in objects
+        if isinstance(item, dict) and item.get("id")
+    }
+    for object_id, item in objects_by_id.items():
+        for relation_ref in map(str, item.get("relation_refs", [])):
+            if relation_ref not in known_ids:
+                findings.append(
+                    _finding(
+                        "CANONICAL_UI_RELATION_DANGLING",
+                        source=f"spec.md:{object_id}",
+                        target=f"spec.md:{relation_ref}",
+                        evidence="Canonical UI relation does not resolve",
+                        owner="speckit.specify",
+                    )
+                )
+        object_type = str(item.get("type", ""))
+        if object_type in {"page", "region", "component", "content", "state", "event"}:
+            outbound = bool(item.get("relation_refs"))
+            inbound = any(
+                object_id in set(map(str, other.get("relation_refs", [])))
+                for other_id, other in objects_by_id.items()
+                if other_id != object_id
+            )
+            if item.get("status") == "specified" and not outbound and not inbound:
+                findings.append(
+                    _finding(
+                        "CANONICAL_UI_ORPHAN",
+                        source=f"spec.md:{object_id}",
+                        target="spec.md#Canonical-UI-Specification",
+                        evidence="composition-critical Canonical UI object is orphaned",
+                        owner="speckit.specify",
+                    )
+                )
+
+    ui_requirement_refs = set(map(str, spec.get("ui_requirement_refs", [])))
+    governed_requirements = {
+        str(ref)
+        for item in objects_by_id.values()
+        for ref in item.get("requirement_refs", [])
+    }
+    for requirement_ref in sorted(ui_requirement_refs - governed_requirements):
+        findings.append(
+            _finding(
+                "CANONICAL_UI_REQUIREMENT_UNCOVERED",
+                source=f"spec.md:{requirement_ref}",
+                target="spec.md#Canonical-UI-Specification",
+                evidence="UI/VIS requirement has no governing Canonical object",
+                owner="speckit.specify",
+            )
+        )
+
+    mappings = plan.get("x2b_delivery_mappings", [])
+    if not isinstance(mappings, list):
+        mappings = []
+    mapping_coverage: dict[str, list[dict[str, Any]]] = {
+        object_id: [] for object_id in known_ids
+    }
+    mappings_by_id: dict[str, dict[str, Any]] = {}
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            continue
+        mapping_id = str(mapping.get("id", ""))
+        mappings_by_id[mapping_id] = mapping
+        for ref in map(str, mapping.get("spec_refs", [])):
+            if ref in mapping_coverage:
+                mapping_coverage[ref].append(mapping)
+    for object_id, item in objects_by_id.items():
+        if item.get("status") != "specified":
+            continue
+        covered = mapping_coverage[object_id]
+        if not covered:
+            findings.append(
+                _finding(
+                    "X2B_CANONICAL_MAPPING_MISSING",
+                    source=f"spec.md:{object_id}",
+                    target="ui-ux-design.md",
+                    evidence="Canonical UI object has no X2-B mapping",
+                    owner="speckit.plan",
+                )
+            )
+            continue
+        if len(covered) > 1:
+            findings.append(
+                _finding(
+                    "X2B_CANONICAL_MAPPING_DUPLICATE",
+                    source=f"spec.md:{object_id}",
+                    target="ui-ux-design.md",
+                    evidence="Canonical UI object enters multiple X2-B mappings",
+                    owner="speckit.plan",
+                )
+            )
+            continue
+        mapping = covered[0]
+        binding = mapping.get("canonical_bindings", {}).get(object_id, {})
+        expected_requirements = set(map(str, item.get("requirement_refs", [])))
+        if (
+            not isinstance(binding, dict)
+            or not binding.get("target")
+            or set(map(str, binding.get("requirement_refs", [])))
+            != expected_requirements
+        ):
+            findings.append(
+                _finding(
+                    "X2B_CANONICAL_REQUIREMENT_WEAKENED",
+                    source=f"spec.md:{object_id}",
+                    target=f"ui-ux-design.md:{mapping.get('id')}",
+                    evidence="target binding is absent or loses owning requirements",
+                    owner="speckit.plan",
+                )
+            )
+
+    task_items = tasks.get("items", [])
+    if not isinstance(task_items, list):
+        task_items = []
+    for mapping_id, mapping in mappings_by_id.items():
+        canonical_refs = {
+            str(ref)
+            for ref in mapping.get("spec_refs", [])
+            if str(ref).startswith(CANONICAL_UI_PREFIXES)
+        }
+        if not canonical_refs or mapping.get("status") != "READY":
+            continue
+        matching_tasks = [
+            item
+            for item in task_items
+            if isinstance(item, dict)
+            and mapping_id in set(map(str, item.get("mapping_refs", [])))
+        ]
+        task_refs = {
+            str(ref)
+            for item in matching_tasks
+            for ref in item.get("canonical_refs", [])
+        }
+        has_paths = any(item.get("paths") for item in matching_tasks)
+        if not has_paths or task_refs != canonical_refs:
+            findings.append(
+                _finding(
+                    "TASK_CANONICAL_REF_MISSING",
+                    source=f"ui-ux-design.md:{mapping_id}",
+                    target="tasks.md",
+                    evidence="Tasks lose Canonical refs or concrete target paths",
+                    owner="speckit.tasks",
+                )
+            )
+
+    required_review_refs = {
+        object_id
+        for object_id, item in objects_by_id.items()
+        if item.get("status") == "specified"
+    }
+    review_refs = set(map(str, tasks.get("final_review_canonical_refs", [])))
+    if required_review_refs - review_refs:
+        findings.append(
+            _finding(
+                "FINAL_REVIEW_CANONICAL_REF_MISSING",
+                source="tasks.md:implementation mappings",
+                target="tasks.md:Final Code Review",
+                evidence="Final Code Review omits applicable Canonical UI refs",
                 owner="speckit.tasks",
             )
         )

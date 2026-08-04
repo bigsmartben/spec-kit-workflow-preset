@@ -192,7 +192,7 @@ responsibility. `spec.md` carries one canonical, source-neutral shape:
 ```text
 SRC ref | role | opaque locator/description | revision/identity
 | bounded feature scope | supplied content/facts
-| projected requirement refs | status/blocker
+| projected local requirement/Canonical refs | status/blocker
 ```
 
 The allowed roles are exactly:
@@ -200,7 +200,7 @@ The allowed roles are exactly:
 | Role | Local authority |
 |---|---|
 | `requirement-input` | supplied, feature-scoped WHAT/WHY facts |
-| `visual-input` | supplied, feature-scoped `UI-*` and `VIS-*` evidence/facts |
+| `visual-input` | supplied, feature-scoped `UI-*`, `VIS-*`, and Canonical UI evidence/facts |
 | `technical-evidence` | citable evidence that does not become a product requirement |
 | `context-only` | informative context with no normative projection authority |
 
@@ -226,7 +226,8 @@ facts. `SRC-*` locators are provenance, not read or execution targets.
 Applicable visual projection follows:
 
 ```text
-SRC-* + UI/VIS/RST/PXR/PXT/PEX/ADP refs
+SRC-* -> UI/VIS + Canonical UIP/UIR/UIC/UID/UIS/UIV/UIW/UIT/UIA/UIM/UIE/UIAX/UIN/UIAC
+  + RST/PXR/PXT/PEX/ADP refs
   -> ui-ux-design.md Spec UI Input Inventory
   -> X2B-* delivery mappings + UIF source_refs/requirement_refs
   -> UI/UX Delivery Readiness
@@ -237,10 +238,15 @@ local source existence, uniqueness, role compatibility, projection targets,
 orphans, contradictions, and X2-B/UIF mappings. Neither command acquires,
 dereferences, executes, compares, or certifies an external source.
 
-## Feature-Local UI Specification Contract
+## Feature-Local Canonical UI Specification Contract
 
-`spec.md` remains the only product-requirement SSOT. Its stable UI
-Specification structure makes every applicable `UI-*`/`VIS-*` row identify:
+`spec.md#Canonical UI Specification` remains the only product/UI requirement
+SSOT; no `ui-spec.md` or `ui-spec.json` is created. UIHTML, Figma, screenshots,
+product descriptions, and user descriptions are bounded `SRC-*` evidence only.
+After Specify normalization, every downstream stage consumes local stable IDs
+and never reopens, runs, renders, or compares the original source.
+
+Every applicable `UI-*`/`VIS-*` row identifies:
 
 - stable identity and kind;
 - observable statement;
@@ -249,6 +255,24 @@ Specification structure makes every applicable `UI-*`/`VIS-*` row identify:
 - one of `observed`, `derived`, `assumed`, `unresolved`, or `conflicting`;
 - measurable acceptance condition;
 - `specified` or a stable blocker.
+
+Canonical objects use `UIP-*` Page, `UIR-*` Region/Composition, `UIC-*`
+Component, `UID-*` Content/Fixture, `UIS-*` State, `UIV-*` Variant, `UIW-*`
+Viewport/Context, `UIT-*` Token/Typography, `UIA-*` Asset, `UIM-*` Motion,
+`UIE-*` Event/Feedback/Route, `UIAX-*` Accessibility, `UIN-*` Native Exception,
+and `UIAC-*` Acceptance Matrix IDs. Every object records its type, owning
+product/UI refs, reciprocal source evidence and locator, resolvable relations,
+derivation classification, observable acceptance, and `specified`, explicit `N/A`, or stable `BLOCKED`
+status. Page/Region/Component/Content/State/Event objects are non-orphaned. The
+declared applicable Page × State × Viewport scope resolves one-to-one to unique
+`UIAC-*` rows.
+
+Framework-invariant page order, composition, text/fixtures, states, tokens,
+assets, interactions, routes, accessibility, and acceptance belong to Spec.
+Target widgets, APIs, Theme/resource bindings, state containers, and exact
+source paths belong to Plan/X2-B or Tasks. Canonical events constrain UI
+trigger, feedback, and route result without redefining `FR-*`, `UX-*`, Use Case,
+or other business rules.
 
 HTML, CSS, rendered-state, interaction, asset, responsive, and accessibility
 evidence projects only outcomes directly supported by cited observations or
@@ -306,8 +330,9 @@ not certify any external source, revision, locator, or baseline. A mismatch
 invalidates affected X2-B, reconciliation, X4, and `PLAN_OUTPUT_READY`
 evidence.
 
-`ui-ux-design.md` inventories every applicable `UI/VIS/RST/PXR/PXT/PEX/ADP`
-ref exactly once, then maps it through stable Plan-owned `X2B-*` records:
+`ui-ux-design.md` inventories every applicable Canonical ID plus
+`UI/VIS/RST/PXR/PXT/PEX/ADP` ref exactly once, then maps it through stable
+Plan-owned `X2B-*` records:
 
 - general UI delivery maps UI/visual/restoration refs to regions, components,
   state, navigation, input, responsive, and accessibility design;
@@ -322,6 +347,11 @@ acceptance envelope, exception bound, or adaptation decision. Every required
 mapping has one UI/UX Delivery Readiness row. A Spec blocker propagates with
 the same ID and cannot become `READY` or `N/A`.
 
+Every applicable Canonical ID enters exactly one mapping with one explicit
+target-platform component/API/Theme/resource/adaptation binding and retains its
+owning `UI-*`/`VIS-*` refs. A missing or critical Canonical blocker keeps X2-B
+blocked; X2-B cannot reconstruct design from original `SRC-*` content.
+
 ## Final Code Review Gate
 
 `/speckit.tasks` MUST append Final Code Review as the last mandatory phase of
@@ -334,6 +364,9 @@ The phase must cover each applicable scope:
 - interface contracts;
 - behavior and Test contracts;
 - UI component/state, responsive/accessibility behavior, and asset contracts;
+- Canonical Page, Composition, Component, Content, State, Variant, Viewport,
+  Token, Asset, Motion, Event, Accessibility, Native Exception, and Acceptance
+  Matrix refs already carried by Tasks;
 - data side effects;
 - sequence consistency;
 - asset bindings;
@@ -379,6 +412,9 @@ A current, closed X2-B handoff routes mappings as follows:
 Every Required implementation mapping names concrete paths. A
 review-method-only mapping may omit tasks only with its explicit Plan rationale.
 Blocked mappings emit no normal tasks and keep `PLAN_OUTPUT_INCOMPLETE`.
+Each `X2B-UI-*` task set carries the mapping ID together with every mapped
+Canonical UI ID to exact target paths; applicable Canonical refs cannot be
+dropped or reinterpreted. The final mandatory review tasks reuse the same refs.
 Dependencies come from mapping/`DEC-UI-*` refs, shared paths, interface/UIF
 boundaries, asset preparation/binding, and accessibility/adaptive constraints;
 independent lanes retain parallel eligibility.

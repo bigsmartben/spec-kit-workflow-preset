@@ -79,13 +79,13 @@ Source Reference Contract（来源引用契约）：
 ```text
 SRC ref | role | opaque locator/description | revision/identity
 | bounded feature scope | supplied content/facts
-| projected requirement refs | status/blocker
+| projected local requirement/Canonical refs | status/blocker
 ```
 
 | 角色 | 含义 | 例子 |
 |---|---|---|
 | `requirement-input` | 可投影已供应、已切片的 WHAT/WHY | 当前对话中的退款规则 |
-| `visual-input` | 只可投影 `UI-*` / `VIS-*` | 结账错误态的可执行页面引用 |
+| `visual-input` | 只可投影 `UI-*` / `VIS-*` 与 Canonical UI 对象 | 结账错误态的已供应页面证据 |
 | `technical-evidence` | 可引用，但不升级成产品需求 | 性能测量报告 |
 | `context-only` | 只作背景，不授权规范性事实 | 竞品介绍 |
 
@@ -97,7 +97,9 @@ SRC ref | role | opaque locator/description | revision/identity
 本地链路是：
 
 ```text
-SRC-* + 本地需求
+UIHTML / Figma / 截图 / 产品或用户描述
+        ↓ 仅作为 SRC-* 证据
+UI-* / VIS-* + Canonical UI 对象
         ↓
 spec.md（本功能 WHAT/WHY SSOT）
         ↓
@@ -106,12 +108,19 @@ X2-B: ui-ux-design.md → UIF
 Tasks 只做实现映射；Analyze 只做本地引用审计
 ```
 
-### UI 证据与还原契约
+### Canonical UI 规格与还原契约
 
 `spec.md` 内的 `UI-*` / `VIS-*` 行会记录需求种类、可观察结果、`SRC-*`、
 输入内证据定位、界面/状态/视口、推导分类、可测验收条件和阻塞状态。推导分类
 固定为 `observed`（直接观察）、`derived`（确定性推导）、`assumed`（低影响
 假设）、`unresolved`（证据不足）和 `conflicting`（证据冲突）。
+
+同一个 `spec.md` 还登记 14 类 Canonical UI 对象：Page、Region/Composition、
+Component、Content/Fixture、State、Variant、Viewport/Context、Token/Typography、
+Asset、Motion、Event/Feedback/Route、Accessibility、Native Exception 和
+Acceptance Matrix，分别使用 `UIP-*` 到 `UIAC-*` 的稳定 ID。每个对象保留
+所属需求、`SRC-*` 证据定位、推导分类、对象关系、可观察验收条件以及 specified/N/A/
+BLOCKED 状态；不新增第二份 UI 规格文件。
 
 还原需求会显式覆盖内容、信息结构、外观、交互反馈、UI 状态、响应式视口、
 无障碍和资产。像素还原使用稳定的 `PXR-*` 配置、`PXT-*` 界面 × 状态 ×
@@ -124,7 +133,7 @@ Plan 在 X0 和 `ui-ux-design.md` 记录同一个本地 `spec.md` SHA-256，用�
 发现 Clarify 造成的同 ID 语义变化。X2-B 只建立引用式 `X2B-*` 交付映射：
 通用 UI 映射、像素目标映射和平台适配映射。它不会复制 Spec 拥有的需求语句、
 基线、视口/状态、保真模式、验收容差、例外边界或适配决策；摘要变化或任何
-`UI/VIS/RST/PXR/PXT/PEX/ADP` 映射缺失都会阻止
+Canonical ID 或 `UI/VIS/RST/PXR/PXT/PEX/ADP` 映射缺失都会阻止
 `X2B_UIUX_READY` 和 `PLAN_OUTPUT_READY`。
 
 ### Plan：X0–X4
@@ -177,7 +186,7 @@ specify preset add --dev /path/to/spec-kit-workflow-preset
 已发布版本：
 
 ```bash
-specify preset add --from https://github.com/bigsmartben/spec-kit-workflow-preset/releases/download/v3.2.0/spec-kit-workflow-preset-v3.2.0.zip
+specify preset add --from https://github.com/bigsmartben/spec-kit-workflow-preset/releases/download/v3.3.0/spec-kit-workflow-preset-v3.3.0.zip
 ```
 
 安装后可检查预设信息：

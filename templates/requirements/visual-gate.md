@@ -12,12 +12,16 @@ Requirement Groups in the one canonical Gate. It is never emitted as
 | VIS-SOURCE | visual | Does visual input have the right role, bounded feature slice, supplied facts, and only allowed projections? |
 | UI-EVIDENCE | visual | Are state, viewport, responsive, asset, accessibility, long-copy, and safe-region claims supported or blocked? |
 | UI-INFERENCE | visual | Are observed, derived, assumed, unresolved, and conflicting statements distinguishable? |
+| UI-CANONICAL-COVERAGE | visual | Does applicable UI scope cover Page, Region/Composition, Component, Content/Fixture, State, Variant, Viewport/Context, Token/Typography, Asset, Motion, Event/Feedback/Route, Accessibility, Native Exception, and Acceptance Matrix with the required stable ID families? |
+| UI-CANONICAL-TRACE | visual | Does every Canonical object resolve owning product/UI requirements, reciprocal `SRC-*` evidence and locator, object relations, observable acceptance, and `specified`/explicit `N/A`/stable `BLOCKED` status? |
+| UI-CANONICAL-ORPHAN | visual | Are Page, Region, Component, Content, State, and Event objects free of orphan, duplicate, and dangling relations? |
+| UI-ACCEPTANCE-MATRIX | visual | Does every declared applicable Page × State × Viewport coordinate resolve exactly once to a unique `UIAC-*` row? |
 | RST-COVERAGE | visual | When restoration applies, are all required equivalence dimensions classified? |
 | PXR-PROFILE | visual | Does each pixel profile cover its target matrix, baseline, rendering context, fidelity, envelope, and exception policy? |
 | PXR-EXCEPTION | visual | Is every accepted exception bounded while unrelated regions retain the profile rule? |
 | ADP-COVERAGE | visual | Does cross-platform scope identify platforms, adaptation mode, target contexts, and every applicable dimension? |
 | ADP-TRACE | visual | Do adapt/add/omit decisions cite affected UI/VIS refs and evidence or hard constraints? |
-| UI-BOUNDARY | requirements | Are observable outcomes kept in `spec.md` while components and delivery methods remain downstream? |
+| UI-BOUNDARY | requirements | Are provider/framework-neutral outcomes kept in the single `spec.md`, original UI sources limited to `SRC-*` evidence, and target components/delivery methods kept downstream? |
 
 Examples of generated Check families include `CHK-UI-003`, `CHK-RST-001`,
 `CHK-PXR-001`, `CHK-PXR-002`, `CHK-ADP-001`, `CHK-ADP-002`, and

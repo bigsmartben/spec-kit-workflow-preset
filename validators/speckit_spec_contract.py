@@ -11,6 +11,23 @@ SOURCE_ROLES = {
     "context-only",
 }
 UI_REQUIREMENT_PREFIXES = ("UI-", "VIS-")
+CANONICAL_UI_TYPES = {
+    "page": "UIP-",
+    "region": "UIR-",
+    "component": "UIC-",
+    "content": "UID-",
+    "state": "UIS-",
+    "variant": "UIV-",
+    "viewport": "UIW-",
+    "token": "UIT-",
+    "asset": "UIA-",
+    "motion": "UIM-",
+    "event": "UIE-",
+    "accessibility": "UIAX-",
+    "native-exception": "UIN-",
+    "acceptance": "UIAC-",
+}
+CANONICAL_UI_PREFIXES = tuple(CANONICAL_UI_TYPES.values())
 UI_KINDS = {
     "content",
     "structure",
@@ -217,13 +234,16 @@ def _validate_sources(
         normative_refs = [
             str(ref)
             for ref in projected_refs
-            if str(ref).startswith(("FR-", "NFR-", "UX-", "UI-", "VIS-"))
+            if str(ref).startswith(
+                ("FR-", "NFR-", "UX-", "UI-", "VIS-", *CANONICAL_UI_PREFIXES)
+            )
         ]
         role = source["role"]
         if role in {"technical-evidence", "context-only"} and normative_refs:
             raise ValueError(f"{source_id} role cannot project normative requirements")
         if role == "visual-input" and any(
-            not ref.startswith(UI_REQUIREMENT_PREFIXES) for ref in normative_refs
+            not ref.startswith((*UI_REQUIREMENT_PREFIXES, *CANONICAL_UI_PREFIXES))
+            for ref in normative_refs
         ):
             raise ValueError(f"{source_id} visual-input projects unrelated requirement")
 
@@ -330,10 +350,168 @@ def _validate_requirements(
             raise ValueError(f"{requirement_id} has invalid status")
 
 
+def _canonical_type_for_id(object_id: str) -> str | None:
+    # UIAX must be checked before the shorter UIA asset prefix.
+    for object_type, prefix in sorted(
+        CANONICAL_UI_TYPES.items(), key=lambda item: len(item[1]), reverse=True
+    ):
+        if object_id.startswith(prefix):
+            return object_type
+    return None
+
+
+def _validate_canonical_ui(
+    payload: dict[str, Any],
+    requirement_ids: set[str],
+    sources_by_id: dict[str, dict[str, Any]],
+) -> set[str]:
+    objects = payload.get("canonical_objects")
+    if not isinstance(objects, list) or not objects:
+        raise ValueError("Canonical UI Specification must include canonical_objects")
+
+    object_ids = [str(item.get("id", "")) for item in objects]
+    duplicates = _duplicates(object_ids)
+    if duplicates:
+        raise ValueError(f"duplicate Canonical UI object: {sorted(duplicates)[0]}")
+    objects_by_id = dict(zip(object_ids, objects))
+    object_types: dict[str, str] = {}
+    for object_id, item in objects_by_id.items():
+        inferred_type = _canonical_type_for_id(object_id)
+        if inferred_type is None or item.get("type") != inferred_type:
+            raise ValueError(f"{object_id} has invalid Canonical UI type or ID family")
+        object_types[object_id] = inferred_type
+
+    present_types = set(object_types.values())
+    missing_types = set(CANONICAL_UI_TYPES) - present_types
+    if missing_types:
+        raise ValueError(
+            "Canonical UI Specification lacks object type "
+            f"{sorted(missing_types)[0]}"
+        )
+
+    for object_id, item in objects_by_id.items():
+        context = f"Canonical UI object {object_id}"
+        status = item.get("status")
+        derivation = item.get("derivation")
+        if derivation not in DERIVATIONS:
+            raise ValueError(f"{context} has invalid derivation")
+        if derivation in {"unresolved", "conflicting"} and status != "BLOCKED":
+            raise ValueError(f"{context} unresolved/conflicting evidence must be BLOCKED")
+        if derivation == "assumed" and not item.get("assumption"):
+            raise ValueError(f"{context} assumed object lacks documented default")
+        if status == "BLOCKED":
+            _require_blocker(item, context)
+        elif status == "N/A":
+            if not item.get("rationale"):
+                raise ValueError(f"{context} N/A lacks rationale")
+        elif status != "specified":
+            raise ValueError(f"{context} has invalid status")
+
+        product_refs = set(map(str, _require_list(item, "requirement_refs", context)))
+        if not product_refs.issubset(requirement_ids):
+            raise ValueError(f"{context} references unknown product/UI requirement")
+        source_refs = list(map(str, _require_list(item, "source_refs", context)))
+        if not set(source_refs).issubset(sources_by_id):
+            raise ValueError(f"{context} references unknown source")
+        for source_ref in source_refs:
+            if object_id not in sources_by_id[source_ref]["projected_refs"]:
+                raise ValueError(
+                    f"{context} missing reciprocal projection from {source_ref}"
+                )
+
+        locators = item.get("evidence_locators")
+        if not isinstance(locators, list):
+            raise ValueError(f"{context} evidence_locators must be a list")
+        if status == "specified":
+            if not locators:
+                raise ValueError(f"{context} lacks source evidence locator")
+            _validate_evidence_locators(
+                locators, source_refs, sources_by_id, context
+            )
+            if not item.get("acceptance"):
+                raise ValueError(f"{context} lacks observable acceptance")
+
+        relation_refs = item.get("relation_refs")
+        if not isinstance(relation_refs, list):
+            raise ValueError(f"{context} relation_refs must be a list")
+        unknown_relations = set(map(str, relation_refs)) - set(objects_by_id)
+        if unknown_relations:
+            raise ValueError(
+                f"{context} references unknown relation {sorted(unknown_relations)[0]}"
+            )
+
+    # Composition-critical objects must participate in the local object graph.
+    for object_id, object_type in object_types.items():
+        if object_type in {"page", "region", "component", "content", "state", "event"}:
+            item = objects_by_id[object_id]
+            inbound = any(
+                object_id in set(map(str, other.get("relation_refs", [])))
+                for other_id, other in objects_by_id.items()
+                if other_id != object_id
+            )
+            if item.get("status") == "specified" and not item["relation_refs"] and not inbound:
+                raise ValueError(f"{object_id} is an orphan Canonical UI object")
+
+    scopes = payload.get("canonical_acceptance_scope")
+    if not isinstance(scopes, list) or not scopes:
+        raise ValueError("Canonical UI acceptance scope must be a non-empty list")
+    scope_coordinates: list[tuple[str, str, str]] = []
+    for scope in scopes:
+        if not isinstance(scope, dict):
+            raise ValueError("Canonical UI acceptance scope row must be an object")
+        coordinate = (
+            str(scope.get("page_ref", "")),
+            str(scope.get("state_ref", "")),
+            str(scope.get("viewport_ref", "")),
+        )
+        expected_types = ("page", "state", "viewport")
+        if any(
+            object_types.get(ref) != expected
+            for ref, expected in zip(coordinate, expected_types)
+        ):
+            raise ValueError("Canonical UI acceptance scope has invalid coordinate refs")
+        scope_coordinates.append(coordinate)
+    if _duplicates("|".join(row) for row in scope_coordinates):
+        raise ValueError("Canonical UI acceptance scope contains duplicate coordinates")
+
+    acceptance_coordinates: list[tuple[str, str, str]] = []
+    for object_id, object_type in object_types.items():
+        if object_type != "acceptance" or objects_by_id[object_id].get("status") != "specified":
+            continue
+        item = objects_by_id[object_id]
+        coordinate = (
+            str(item.get("page_ref", "")),
+            str(item.get("state_ref", "")),
+            str(item.get("viewport_ref", "")),
+        )
+        if not set(coordinate).issubset(set(map(str, item["relation_refs"]))):
+            raise ValueError(f"{object_id} acceptance coordinate is absent from relations")
+        acceptance_coordinates.append(coordinate)
+    if _duplicates("|".join(row) for row in acceptance_coordinates):
+        raise ValueError("Canonical UI acceptance matrix duplicates a coordinate")
+    if set(acceptance_coordinates) != set(scope_coordinates):
+        raise ValueError("Canonical UI acceptance matrix is incomplete")
+    for object_type, coordinate_index in (("page", 0), ("state", 1), ("viewport", 2)):
+        applicable_ids = {
+            object_id
+            for object_id, candidate_type in object_types.items()
+            if candidate_type == object_type
+            and objects_by_id[object_id].get("status") == "specified"
+        }
+        covered_ids = {coordinate[coordinate_index] for coordinate in scope_coordinates}
+        if applicable_ids - covered_ids:
+            raise ValueError(
+                f"Canonical UI acceptance scope omits applicable {object_type}"
+            )
+
+    return set(object_ids)
+
+
 def _validate_restoration(
     payload: dict[str, Any],
     requirement_ids: set[str],
     sources_by_id: dict[str, dict[str, Any]],
+    canonical_ids: set[str],
 ) -> None:
     if not payload.get("restoration_requested"):
         return
@@ -350,6 +528,11 @@ def _validate_restoration(
         refs = set(map(str, _require_list(row, "requirement_refs", context)))
         if not refs.issubset(requirement_ids):
             raise ValueError(f"{context} references unknown UI/VIS requirement")
+        canonical_refs = set(
+            map(str, _require_list(row, "canonical_refs", context))
+        )
+        if not canonical_refs.issubset(canonical_ids):
+            raise ValueError(f"{context} references unknown Canonical UI object")
         status = str(row.get("status", ""))
         if status == "required":
             if not row.get("acceptance"):
@@ -379,6 +562,7 @@ def _validate_pixel_profiles(
     payload: dict[str, Any],
     requirement_ids: set[str],
     sources_by_id: dict[str, dict[str, Any]],
+    canonical_ids: set[str],
 ) -> None:
     source_ids = set(sources_by_id)
     profiles = payload.get("pixel_profiles", [])
@@ -419,6 +603,11 @@ def _validate_pixel_profiles(
         refs = set(map(str, _require_list(profile, "requirement_refs", profile_id)))
         if not refs.issubset(requirement_ids):
             raise ValueError(f"{profile_id} references unknown UI/VIS requirement")
+        profile_canonical_refs = set(
+            map(str, _require_list(profile, "canonical_refs", profile_id))
+        )
+        if not profile_canonical_refs.issubset(canonical_ids):
+            raise ValueError(f"{profile_id} references unknown Canonical UI object")
         profile_sources = set(map(str, _require_list(profile, "source_refs", profile_id)))
         if not profile_sources.issubset(source_ids):
             raise ValueError(f"{profile_id} references unknown source")
@@ -476,6 +665,11 @@ def _validate_pixel_profiles(
                 raise ValueError(f"{context} missing {field}")
         if target.get("profile_id") not in profile_ids:
             raise ValueError(f"{context} references unknown profile")
+        target_canonical_refs = set(
+            map(str, _require_list(target, "canonical_refs", context))
+        )
+        if not target_canonical_refs.issubset(canonical_ids):
+            raise ValueError(f"{context} references unknown Canonical UI object")
         if _blocked(target):
             _require_blocker(target, context)
             continue
@@ -561,6 +755,11 @@ def _validate_pixel_profiles(
         refs = set(map(str, _require_list(exception, "requirement_refs", context)))
         if not refs.issubset(requirement_ids):
             raise ValueError(f"{context} references unknown UI/VIS requirement")
+        exception_canonical_refs = set(
+            map(str, _require_list(exception, "canonical_refs", context))
+        )
+        if not exception_canonical_refs.issubset(canonical_ids):
+            raise ValueError(f"{context} references unknown Canonical UI object")
         exception_sources = set(
             map(str, _require_list(exception, "source_refs", context))
         )
@@ -577,6 +776,7 @@ def _validate_adaptation(
     payload: dict[str, Any],
     requirement_ids: set[str],
     source_ids: set[str],
+    canonical_ids: set[str],
 ) -> None:
     policies = payload.get("adaptation_policies", [])
     if not isinstance(policies, list):
@@ -631,6 +831,11 @@ def _validate_adaptation(
         policy_sources = set(map(str, _require_list(policy, "source_refs", policy_id)))
         if not policy_sources.issubset(source_ids):
             raise ValueError(f"{policy_id} references unknown source")
+        policy_canonical_refs = set(
+            map(str, _require_list(policy, "canonical_refs", policy_id))
+        )
+        if not policy_canonical_refs.issubset(canonical_ids):
+            raise ValueError(f"{policy_id} references unknown Canonical UI object")
         if policy.get("conflict_precedence") != CONFLICT_PRECEDENCE:
             raise ValueError(f"{policy_id} has invalid conflict precedence")
 
@@ -653,6 +858,11 @@ def _validate_adaptation(
             )
             if not requirement_refs.issubset(requirement_ids):
                 raise ValueError(f"{context} references unknown UI/VIS requirement")
+            decision_canonical_refs = set(
+                map(str, _require_list(decision, "canonical_refs", context))
+            )
+            if not decision_canonical_refs.issubset(canonical_ids):
+                raise ValueError(f"{context} references unknown Canonical UI object")
             if value in {"adapt", "add", "omit"}:
                 cited_sources = set(map(str, decision.get("source_refs", [])))
                 if not cited_sources.issubset(source_ids):
@@ -731,8 +941,25 @@ def validate_ui_specification_contract(payload: dict[str, Any]) -> None:
         raise ValueError(
             "all_spec_requirement_refs omits a UI/VIS requirement"
         )
-    sources_by_id = _validate_sources(sources, set(all_requirement_ids))
+    canonical_objects = payload.get("canonical_objects", [])
+    canonical_ids = {
+        str(item.get("id", ""))
+        for item in canonical_objects
+        if isinstance(item, dict)
+    }
+    sources_by_id = _validate_sources(
+        sources, set(all_requirement_ids) | canonical_ids
+    )
     _validate_requirements(requirements, sources_by_id)
-    _validate_restoration(payload, requirement_ids, sources_by_id)
-    _validate_pixel_profiles(payload, requirement_ids, sources_by_id)
-    _validate_adaptation(payload, requirement_ids, set(sources_by_id))
+    validated_canonical_ids = _validate_canonical_ui(
+        payload, set(all_requirement_ids), sources_by_id
+    )
+    _validate_restoration(
+        payload, requirement_ids, sources_by_id, validated_canonical_ids
+    )
+    _validate_pixel_profiles(
+        payload, requirement_ids, sources_by_id, validated_canonical_ids
+    )
+    _validate_adaptation(
+        payload, requirement_ids, set(sources_by_id), validated_canonical_ids
+    )

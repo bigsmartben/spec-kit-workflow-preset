@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Upgraded the feature-local UI carrier to a provider/framework-neutral
+  Canonical UI Specification in `spec.md`, covering 14 stable object families
+  from Page (`UIP-*`) through Acceptance Matrix (`UIAC-*`).
+- Added machine-checkable object/source/requirement relations, orphan and
+  Page × State × Viewport matrix checks, exact X2-B target bindings, Tasks
+  traceability, and Final Code Review/Analyze coverage.
+- Kept UIHTML, Figma, screenshots, and descriptions as bounded `SRC-*`
+  evidence only; Plan, Tasks, Analyze, and Core implementation consume local
+  IDs without reopening or executing original UI sources.
+- Preserved X0–X4, parallel X2-A/X2-B/X2-C ownership, core
+  `/speckit.implement`, and the existing no-visual-execution boundary.
+
 - Replaced the six-file Requirement Gate layout with one canonical
   `checklists/requirements.md`, physically grouped by stable Spec semantic refs
   and containing six strictly derived logical Gate summaries.

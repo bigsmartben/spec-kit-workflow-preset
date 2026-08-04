@@ -93,7 +93,11 @@ duplicate path/dimension coverage:
 | `X2B-ADP-*` | target component, navigation, presentation, input modality, gestures, system UI, safe regions, adaptive layout, accessibility scaling, localization, layout direction |
 
 Each emitted task names its mapping ID, covered implementation dimensions,
-declared traceability refs, and exact file/configuration/asset paths. A
+declared traceability refs, and exact file/configuration/asset paths. For each
+`X2B-UI-*`, the task set preserves every mapped Canonical UI ID (`UIP/UIR/UIC/
+UID/UIS/UIV/UIW/UIT/UIA/UIM/UIE/UIAX/UIN/UIAC`) together with the X2-B mapping;
+no applicable Page, Component, State, Variant, or Event constraint may be
+dropped. A
 review-method-only row emits no task and retains its Plan-authored rationale.
 
 Example:
@@ -177,7 +181,7 @@ UI/UX Delivery Readiness is implementation readiness only. It may generate:
   UI, safe-region, adaptive-layout, accessibility-scaling, localization, and
   layout-direction implementation.
 
-Local `UI-*`, `VIS-*`, `PXT-*`, `PEX-*`, and `ADP-*` refs guide only the
+Local `UI-*`, `VIS-*`, Canonical UI IDs, `PXT-*`, `PEX-*`, and `ADP-*` refs guide only the
 implementation dimensions already mapped in X2-B. `PXT-*` and `PEX-*` are
 traceability inputs, not authority to copy the Spec-owned baseline locator,
 fidelity mode, acceptance envelope, exception bound, or adaptation decision.
@@ -223,6 +227,7 @@ The pure in-memory Tasks contract validator uses these stable error codes:
 - `TASK_X2B_BLOCKER_SUPPRESSED`;
 - `TASK_X2B_IMPLEMENTATION_DIMENSION_UNCOVERED`;
 - `TASK_X2B_ADAPTATION_UNCOVERED`;
+- `TASK_CANONICAL_REF_MISSING`;
 - `TASK_SPEC_OWNERSHIP_LEAK`;
 - `TASK_VISUAL_EXECUTION_LEAK`;
 - `TASK_FINAL_REVIEW_MAPPING_MISSING`.
@@ -261,7 +266,7 @@ Applicable review scopes and sources:
 | behavior/test contract | Test Readiness and optional technique contracts |
 | data side effect | data model, sequences, invariants, oracles |
 | sequence consistency | sequence contracts |
-| X2-B component/state/interaction | `X2B-UI-*`, UI/UX design, and UIF |
+| X2-B Canonical Page/Composition/Component/Content/State/Event/Token/Asset/Motion/Accessibility/Acceptance conformance | `X2B-UI-*` plus mapped Canonical UI refs, UI/UX design, and UIF |
 | X2-B geometry/typography/appearance | `X2B-PX-*` implementation mappings |
 | X2-B asset/layering/overflow/clipping | `X2B-PX-*` implementation mappings |
 | X2-B platform navigation/input/system/safe-region/adaptive/accessibility/localization | `X2B-ADP-*` implementation mappings |
@@ -269,7 +274,10 @@ Applicable review scopes and sources:
 
 Each review task names concrete source artifacts, implementation surfaces, and
 functional evidence. It covers every Required X2-B implementation mapping and
-checks mapping-to-code conformance, unresolved blockers, and Plan revision
+reuses every applicable mapped Canonical UI ref to check Page, Composition,
+Component, Content, State, Variant, Viewport, Token, Asset, Motion, Event,
+Accessibility, Native Exception, and Acceptance Matrix conformance. It checks
+mapping-to-code conformance, unresolved blockers, and Plan revision
 drift. Review-method-only rows remain no-task rationales. UI review is
 code/design-contract review only; it MUST NOT
 judge rendered visual fidelity, evaluate an acceptance envelope, or require

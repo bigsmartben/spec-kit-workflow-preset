@@ -31,6 +31,20 @@ INTERNAL_REF_PREFIXES = (
 )
 PLACEHOLDERS = ("[placeholder]", "<placeholder>", "TODO", "TBD")
 SPEC_UI_PREFIX_TO_CLASS = {
+    "UIAX-": "UIAX",
+    "UIAC-": "UIAC",
+    "UIP-": "UIP",
+    "UIR-": "UIR",
+    "UIC-": "UIC",
+    "UID-": "UID",
+    "UIS-": "UIS",
+    "UIV-": "UIV",
+    "UIW-": "UIW",
+    "UIT-": "UIT",
+    "UIA-": "UIA",
+    "UIM-": "UIM",
+    "UIE-": "UIE",
+    "UIN-": "UIN",
     "UI-": "UI",
     "VIS-": "VIS",
     "RST-": "RST",
@@ -38,6 +52,10 @@ SPEC_UI_PREFIX_TO_CLASS = {
     "PXT-": "PXT",
     "PEX-": "PEX",
     "ADP-": "ADP",
+}
+CANONICAL_UI_CLASSES = {
+    "UIP", "UIR", "UIC", "UID", "UIS", "UIV", "UIW", "UIT", "UIA",
+    "UIM", "UIE", "UIAX", "UIN", "UIAC",
 }
 X2B_MAPPING_KINDS = {
     "general-ui",
@@ -95,7 +113,9 @@ def _fail(code: str, detail: str) -> None:
 
 
 def _spec_contract_class(ref: str) -> str | None:
-    for prefix, contract_class in SPEC_UI_PREFIX_TO_CLASS.items():
+    for prefix, contract_class in sorted(
+        SPEC_UI_PREFIX_TO_CLASS.items(), key=lambda item: len(item[0]), reverse=True
+    ):
         if ref.startswith(prefix):
             return contract_class
     return None
@@ -238,6 +258,9 @@ def _validate_x2b_contract(
             if not isinstance(blocker, str) or not blocker:
                 _fail("X2B_BLOCKER_SUPPRESSED", f"{ref} lacks its upstream blocker")
             blocked_spec_refs[ref] = blocker
+        elif status == "N/A":
+            if not record.get("rationale"):
+                _fail("X2B_SPEC_REF_UNKNOWN", f"{ref} N/A lacks rationale")
         elif status != "specified":
             _fail("X2B_SPEC_REF_UNKNOWN", f"{ref} has invalid Spec status")
     if blocked_spec_refs and x2b_status != "Blocked":
@@ -273,7 +296,15 @@ def _validate_x2b_contract(
             _fail("X2B_SPEC_REF_UNKNOWN", f"{ref} inventory class differs from Spec")
         if row.get("spec_status") != spec_record.get("status"):
             _fail("X2B_BLOCKER_SUPPRESSED", f"{ref} inventory hides Spec status")
-        if ref in blocked_spec_refs:
+        if spec_record.get("status") == "N/A":
+            if (
+                row.get("x2b_applicability") != "N/A"
+                or row.get("reason") != spec_record.get("rationale")
+                or row.get("mapping_ref")
+                or row.get("propagated_blocker")
+            ):
+                _fail("X2B_SPEC_REF_UNMAPPED", f"{ref} N/A is not preserved")
+        elif ref in blocked_spec_refs:
             if (
                 row.get("x2b_applicability") != "Blocked"
                 or row.get("propagated_blocker") != blocked_spec_refs[ref]
@@ -389,7 +420,11 @@ def _validate_x2b_contract(
                 _fail("X2B_SPEC_REF_UNKNOWN", f"{mapping_id} has unknown asset ref")
 
         if kind == "general-ui":
-            if any(_spec_contract_class(ref) not in {"UI", "VIS", "RST"} for ref in mapped_refs):
+            if any(
+                _spec_contract_class(ref)
+                not in ({"UI", "VIS", "RST"} | CANONICAL_UI_CLASSES)
+                for ref in mapped_refs
+            ):
                 _fail(
                     "X2B_DELIVERY_DECISION_INCOMPLETE",
                     f"{mapping_id} general mapping has non-general Spec ref",
@@ -404,6 +439,40 @@ def _validate_x2b_contract(
                         "X2B_DELIVERY_DECISION_INCOMPLETE",
                         f"{mapping_id} missing {field}",
                     )
+            canonical_refs = {
+                ref
+                for ref in mapped_refs
+                if _spec_contract_class(ref) in CANONICAL_UI_CLASSES
+            }
+            bindings = mapping.get("canonical_bindings")
+            if canonical_refs:
+                if not isinstance(bindings, dict) or set(bindings) != canonical_refs:
+                    _fail(
+                        "X2B_CANONICAL_MAPPING_INCOMPLETE",
+                        f"{mapping_id} canonical bindings do not match mapped IDs",
+                    )
+                for canonical_ref, binding in bindings.items():
+                    if not isinstance(binding, dict) or not binding.get("target"):
+                        _fail(
+                            "X2B_CANONICAL_MAPPING_INCOMPLETE",
+                            f"{mapping_id}/{canonical_ref} lacks a target-platform binding",
+                        )
+                    expected_requirements = set(
+                        map(str, spec_by_ref[canonical_ref].get("requirement_refs", []))
+                    )
+                    actual_requirements = set(
+                        map(str, binding.get("requirement_refs", []))
+                    )
+                    if not expected_requirements or actual_requirements != expected_requirements:
+                        _fail(
+                            "X2B_CANONICAL_REQUIREMENT_WEAKENED",
+                            f"{mapping_id}/{canonical_ref} loses owning requirements",
+                        )
+            elif bindings not in (None, {}):
+                _fail(
+                    "X2B_CANONICAL_MAPPING_INCOMPLETE",
+                    f"{mapping_id} invents canonical bindings",
+                )
         elif kind == "pixel-target":
             if any(_spec_contract_class(ref) not in {"PXR", "PXT", "PEX"} for ref in mapped_refs):
                 _fail(
@@ -543,6 +612,10 @@ def _validate_x2b_contract(
         )
 
     for ref, mapping_refs in covered_by.items():
+        if spec_by_ref[ref].get("status") == "N/A":
+            if mapping_refs:
+                _fail("X2B_SPEC_REF_UNMAPPED", f"{ref} N/A was mapped as delivery")
+            continue
         if ref in blocked_spec_refs:
             if mapping_refs:
                 _fail("X2B_BLOCKER_SUPPRESSED", f"{ref} blocker was mapped as delivery")

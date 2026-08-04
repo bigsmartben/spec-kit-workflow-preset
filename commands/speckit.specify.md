@@ -48,7 +48,7 @@ packet through one local Source Reference Contract:
 ```text
 SRC ref | role | opaque locator/description | revision/identity
 | bounded feature scope | supplied content/facts
-| projected requirement refs | status/blocker
+| projected local requirement/Canonical refs | status/blocker
 ```
 
 1. Use only content and facts present in the bounded supplied input. An opaque
@@ -64,7 +64,7 @@ SRC ref | role | opaque locator/description | revision/identity
    distinguishable. An unresolved or conflicting statement carries a stable
    blocker and is not presented as a requirement ready for downstream use.
 5. `requirement-input` may support applicable WHAT/WHY requirement carriers.
-   `visual-input` may support only `UI-*` and `VIS-*`.
+   `visual-input` may support only `UI-*`, `VIS-*`, and Canonical UI objects.
    `technical-evidence` may be cited as evidence but does not become a product
    requirement. `context-only` supports no normative requirement.
 
@@ -88,6 +88,11 @@ Populate applicable carriers for:
 - UI surfaces, states, feedback, responsive behavior, and target-platform
   outcomes (`UI-*`);
 - observable visual and restoration-equivalence requirements (`VIS-*`);
+- Canonical UI objects for Page (`UIP-*`), Region/Composition (`UIR-*`),
+  Component (`UIC-*`), Content/Fixture (`UID-*`), State (`UIS-*`), Variant
+  (`UIV-*`), Viewport/Context (`UIW-*`), Token/Typography (`UIT-*`), Asset
+  (`UIA-*`), Motion (`UIM-*`), Event/Feedback/Route (`UIE-*`), Accessibility
+  (`UIAX-*`), Native Exception (`UIN-*`), and Acceptance Matrix (`UIAC-*`);
 - security/privacy, data/integration, dependencies, boundaries;
 - assumptions, exclusions, measurable success criteria;
 - source references, unresolved product decisions, source-evidence blockers, and
@@ -123,6 +128,24 @@ state, interaction, asset, responsive, accessibility, or restoration evidence
 applies. Every applicable `UI-*`/`VIS-*` row records its kind, observable
 statement, `SRC-*` refs, evidence locator, surface, state, viewport, derivation
 classification, measurable acceptance condition, and status/blocker.
+
+Normalize every applicable UI scope into the Canonical UI Object Registry in
+the same `spec.md`. Each object records one stable ID/type, owning product and
+  `UI-*`/`VIS-*` refs, reciprocal `SRC-*` evidence with an exact supplied
+  locator, one derivation classification, resolvable object relationships, an observable acceptance condition,
+and `specified`, explicit `N/A`, or `BLOCKED` status. Build the declared
+Page × State × Viewport scope and one unique `UIAC-*` row per applicable
+coordinate. Pages, regions, components, content, states, and events must not be
+orphaned. Link `RST-*`, `PXR-*`, `PXT-*`, `PEX-*`, and `ADP-*` scopes to their
+governing Canonical IDs.
+
+UIHTML, Figma, screenshots, product descriptions, and user descriptions are
+provider-specific evidence only. Normalize supported facts into local IDs;
+never create a provider-specific executable delivery mode, a source-to-native
+component translation contract, or another `ui-spec.md`/`ui-spec.json` output.
+Do not make downstream stages reread, run, render, or compare the original
+source. Missing source facts, design relationships, content, states, assets,
+or interactions stay explicit blockers rather than downstream design work.
 
 For UI restoration, classify every applicable equivalence dimension and every
 required `surface x state x viewport` target. A pixel-restoration request is
@@ -166,6 +189,9 @@ Before finishing, check only the artifact this command owns:
 - every projected `UI-*`/`VIS-*` row resolves its source and evidence locators,
   uses one derivation classification, and contains an observable acceptance
   condition or stable blocker;
+- all 14 Canonical UI object families are covered when UI applies; IDs are
+  unique, refs resolve reciprocally, required composition objects are not
+  orphaned, and the acceptance scope equals the `UIAC-*` coordinate matrix;
 - every applicable restoration, pixel-profile, and cross-platform adaptation
   structure is complete or carries its owning stable blocker;
 - assumptions and unresolved decisions are not presented as confirmed facts;

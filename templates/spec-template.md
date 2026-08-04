@@ -18,11 +18,22 @@ non-applicability is confirmed.
 
 - **UX-001**: [Actor goal, journey, feedback, recovery, and accessibility expectation.]
 
-### UI Specification Contract
+### Canonical UI Specification
 
-This is the feature-local UI requirement source of truth inside `spec.md`.
-Rows specify observable outcomes, not delivery components, capture/comparison
-procedures, or implementation choices.
+This is the feature-local, provider-neutral and framework-neutral UI source of
+truth inside `spec.md`; no second `ui-spec.md` or `ui-spec.json` is created.
+UIHTML, Figma, screenshots, product descriptions, and user descriptions are
+bounded `SRC-*` evidence only. Downstream stages consume stable local IDs, not
+the original source. Anything that must survive a target-framework change
+belongs here; concrete widgets, APIs, Theme bindings, resource paths, and state
+containers belong to Plan/X2-B.
+
+#### Observable UI And Visual Requirements
+
+`UI-*` and `VIS-*` remain observable product requirements. Canonical objects
+reference them and do not replace or move their product meaning. Rows specify
+outcomes, not delivery components, capture/comparison procedures, or
+implementation choices.
 
 | Requirement ref | Kind | Observable statement | SRC refs | Evidence locator(s) within supplied input | Evidence support | Surface / region | State / preconditions | Viewport / target context | Derivation | Measurable acceptance condition | Status / blocker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -32,6 +43,49 @@ procedures, or implementation choices.
 Stable kinds are `content`, `structure`, `interaction`, `state`, `responsive`,
 `accessibility`, `visual`, `asset`, and `restoration`. Every `UI-*`/`VIS-*`
 row has exactly one kind and one derivation classification.
+
+#### Canonical UI Object Registry
+
+Every applicable object is `specified`, explicitly `N/A` with a reason, or
+`BLOCKED` with a stable blocker. A specified object records its stable ID,
+type, owning product/UI requirements, supporting `SRC-*` evidence and locator,
+derivation classification,
+relationships, and an observable acceptance condition. Missing, conflicting,
+or inferred design remains an explicit derivation/blocker and is never left to
+Plan or implementation to redesign.
+
+| Canonical ID | Object type | Requirement refs | SRC refs + evidence locator(s) + derivation | Relation refs | Observable acceptance condition | Status / blocker |
+|---|---|---|---|---|---|---|
+| UIP-HOME-001 | Page | [UI/VIS/FR/UX refs] | [SRC-* + exact supplied locator] | [UIR/UIS/UIW/UIAC refs] | [Page identity, entry, regions, and page-state outcome.] | [specified / N/A: reason / BLOCKED: stable ID] |
+| UIR-HOME-HERO-001 | Region / Composition | [refs] | [evidence] | [UIP/UIC refs] | [Hierarchy, order, containment, and layout constraint.] | [status] |
+| UIC-PRIMARY-CTA-001 | Component | [refs] | [evidence] | [UIR/UID/UIS/UIV/UIE/UIAX refs] | [Responsibility, slots, observable properties, and composition.] | [status] |
+| UID-CTA-LABEL-001 | Content / Fixture | [refs] | [evidence] | [UIC/UIS refs] | [Exact text/data identity, count, and order.] | [status] |
+| UIS-CTA-DISABLED-001 | State | [refs] | [evidence] | [UIP/UIC/UIE refs] | [Initial/loading/empty/error/success/disabled observable state.] | [status] |
+| UIV-CTA-PRIMARY-001 | Variant | [refs] | [evidence] | [UIC/UIT refs] | [Size/style/semantic/context variant.] | [status] |
+| UIW-PHONE-PORTRAIT-001 | Viewport / Context | [refs] | [evidence] | [UIP/UIAC refs] | [Size, orientation, input, locale, and scaling context.] | [status] |
+| UIT-COLOR-BRAND-ACCENT-001 | Token / Typography | [refs] | [evidence] | [UIC/UIV refs] | [Semantic color/type/spacing/radius/shadow role and observable value.] | [status] |
+| UIA-HERO-001 | Asset | [refs] | [evidence] | [UIC/UIV refs] | [Identity, variant, crop, ratio, and fallback.] | [status] |
+| UIM-CTA-PRESS-001 | Motion | [refs] | [evidence] | [UIC/UIE/UIAX refs] | [Trigger, duration, rhythm, fallback, and reduced-motion outcome.] | [status] |
+| UIE-START-FLOW-001 | Event / Feedback / Route | [refs] | [evidence] | [UIC/UIS/UIP refs] | [UI trigger, observable feedback, and navigation result without redefining business rules.] | [status] |
+| UIAX-CTA-001 | Accessibility | [refs] | [evidence] | [UIC/UIS/UIW refs] | [Role, name, focus, scaling, contrast, and input outcome.] | [status] |
+| UIN-HOME-SHEET-001 | Native Exception | [refs] | [evidence or platform/product basis] | [UIP/UIC/ADP refs] | [Explicit system-surface exception and bounded divergence.] | [status] |
+| UIAC-HOME-DEFAULT-PHONE-001 | Acceptance Matrix | [refs] | [evidence] | [exactly one UIP + UIS + UIW, plus governed object refs] | [Measurable acceptance for this Page × State × Viewport coordinate.] | [status] |
+
+ID families are exactly `UIP-*`, `UIR-*`, `UIC-*`, `UID-*`, `UIS-*`,
+`UIV-*`, `UIW-*`, `UIT-*`, `UIA-*`, `UIM-*`, `UIE-*`, `UIAX-*`, `UIN-*`,
+and `UIAC-*`. IDs are stable under wording/order changes and follow the same
+split, merge, replacement, retirement, and N/A lifecycle rules as requirements.
+
+#### Canonical Acceptance Scope
+
+Declare each applicable Page × State × Viewport coordinate exactly once; every
+row resolves to exactly one `UIAC-*`. Every applicable page, state, and viewport
+participates in at least one coordinate. Missing or conflicting coordinates
+remain blocked at the Requirement Gate.
+
+| Page ref | State ref | Viewport ref | Acceptance ref | Status / blocker |
+|---|---|---|---|---|
+| UIP-HOME-001 | UIS-HOME-DEFAULT-001 | UIW-PHONE-PORTRAIT-001 | UIAC-HOME-DEFAULT-PHONE-001 | [specified / BLOCKED: stable ID] |
 
 ### UI Evidence Projection Rules
 
@@ -69,9 +123,9 @@ When restoration applies, classify every dimension below for the applicable
 scope. Use `required`, `not-applicable: <reason>`, or `BLOCKED: <stable ID>`;
 absence is not a classification.
 
-| Restoration scope | Dimension | UI/VIS refs | SRC refs / evidence locators | Expected observable equivalence | Acceptance condition | Status / blocker |
-|---|---|---|---|---|---|---|
-| RST-001 | content | [UI/VIS refs] | [SRC refs + locators] | [Required content outcome.] | [Measurable condition.] | [required / N/A reason / BLOCKED] |
+| Restoration scope | Dimension | UI/VIS refs | Canonical refs | SRC refs / evidence locators | Expected observable equivalence | Acceptance condition | Status / blocker |
+|---|---|---|---|---|---|---|---|
+| RST-001 | content | [UI/VIS refs] | [governing Canonical IDs] | [SRC refs + locators] | [Required content outcome.] | [Measurable condition.] | [required / N/A reason / BLOCKED] |
 
 Required dimensions are `content`, `information-structure`,
 `visual-appearance`, `interaction-feedback`, `ui-states`,
@@ -82,9 +136,9 @@ Required dimensions are `content`, `information-structure`,
 Pixel-level restoration is an observable outcome contract. It does not define
 how baselines are produced, comparisons are run, or delivery is implemented.
 
-| Profile ID | Scope | UI refs | VIS refs | SRC refs | Target matrix refs | Fidelity semantics | Accepted-exception policy | Status / blocker |
-|---|---|---|---|---|---|---|---|---|
-| PXR-001 | [Exact surface/region boundary.] | [UI-*] | [VIS-*] | [SRC-*] | [PXT-* refs covering every applicable surface × state × viewport.] | [pixel-exact / pixel-tolerant / perceptual-equivalent / structural-only] | [Stable PEX-* refs, or `None`.] | [specified / BLOCKED: stable ID] |
+| Profile ID | Scope | UI refs | VIS refs | Canonical refs | SRC refs | Target matrix refs | Fidelity semantics | Accepted-exception policy | Status / blocker |
+|---|---|---|---|---|---|---|---|---|---|
+| PXR-001 | [Exact surface/region boundary.] | [UI-*] | [VIS-*] | [governing Canonical IDs] | [SRC-*] | [PXT-* refs covering every applicable surface × state × viewport.] | [pixel-exact / pixel-tolerant / perceptual-equivalent / structural-only] | [Stable PEX-* refs, or `None`.] | [specified / BLOCKED: stable ID] |
 
 A `BLOCKED` profile retains its requirement/source/target traceability and
 stable blocker. Fidelity semantics or accepted-exception policy that constitute
@@ -94,15 +148,15 @@ for `specified`.
 The profile's target refs are the declared applicable matrix; each ref resolves
 to exactly one unique surface × state × viewport row:
 
-| Target ref | Profile ID | Surface / exact region | State and content/data preconditions | Viewport width × height | Device-pixel ratio | Baseline SRC ref + evidence locator | Rendering context | Required visual dimensions | Fidelity mode | Measurable acceptance envelope | Accepted-exception refs | Derivation | Status / blocker |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| PXT-001 | PXR-001 | [Surface and included/excluded region.] | [Deterministic state/data.] | [1280 × 720] | [Value or `N/A: immaterial`.] | [Exactly one SRC-* + supplied baseline locator.] | [Fonts/fallbacks, color mode, locale, scale, and material platform/browser constraints.] | [Geometry/spacing/alignment/flow/overflow/clipping; typography; colors/borders/radius/shadows/effects; assets/crop/fitting; layering/stacking/fixed/sticky/occlusion.] | [Allowed fidelity mode.] | [Exact equality boundary, explicit channel/aggregate tolerance, declared perceptual threshold, or structural metric.] | [PEX-* refs or `None`.] | [observed / derived / unresolved / conflicting] | [specified / BLOCKED: stable ID] |
+| Target ref | Profile ID | Canonical refs | Surface / exact region | State and content/data preconditions | Viewport width × height | Device-pixel ratio | Baseline SRC ref + evidence locator | Rendering context | Required visual dimensions | Fidelity mode | Measurable acceptance envelope | Accepted-exception refs | Derivation | Status / blocker |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| PXT-001 | PXR-001 | [UIP/UIS/UIW/UIAC plus governed object refs] | [Surface and included/excluded region.] | [Deterministic state/data.] | [1280 × 720] | [Value or `N/A: immaterial`.] | [Exactly one SRC-* + supplied baseline locator.] | [Fonts/fallbacks, color mode, locale, scale, and material platform/browser constraints.] | [Geometry/spacing/alignment/flow/overflow/clipping; typography; colors/borders/radius/shadows/effects; assets/crop/fitting; layering/stacking/fixed/sticky/occlusion.] | [Allowed fidelity mode.] | [Exact equality boundary, explicit channel/aggregate tolerance, declared perceptual threshold, or structural metric.] | [PEX-* refs or `None`.] | [observed / derived / unresolved / conflicting] | [specified / BLOCKED: stable ID] |
 
 Accepted exceptions do not weaken unlisted regions:
 
-| Exception ref | Profile / target refs | Exact dynamic or divergent region | Reason | Allowed divergence and bound | Unaffected regions remain governed by | SRC / requirement refs |
-|---|---|---|---|---|---|---|
-| PEX-001 | [PXR/PXT refs] | [Exact region.] | [Why divergence is intentional/dynamic.] | [Explicit permitted difference and threshold.] | [Profile fidelity/envelope.] | [SRC-* + UI/VIS refs] |
+| Exception ref | Profile / target refs | Canonical refs | Exact dynamic or divergent region | Reason | Allowed divergence and bound | Unaffected regions remain governed by | SRC / requirement refs |
+|---|---|---|---|---|---|---|---|
+| PEX-001 | [PXR/PXT refs] | [governing Canonical IDs] | [Exact region.] | [Why divergence is intentional/dynamic.] | [Explicit permitted difference and threshold.] | [Profile fidelity/envelope.] | [SRC-* + UI/VIS refs] |
 
 `pixel-exact` requires equality inside the declared envelope.
 `pixel-tolerant` requires explicit per-pixel/channel or aggregate thresholds.
@@ -118,9 +172,9 @@ matrix, rendering context, measurable envelope, and exception policy remains
 
 Every applicable cross-platform restoration scope has one policy row:
 
-| UI ref / scope | Source platform | Concrete target platform | Adaptation mode | Preserve dimensions | Adapt dimensions | Required additions | Permitted omissions | Prohibited divergences | Target contexts | SRC refs | Status / blocker |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| UI-001 | [HTML/Web.] | [HTML/Web, Android, iOS, iPadOS, or another concrete platform; `Swift` is invalid.] | [framework-equivalent / native-adaptive / brand-preserving-native / visual-equivalent-native] | [Dimension refs.] | [Dimension refs.] | [Dimension refs.] | [Dimension refs.] | [Explicit outcomes.] | [Window/device/input/accessibility/locale contexts.] | [SRC-*] | [specified / BLOCKED: stable ID] |
+| UI ref / scope | Canonical refs | Source platform | Concrete target platform | Adaptation mode | Preserve dimensions | Adapt dimensions | Required additions | Permitted omissions | Prohibited divergences | Target contexts | SRC refs | Status / blocker |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| UI-001 | [governing Canonical IDs] | [HTML/Web.] | [HTML/Web, Android, iOS, iPadOS, or another concrete platform; `Swift` is invalid.] | [framework-equivalent / native-adaptive / brand-preserving-native / visual-equivalent-native] | [Dimension refs.] | [Dimension refs.] | [Dimension refs.] | [Dimension refs.] | [Explicit outcomes.] | [Window/device/input/accessibility/locale contexts.] | [SRC-*] | [specified / BLOCKED: stable ID] |
 
 Target contexts explicitly cover window/device class, input modalities,
 accessibility/user scaling, and locale/layout direction, or carry a stable
@@ -128,9 +182,9 @@ blocker for the missing category.
 
 Resolve every applicable dimension through exactly one decision:
 
-| Policy / dimension ref | Dimension | Decision | Observable target outcome | Affected UI/VIS refs | SRC refs / target hard-constraint refs | Conflict / rationale | Acceptance condition | Status / blocker |
-|---|---|---|---|---|---|---|---|---|
-| ADP-001/content | content-and-information-hierarchy | [preserve / adapt / add / omit / clarify / blocked] | [Target outcome.] | [UI/VIS refs] | [SRC-* and/or hard-constraint refs.] | [Conflict and selected precedence, if any.] | [Measurable condition.] | [specified / BLOCKED: stable ID] |
+| Policy / dimension ref | Dimension | Decision | Observable target outcome | Affected UI/VIS refs | Canonical refs | SRC refs / target hard-constraint refs | Conflict / rationale | Acceptance condition | Status / blocker |
+|---|---|---|---|---|---|---|---|---|---|
+| ADP-001/content | content-and-information-hierarchy | [preserve / adapt / add / omit / clarify / blocked] | [Target outcome.] | [UI/VIS refs] | [governing Canonical IDs] | [SRC-* and/or hard-constraint refs.] | [Conflict and selected precedence, if any.] | [Measurable condition.] | [specified / BLOCKED: stable ID] |
 
 Apply decisions to at least: `content-and-information-hierarchy`,
 `task-flow-and-navigation`, `surface-and-component-role`,
@@ -213,18 +267,18 @@ This table is the feature-local Source Reference Contract. A source identity is
 opaque provenance. Requirement projection depends on bounded supplied
 content/facts and cited evidence locators, never on the locator alone.
 
-| SRC ref | Role | Opaque locator / description | Revision / identity | Bounded feature scope | Supplied content / facts | Projected requirement refs | Status / blocker |
+| SRC ref | Role | Opaque locator / description | Revision / identity | Bounded feature scope | Supplied content / facts | Projected local requirement/Canonical refs | Status / blocker |
 |---|---|---|---|---|---|---|---|
 | SRC-001 | requirement-input | [Conversation direction, document, reference, or description.] | [Optional supplied identity or `Not supplied`.] | [Current feature slice.] | [Supplied WHAT/WHY facts, evidence packet refs, or `None`.] | [FR/NFR/UX/UI/VIS/SEC/DAT/DEP/BND/ASM/EXC refs, or `None`.] | [projected / retained / NEEDS CLARIFICATION / BLOCKED with stable reason.] |
 
 Allowed roles are exactly `requirement-input`, `visual-input`,
 `technical-evidence`, and `context-only`. `context-only` and
 `technical-evidence` do not support normative stable requirement projection.
-`visual-input` may project only `UI-*` and `VIS-*`; the other requirement
+`visual-input` may project only `UI-*`, `VIS-*`, and Canonical UI IDs; the other requirement
 families require `requirement-input`. A broad source without a
 safe feature slice stays blocked or needs clarification; it is not imported in
 full. A row with no supplied content/facts stays
-`BLOCKED: SRC_EVIDENCE_MISSING` and has no projected requirement refs.
+`BLOCKED: SRC_EVIDENCE_MISSING` and has no projected local refs.
 
 ## Unresolved Product Decisions
 

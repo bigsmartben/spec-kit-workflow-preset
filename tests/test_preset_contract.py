@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
 from validators.speckit_analyze_contract import (
+    audit_canonical_ui_chain,
     audit_cross_command_consistency,
     audit_data_model_obligations,
     audit_source_reference_contract,
@@ -36,6 +37,7 @@ from validators.speckit_requirement_gate_contract import (
 )
 from validators.speckit_spec_contract import (
     ADAPTATION_DIMENSIONS,
+    CANONICAL_UI_TYPES,
     CONFLICT_PRECEDENCE,
     RESTORATION_DIMENSIONS,
     validate_ui_specification_contract,
@@ -345,6 +347,64 @@ def minimal_ui_spec_contract() -> dict:
             "status": "specified",
         },
     ]
+    canonical_ids = {
+        "page": "UIP-REFUND-001",
+        "region": "UIR-REFUND-FORM-001",
+        "component": "UIC-REFUND-SUBMIT-001",
+        "content": "UID-REFUND-LABEL-001",
+        "state": "UIS-REFUND-ERROR-001",
+        "variant": "UIV-REFUND-PRIMARY-001",
+        "viewport": "UIW-DESKTOP-001",
+        "token": "UIT-COLOR-ERROR-001",
+        "asset": "UIA-ERROR-ICON-001",
+        "motion": "UIM-ERROR-REVEAL-001",
+        "event": "UIE-REFUND-SUBMIT-001",
+        "accessibility": "UIAX-ERROR-ANNOUNCE-001",
+        "native-exception": "UIN-REFUND-NONE-001",
+        "acceptance": "UIAC-REFUND-ERROR-DESKTOP-001",
+    }
+    all_canonical_refs = list(canonical_ids.values())
+    canonical_objects = []
+    for object_type, object_id in canonical_ids.items():
+        relation_refs = [canonical_ids["page"]]
+        if object_type == "page":
+            relation_refs = [canonical_ids["region"], canonical_ids["state"]]
+        elif object_type == "region":
+            relation_refs = [canonical_ids["page"], canonical_ids["component"]]
+        elif object_type == "component":
+            relation_refs = [
+                canonical_ids["region"],
+                canonical_ids["content"],
+                canonical_ids["state"],
+                canonical_ids["event"],
+            ]
+        elif object_type == "acceptance":
+            relation_refs = [
+                canonical_ids["page"],
+                canonical_ids["state"],
+                canonical_ids["viewport"],
+            ]
+        item = {
+            "id": object_id,
+            "type": object_type,
+            "requirement_refs": ["UI-001", "VIS-001"],
+            "source_refs": ["SRC-UI-001"],
+            "evidence_locators": ["refund.html#refund-panel"],
+            "relation_refs": relation_refs,
+            "acceptance": f"The {object_type} outcome is observable for the refund error panel.",
+            "derivation": "observed",
+            "status": "specified",
+        }
+        if object_type == "acceptance":
+            item.update(
+                {
+                    "page_ref": canonical_ids["page"],
+                    "state_ref": canonical_ids["state"],
+                    "viewport_ref": canonical_ids["viewport"],
+                }
+            )
+        canonical_objects.append(item)
+
     return {
         "sources": [
             {
@@ -356,7 +416,7 @@ def minimal_ui_spec_contract() -> dict:
                     "refund.html#refund-panel",
                     "baseline.png#refund-panel",
                 ],
-                "projected_refs": ["UI-001", "VIS-001"],
+                "projected_refs": ["UI-001", "VIS-001", *all_canonical_refs],
                 "status": "projected",
             }
         ],
@@ -364,11 +424,20 @@ def minimal_ui_spec_contract() -> dict:
             requirement["id"] for requirement in requirements
         ],
         "requirements": requirements,
+        "canonical_objects": canonical_objects,
+        "canonical_acceptance_scope": [
+            {
+                "page_ref": canonical_ids["page"],
+                "state_ref": canonical_ids["state"],
+                "viewport_ref": canonical_ids["viewport"],
+            }
+        ],
         "restoration_requested": True,
         "restoration_dimensions": [
             {
                 "dimension": dimension,
                 "requirement_refs": ["VIS-001"],
+                "canonical_refs": [canonical_ids["page"]],
                 "source_refs": ["SRC-UI-001"],
                 "evidence_locators": ["baseline.png#refund-panel"],
                 "acceptance": f"{dimension} matches the cited baseline.",
@@ -382,6 +451,7 @@ def minimal_ui_spec_contract() -> dict:
                 "id": "PXR-001",
                 "scope": "refund panel",
                 "requirement_refs": ["UI-001", "VIS-001"],
+                "canonical_refs": [canonical_ids["page"]],
                 "source_refs": ["SRC-UI-001"],
                 "target_refs": ["PXT-001"],
                 "target_matrix": [
@@ -402,6 +472,12 @@ def minimal_ui_spec_contract() -> dict:
             {
                 "id": "PXT-001",
                 "profile_id": "PXR-001",
+                "canonical_refs": [
+                    canonical_ids["page"],
+                    canonical_ids["state"],
+                    canonical_ids["viewport"],
+                    canonical_ids["acceptance"],
+                ],
                 "surface": "refund panel",
                 "state": "validation error with supplied invalid amount",
                 "viewport": "1280x720",
@@ -441,6 +517,7 @@ def minimal_ui_spec_contract() -> dict:
                 "allowed_divergence": "glyph pixels inside timestamp bounds",
                 "bound": "the measured timestamp bounding box",
                 "requirement_refs": ["VIS-001"],
+                "canonical_refs": [canonical_ids["component"]],
                 "source_refs": ["SRC-UI-001"],
             }
         ],
@@ -458,6 +535,7 @@ def minimal_ui_spec_contract() -> dict:
                     "locale": "en-US plus RTL expansion",
                 },
                 "source_refs": ["SRC-UI-001"],
+                "canonical_refs": [canonical_ids["page"]],
                 "conflict_precedence": list(CONFLICT_PRECEDENCE),
                 "decisions": [
                     {
@@ -474,6 +552,7 @@ def minimal_ui_spec_contract() -> dict:
                             else "adapt"
                         ),
                         "requirement_refs": ["UI-001", "VIS-001"],
+                        "canonical_refs": [canonical_ids["page"]],
                         "source_refs": ["SRC-UI-001"],
                         "outcome": f"Target outcome for {dimension}.",
                         "acceptance": f"Observe the declared {dimension} outcome.",
@@ -496,6 +575,15 @@ def minimal_tasks_x2b_bundle() -> dict:
         for dimension in pixel_dimensions
         if dimension != "asset-preparation"
     ]
+    canonical_refs = [
+        "UIP-REFUND-001", "UIR-REFUND-FORM-001", "UIC-REFUND-SUBMIT-001",
+        "UID-REFUND-LABEL-001", "UIS-REFUND-ERROR-001",
+        "UIV-REFUND-PRIMARY-001", "UIW-DESKTOP-001",
+        "UIT-COLOR-ERROR-001", "UIA-ERROR-ICON-001",
+        "UIM-ERROR-REVEAL-001", "UIE-REFUND-SUBMIT-001",
+        "UIAX-ERROR-ANNOUNCE-001", "UIN-REFUND-NONE-001",
+        "UIAC-REFUND-ERROR-DESKTOP-001",
+    ]
     return {
         "plan_output_ready": "READY",
         "current_plan_revision": "PLAN-47",
@@ -507,6 +595,7 @@ def minimal_tasks_x2b_bundle() -> dict:
             "PXT-001",
             "PEX-001",
             "ADP-001",
+            *canonical_refs,
         ],
         "x2b_mappings": [
             {
@@ -514,7 +603,7 @@ def minimal_tasks_x2b_bundle() -> dict:
                 "status": "Required",
                 "implementation_dimensions": list(ui_dimensions),
                 "depends_on": [],
-                "traceability_refs": ["UI-001"],
+                "traceability_refs": ["UI-001", *canonical_refs],
             },
             {
                 "id": "X2B-PX-001",
@@ -563,7 +652,7 @@ def minimal_tasks_x2b_bundle() -> dict:
                 "paths": ["src/ui/RefundPanel.tsx"],
                 "mapping_refs": ["X2B-UI-001"],
                 "implementation_dimensions": list(ui_dimensions),
-                "traceability_refs": ["UI-001"],
+                "traceability_refs": ["UI-001", *canonical_refs],
                 "depends_on": [],
                 "parallel": False,
                 "description": "Implement the mapped component and UI states.",
@@ -624,6 +713,7 @@ def minimal_tasks_x2b_bundle() -> dict:
                 "X2B-PX-001",
                 "X2B-ADP-001",
             ],
+            "traceability_refs": canonical_refs,
             "scopes": [
                 "implementation-conformance",
                 "x2b-blockers-and-plan-drift",
@@ -676,6 +766,21 @@ class ManifestAndGovernanceTests(unittest.TestCase):
             VALIDATORS / "speckit_implement_contract.py",
         ):
             self.assertFalse(forbidden.exists(), forbidden)
+        for forbidden_ui_spec in (
+            ROOT / "templates" / "ui-spec.md",
+            ROOT / "templates" / "ui-spec.json",
+            ROOT / "schemas" / "speckit.uihtml.migration.v1.schema.json",
+            VALIDATORS / "speckit_uihtml_migration_contract.py",
+        ):
+            self.assertFalse(forbidden_ui_spec.exists(), forbidden_ui_spec)
+        contract_text = "\n".join(
+            read(path)
+            for directory in (COMMANDS, TEMPLATES, SCHEMAS, VALIDATORS)
+            for path in directory.rglob("*")
+            if path.is_file() and path.suffix in {".md", ".json", ".py"}
+        )
+        self.assertNotIn("executable-translation", contract_text)
+        self.assertNotIn("X2B-TR-", contract_text)
 
     def test_manifest_strategies_enforce_negative_ownership(self) -> None:
         entries = {
@@ -727,7 +832,7 @@ class ManifestAndGovernanceTests(unittest.TestCase):
             governance,
         )
         self.assertIn(
-            "SRC-* + UI/VIS/RST/PXR/PXT/PEX/ADP refs",
+            "SRC-* -> UI/VIS + Canonical",
             governance,
         )
         self.assertIn(
@@ -833,7 +938,9 @@ class RequirementCommandTests(unittest.TestCase):
             "Functional Requirements",
             "Non-Functional Requirements",
             "UX Journeys and Interaction Expectations",
-            "UI Specification Contract",
+            "Canonical UI Specification",
+            "Canonical UI Object Registry",
+            "Canonical Acceptance Scope",
             "UI Evidence Projection Rules",
             "Restoration Equivalence",
             "Pixel-Restoration Profiles",
@@ -862,6 +969,20 @@ class RequirementCommandTests(unittest.TestCase):
             "BND-",
             "ASM-",
             "EXC-",
+            "UIP-",
+            "UIR-",
+            "UIC-",
+            "UID-",
+            "UIS-",
+            "UIV-",
+            "UIW-",
+            "UIT-",
+            "UIA-",
+            "UIM-",
+            "UIE-",
+            "UIAX-",
+            "UIN-",
+            "UIAC-",
         ):
             self.assertIn(prefix, template)
         self.assertIn("content carrier, not a completeness checklist", template)
@@ -877,7 +998,7 @@ class RequirementCommandTests(unittest.TestCase):
             "Revision / identity",
             "Bounded feature scope",
             "Supplied content / facts",
-            "Projected requirement refs",
+            "Projected local requirement/Canonical refs",
             "Status / blocker",
         ):
             self.assertIn(column, template)
@@ -929,9 +1050,7 @@ class RequirementCommandTests(unittest.TestCase):
         for forbidden in (
             "authorization",
             "tool-call",
-            "provider",
             "plugin",
-            "dereference",
             "adapter",
             "external synchronization",
         ):
@@ -964,8 +1083,8 @@ class RequirementCommandTests(unittest.TestCase):
             "Concrete widgets, classes, code properties",
         ):
             self.assertIn(term, template)
-        self.assertIn("UI requirement source of truth inside `spec.md`", template)
-        self.assertIn("capture/comparison\nprocedures", template)
+        self.assertIn("UI source of\ntruth inside `spec.md`", template)
+        self.assertIn("capture/comparison procedures", template)
 
     def test_visual_checklist_covers_evidence_pixel_and_adaptation_quality(self) -> None:
         checklist = read(TEMPLATES / "requirements" / "visual-gate.md")
@@ -2021,6 +2140,8 @@ class CoreWrapperInstallationTests(unittest.TestCase):
             )
             checklist = read(composed / "speckit.checklist.md")
             plan = read(composed / "speckit.plan.md")
+            tasks = read(composed / "speckit.tasks.md")
+            analyze = read(composed / "speckit.analyze.md")
 
             self.assertNotIn("{CORE_TEMPLATE}", checklist)
             self.assertLess(
@@ -2041,6 +2162,9 @@ class CoreWrapperInstallationTests(unittest.TestCase):
                 "FEATURE_DIR/checklists/requirements.md",
                 checklist,
             )
+            self.assertIn("X2B_CANONICAL_MAPPING_INCOMPLETE", plan)
+            self.assertIn("TASK_CANONICAL_REF_MISSING", tasks)
+            self.assertIn("Canonical omissions, duplicates", analyze)
 
             canonical_preflight = plan.index(
                 "## Canonical Requirement Gate Preflight"
@@ -2069,6 +2193,39 @@ class CoreWrapperInstallationTests(unittest.TestCase):
 class UISpecContractTests(unittest.TestCase):
     def test_complete_ui_spec_contract_is_valid(self) -> None:
         validate_ui_specification_contract(minimal_ui_spec_contract())
+
+    def test_canonical_ui_requires_all_object_families_and_unique_ids(self) -> None:
+        missing = minimal_ui_spec_contract()
+        removed = missing["canonical_objects"].pop()
+        missing["sources"][0]["projected_refs"].remove(removed["id"])
+        with self.assertRaisesRegex(ValueError, "lacks object type"):
+            validate_ui_specification_contract(missing)
+
+        duplicate = minimal_ui_spec_contract()
+        duplicate["canonical_objects"].append(
+            deepcopy(duplicate["canonical_objects"][0])
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate Canonical UI object"):
+            validate_ui_specification_contract(duplicate)
+
+    def test_canonical_ui_may_retain_product_requirement_ownership(self) -> None:
+        payload = minimal_ui_spec_contract()
+        payload["all_spec_requirement_refs"].append("FR-001")
+        payload["canonical_objects"][0]["requirement_refs"].append("FR-001")
+        validate_ui_specification_contract(payload)
+
+    def test_canonical_ui_rejects_dangling_relations_and_duplicate_matrix(self) -> None:
+        dangling = minimal_ui_spec_contract()
+        dangling["canonical_objects"][0]["relation_refs"] = ["UIC-UNKNOWN"]
+        with self.assertRaisesRegex(ValueError, "unknown relation"):
+            validate_ui_specification_contract(dangling)
+
+        duplicate = minimal_ui_spec_contract()
+        duplicate["canonical_acceptance_scope"].append(
+            deepcopy(duplicate["canonical_acceptance_scope"][0])
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate coordinates"):
+            validate_ui_specification_contract(duplicate)
 
     def test_locator_only_and_visual_role_overreach_are_rejected(self) -> None:
         payload = minimal_ui_spec_contract()
@@ -2563,6 +2720,21 @@ class PlanBundleSemanticTests(unittest.TestCase):
         bundle["x2b_delivery_mappings"][0]["spec_refs"].remove("UI-001")
         with self.assertRaisesRegex(ValueError, "X2B_SPEC_REF_UNMAPPED"):
             validate_plan_artifact_bundle(bundle)
+
+    def test_plan_requires_complete_unweakened_canonical_target_bindings(self) -> None:
+        missing = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        del missing["x2b_delivery_mappings"][0]["canonical_bindings"][
+            "UIC-PRIMARY-CTA-001"
+        ]
+        with self.assertRaisesRegex(ValueError, "X2B_CANONICAL_MAPPING_INCOMPLETE"):
+            validate_plan_artifact_bundle(missing)
+
+        weakened = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
+        weakened["x2b_delivery_mappings"][0]["canonical_bindings"][
+            "UIC-PRIMARY-CTA-001"
+        ]["requirement_refs"] = ["UI-001"]
+        with self.assertRaisesRegex(ValueError, "X2B_CANONICAL_REQUIREMENT_WEAKENED"):
+            validate_plan_artifact_bundle(weakened)
 
     def test_plan_bundle_rejects_pixel_and_adaptation_mapping_gaps(self) -> None:
         bundle = load_json(PLAN_BUNDLE_FIXTURES / "ui_only.json")
@@ -3106,6 +3278,92 @@ class SchemaAndValidatorTests(unittest.TestCase):
 
 
 class TasksAndAnalyzeTests(unittest.TestCase):
+    def canonical_chain_snapshot(self) -> dict:
+        spec_payload = minimal_ui_spec_contract()
+        objects = deepcopy(spec_payload["canonical_objects"])
+        canonical_refs = [item["id"] for item in objects]
+        bindings = {
+            item["id"]: {
+                "target": f"target for {item['id']}",
+                "requirement_refs": list(item["requirement_refs"]),
+            }
+            for item in objects
+        }
+        return {
+            "spec": {
+                "canonical_objects": objects,
+                "ui_requirement_refs": ["UI-001", "VIS-001"],
+            },
+            "plan": {
+                "x2b_delivery_mappings": [
+                    {
+                        "id": "X2B-UI-001",
+                        "status": "READY",
+                        "spec_refs": list(canonical_refs),
+                        "canonical_bindings": bindings,
+                    }
+                ]
+            },
+            "tasks": {
+                "items": [
+                    {
+                        "mapping_refs": ["X2B-UI-001"],
+                        "canonical_refs": list(canonical_refs),
+                        "paths": ["src/ui/RefundPanel.tsx"],
+                    }
+                ],
+                "final_review_canonical_refs": list(canonical_refs),
+            },
+        }
+
+    def test_analyze_audits_complete_canonical_ui_chain(self) -> None:
+        self.assertEqual([], audit_canonical_ui_chain(self.canonical_chain_snapshot()))
+
+    def test_analyze_finds_canonical_mapping_task_review_and_weakening_gaps(self) -> None:
+        missing_mapping = self.canonical_chain_snapshot()
+        missing_mapping["plan"]["x2b_delivery_mappings"][0]["spec_refs"].remove(
+            "UIC-REFUND-SUBMIT-001"
+        )
+        codes = {item["code"] for item in audit_canonical_ui_chain(missing_mapping)}
+        self.assertIn("X2B_CANONICAL_MAPPING_MISSING", codes)
+
+        weakened = self.canonical_chain_snapshot()
+        weakened["plan"]["x2b_delivery_mappings"][0]["canonical_bindings"][
+            "UIC-REFUND-SUBMIT-001"
+        ]["requirement_refs"] = ["UI-001"]
+        codes = {item["code"] for item in audit_canonical_ui_chain(weakened)}
+        self.assertIn("X2B_CANONICAL_REQUIREMENT_WEAKENED", codes)
+
+        orphan = self.canonical_chain_snapshot()
+        orphan_component = next(
+            item
+            for item in orphan["spec"]["canonical_objects"]
+            if item["id"] == "UIC-REFUND-SUBMIT-001"
+        )
+        orphan_component["relation_refs"] = []
+        for item in orphan["spec"]["canonical_objects"]:
+            item["relation_refs"] = [
+                ref
+                for ref in item["relation_refs"]
+                if ref != "UIC-REFUND-SUBMIT-001"
+            ]
+        codes = {item["code"] for item in audit_canonical_ui_chain(orphan)}
+        self.assertIn("CANONICAL_UI_ORPHAN", codes)
+
+        missing_task = self.canonical_chain_snapshot()
+        missing_task["tasks"]["items"][0]["canonical_refs"].remove(
+            "UIS-REFUND-ERROR-001"
+        )
+        codes = {item["code"] for item in audit_canonical_ui_chain(missing_task)}
+        self.assertIn("TASK_CANONICAL_REF_MISSING", codes)
+
+        missing_review = self.canonical_chain_snapshot()
+        missing_review["tasks"]["final_review_canonical_refs"].remove(
+            "UIE-REFUND-SUBMIT-001"
+        )
+        codes = {item["code"] for item in audit_canonical_ui_chain(missing_review)}
+        self.assertIn("FINAL_REVIEW_CANONICAL_REF_MISSING", codes)
+
     def test_tasks_is_pure_plan_mapper_and_required_tc_overrides_core_optional(self) -> None:
         command = read(COMMANDS / "speckit.tasks.md")
         for stage in (
@@ -3339,6 +3597,19 @@ class TasksAndAnalyzeTests(unittest.TestCase):
         bundle["x2b_mappings"][0]["traceability_refs"] = []
         with self.assertRaisesRegex(ValueError, "TASK_X2B_REF_UNKNOWN"):
             validate_tasks_x2b_derivation(bundle)
+
+    def test_tasks_and_final_review_preserve_canonical_ui_refs(self) -> None:
+        task_gap = minimal_tasks_x2b_bundle()
+        task_gap["tasks"][0]["traceability_refs"].remove("UIC-REFUND-SUBMIT-001")
+        with self.assertRaisesRegex(ValueError, "TASK_CANONICAL_REF_MISSING"):
+            validate_tasks_x2b_derivation(task_gap)
+
+        review_gap = minimal_tasks_x2b_bundle()
+        review_gap["final_review"]["traceability_refs"].remove(
+            "UIAC-REFUND-ERROR-DESKTOP-001"
+        )
+        with self.assertRaisesRegex(ValueError, "TASK_FINAL_REVIEW_MAPPING_MISSING"):
+            validate_tasks_x2b_derivation(review_gap)
 
     def test_tasks_final_review_covers_x2b_and_stays_last(self) -> None:
         missing_mapping = minimal_tasks_x2b_bundle()

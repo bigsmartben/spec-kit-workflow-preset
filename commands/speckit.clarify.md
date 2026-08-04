@@ -52,6 +52,14 @@ Clarify does not dereference a locator, acquire evidence, change the Blocker
 class/owner, or require external
 write-back or synchronization.
 
+Clarify may resolve product semantics, Canonical UI semantics, and conflicts
+between supplied `SRC-*` evidence, then update the owning local IDs in
+`spec.md`. It MUST NOT invent a missing page, region, component, content,
+fixture, state, variant, viewport, token, asset, motion, event, accessibility
+rule, Native Exception, or Acceptance Matrix coordinate. It never reopens,
+runs, renders, or compares UIHTML, Figma, screenshots, or another original UI
+source; source absence remains a source-evidence blocker.
+
 ## Shared-Root Ambiguity Map
 
 Read `spec.md` and only the canonical `requirements.md`. Inventory Semantic

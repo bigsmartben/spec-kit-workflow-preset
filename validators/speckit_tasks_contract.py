@@ -148,7 +148,13 @@ TASK_ACTION_CLASSES = {
     "visual-execution",
 }
 FINAL_REVIEW_ACTION_CLASS = "code-design-contract-review"
-TRACEABILITY_PREFIXES = ("UI-", "VIS-", "PXT-", "PEX-", "ADP-")
+CANONICAL_TRACEABILITY_PREFIXES = (
+    "UIAX-", "UIAC-", "UIP-", "UIR-", "UIC-", "UID-", "UIS-", "UIV-",
+    "UIW-", "UIT-", "UIA-", "UIM-", "UIE-", "UIN-",
+)
+TRACEABILITY_PREFIXES = (
+    "UI-", "VIS-", "PXT-", "PEX-", "ADP-", *CANONICAL_TRACEABILITY_PREFIXES
+)
 
 
 def _duplicates(values: Iterable[str]) -> set[str]:
@@ -461,6 +467,9 @@ def validate_tasks_x2b_derivation(bundle: dict[str, Any]) -> None:
     dimensions_by_mapping: dict[str, set[str]] = {
         mapping_id: set() for mapping_id in mappings_by_id
     }
+    traceability_by_mapping: dict[str, set[str]] = {
+        mapping_id: set() for mapping_id in mappings_by_id
+    }
     mapping_path_dimensions: set[tuple[str, str, str]] = set()
 
     for task_id, task in tasks_by_id.items():
@@ -578,6 +587,8 @@ def validate_tasks_x2b_derivation(bundle: dict[str, Any]) -> None:
                 "TASK_X2B_REF_UNKNOWN",
                 f"{task_id} reinterprets traceability outside its mapping",
             )
+        for mapping_ref in mapping_refs:
+            traceability_by_mapping[mapping_ref].update(map(str, traceability_refs))
 
         task_dependencies = task.get("depends_on")
         if not isinstance(task_dependencies, list):
@@ -649,6 +660,17 @@ def validate_tasks_x2b_derivation(bundle: dict[str, Any]) -> None:
             _fail(
                 code,
                 f"{mapping_id} lacks task coverage for {sorted(missing_dimensions)[0]}",
+            )
+        required_canonical_refs = {
+            str(ref)
+            for ref in mapping.get("traceability_refs", [])
+            if str(ref).startswith(CANONICAL_TRACEABILITY_PREFIXES)
+        }
+        missing_canonical_refs = required_canonical_refs - traceability_by_mapping[mapping_id]
+        if missing_canonical_refs:
+            _fail(
+                "TASK_CANONICAL_REF_MISSING",
+                f"{mapping_id} tasks omit {sorted(missing_canonical_refs)[0]}",
             )
 
         for dependency_ref in map(str, mapping.get("depends_on", [])):
@@ -804,6 +826,24 @@ def validate_tasks_x2b_derivation(bundle: dict[str, Any]) -> None:
         _fail(
             "TASK_FINAL_REVIEW_MAPPING_MISSING",
             "Final Code Review does not cover every implementation mapping",
+        )
+    required_review_canonical_refs = {
+        str(ref)
+        for mapping_id in implementation_mapping_ids
+        for ref in mappings_by_id[mapping_id].get("traceability_refs", [])
+        if str(ref).startswith(CANONICAL_TRACEABILITY_PREFIXES)
+    }
+    raw_review_traceability_refs = final_review.get("traceability_refs", [])
+    if not isinstance(raw_review_traceability_refs, list):
+        _fail(
+            "TASK_FINAL_REVIEW_MAPPING_MISSING",
+            "Final Code Review traceability_refs must be a list",
+        )
+    review_traceability_refs = set(map(str, raw_review_traceability_refs))
+    if review_traceability_refs != required_review_canonical_refs:
+        _fail(
+            "TASK_FINAL_REVIEW_MAPPING_MISSING",
+            "Final Code Review does not preserve every Canonical UI ref",
         )
     review_scopes = set(
         map(

@@ -139,6 +139,13 @@ Check applicable Spec refs project without contradiction:
 - product constraints into X1 decisions;
 - domain/interface requirements into X2-A;
 - UX/UI/VIS into UI/UX Design and Delivery Readiness;
+- every applicable `UI-*`/`VIS-*` into one or more governing Canonical UI
+  objects; Canonical Page/Region/Component/Content/State/Event graph refs are
+  unique and non-orphaned; each declared Page × State × Viewport coordinate
+  resolves exactly once to `UIAC-*`;
+- every specified Canonical ID enters exactly one X2-B mapping with one target
+  binding and unchanged owning product/UI refs, while `N/A` reasons and stable
+  blockers are preserved;
 - functional/NFR/security/accessibility/recovery/data-side-effect acceptance
   into `TC-*` and Test Readiness;
 - Test Conditions needing execution into `VAL-*`;
@@ -155,15 +162,22 @@ blocker:
 
 - Design Object rows → implementation paths;
 - interface/sequence refs → contract/orchestration dependencies;
-- UI/UX Delivery rows → component/state/responsive/accessibility/asset
-  implementation only;
+- UI/UX Delivery rows + Canonical refs → exact component/state/responsive/
+  accessibility/asset implementation paths without dropping Page,
+  Composition, Content, Variant, Event, Token, Motion, Native Exception, or
+  Acceptance Matrix constraints;
 - Required `TC-*` → required fixture/test/validation/evidence tasks;
 - `VAL-*` → runnable environment/integration/e2e/evidence work;
 - Plan blockers → blocked task scope, never complete-looking work;
-- Final Code Review covers applicable Plan sources and is the last phase.
+- Final Code Review reuses every applicable Canonical UI ref, covers applicable
+  Plan sources, and is the last phase.
 
 Detect Tasks-side strategy invention and missing Plan-to-Tasks mappings.
 Required Test Conditions must not be dropped by Core optional-test prose.
+Report Canonical omissions, duplicates, dangling/orphan refs, missing target
+bindings, changed/lost requirement refs, missing exact task paths, and Final
+Review coverage gaps. Analyze stays read-only and does not reopen or execute
+UIHTML, Figma, screenshots, descriptions, or other original `SRC-*` content.
 
 Assert #37's downstream visual boundary: no screenshot comparison, visual diff,
 baseline, restoration, pixel assertion, visual acceptance, or rendered-fidelity

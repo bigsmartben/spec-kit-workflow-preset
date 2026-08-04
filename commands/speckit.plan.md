@@ -179,7 +179,7 @@ Use this decision table; never infer N/A merely because an artifact is absent:
 | `class-diagram.md` | multiple cooperating objects, dependency direction, patterns, or object ownership must be designed | one object or responsibilities are fully expressed without an object relationship view; record the concrete reason | trigger applies but responsibilities/relationships cannot yet be resolved |
 | interface contracts | an externally observable protocol, input/output, error, compatibility/versioning, or state-effect boundary must be designed | X2-A is pure domain/internal-object design with no externally observable interface contract; record the concrete reason | an interface trigger applies but its observable contract cannot yet be resolved |
 | `contracts/sequences.md` | observable cross-boundary order, async callback, retry, rollback, compensation, or failure propagation exists | no observable ordering or failure-flow design exists; record the concrete reason | trigger applies but participants/order/failure path is unresolved |
-| X2-B + `ui-ux-design.md`/UIF | any `UX-*`, `UI-*`, `VIS-*`, interactive surface/state, responsive, asset, or accessibility delivery applies | feature has no user-visible or interactive delivery; cite the scoped Spec evidence | applicable UI/visual refs lack a local delivery mapping or stable blocker |
+| X2-B + `ui-ux-design.md`/UIF | any `UX-*`, `UI-*`, `VIS-*`, Canonical UI object, interactive surface/state, responsive, asset, or accessibility delivery applies | feature has no user-visible or interactive delivery; cite the scoped Spec evidence | applicable UI/visual/Canonical refs lack a local delivery mapping or stable blocker |
 | BDD/scenario child | parent `TC-*` selects BDD/scenario technique | no parent selects that technique | selected technique lacks its parent-linked child |
 | fixture child | a parent `TC-*` requires reusable/formal setup data | every applicable condition records a fixture-free rationale | required reusable setup is unresolved or missing |
 | assertion child | a parent `TC-*` selects structured scenario/assertion technique | no parent selects a structured assertion technique and each oracle remains complete in its parent | selected technique lacks outcome assertions |
@@ -285,8 +285,8 @@ platform delivery, opaque accepted-source provenance, local delivery method,
 and UI/UX Delivery Readiness.
 
 First build the template's reference-only Spec UI Input Inventory. Inventory
-every applicable `UI-*`, `VIS-*`, `RST-*` scope/dimension, `PXR-*`, `PXT-*`,
-`PEX-*`, and `ADP-*` policy/dimension ref exactly once with its Spec status and
+every applicable `UI-*`, `VIS-*`, all `UIP/UIR/UIC/UID/UIS/UIV/UIW/UIT/UIA/UIM/UIE/UIAX/UIN/UIAC`
+Canonical IDs, `RST-*` scope/dimension, `PXR-*`, `PXT-*`, `PEX-*`, and `ADP-*` policy/dimension ref exactly once with its Spec status and
 one `X2B-*` mapping ref or the same stable upstream blocker. Do not copy
 requirement statements, baseline identities/locators, state/viewport values,
 rendering contexts, fidelity modes, acceptance envelopes, exception bounds, or
@@ -295,10 +295,12 @@ adaptation decisions.
 Then produce only Plan-owned delivery mappings:
 
 - general UI mappings (`general-ui`) use `X2B-UI-*` IDs and bind
-  `UI/VIS/RST` refs and `SRC-*` refs to regions, components,
+  `UI/VIS/RST` plus Canonical refs to regions, components,
   composition/state ownership, navigation, input, responsive, and
   accessibility delivery plus `DEC-UI-*` and applicable UIF/interface/asset
-  refs;
+  refs. Each applicable Canonical ID occurs in exactly one mapping with one
+  explicit non-empty target-platform component/API/Theme/resource/adaptation
+  binding that retains the object's owning `UI-*`/`VIS-*` refs;
 - pixel-target mappings use `X2B-PX-*` IDs and bind one applicable `PXT-*`
   and its `PXR-*`, `UI/VIS`, `PEX-*`, and `SRC-*` refs to the exact target
   region, component/style/token/asset/layering/overflow delivery, and a local
@@ -312,6 +314,11 @@ The mapping implements referenced observable requirements and adaptation
 decisions; it never repairs, weakens, reclassifies, or duplicates them. A
 product decision returns to Clarify and a later Plan run rebuilds affected
 mappings from the current Spec.
+
+Canonical UI absence or a critical blocker keeps X2-B `Blocked`. X2-B never
+fills the gap by reopening or interpreting UIHTML, Figma, screenshots, product
+descriptions, user descriptions, or other original `SRC-*` content. It consumes
+only local Spec IDs and their already-normalized meaning.
 
 `contracts/uif/*.expected.json` is a UI/UX interaction contract: start view,
 events, routes, observable states/feedback, API call refs, and transitions. It
@@ -329,7 +336,9 @@ same upstream blocker per ref; resolved Spec, `SRC-*`, `DEC-UI-*`, UIF,
 interface, asset, and exception refs; every applicable `PXT-*` and `ADP-*`
 dimension closed; one UI/UX Delivery Readiness row per required mapping; zero
 Spec-owned duplicated fields; and no unresolved X2-B/reconciliation finding.
-Blocked Spec applicability remains blocked and is never relabeled N/A. X2-B
+Every applicable Canonical ID must also have exactly one target binding with
+unchanged owning requirements. Explicit Spec `N/A` is preserved with its
+reason; blocked applicability remains blocked and is never relabeled N/A. X2-B
 preserves opaque provenance but MUST NOT open, run, inspect, compare, or
 certify an external source or its fidelity/state as part of the local gate.
 Local pixel delivery ownership stays in UI/UX, never Test Conditions.
@@ -339,7 +348,8 @@ Structure-first X2-B validation uses stable failure codes:
 `X2B_SPEC_REF_DUPLICATE`, `X2B_SPEC_REF_UNKNOWN`,
 `X2B_PIXEL_TARGET_UNMAPPED`, `X2B_PIXEL_EXCEPTION_UNRESOLVED`,
 `X2B_ADAPTATION_UNMAPPED`, `X2B_BLOCKER_SUPPRESSED`,
-`X2B_SPEC_OWNERSHIP_LEAK`, and `X2B_DELIVERY_DECISION_INCOMPLETE`.
+`X2B_SPEC_OWNERSHIP_LEAK`, `X2B_CANONICAL_MAPPING_INCOMPLETE`,
+`X2B_CANONICAL_REQUIREMENT_WEAKENED`, and `X2B_DELIVERY_DECISION_INCOMPLETE`.
 
 ### X2-C Test & Acceptance
 
@@ -376,8 +386,9 @@ judgment. Inventory each declared `DEC-*`, design/interface/sequence ID, UIF,
 1. every consumed ref resolves to exactly one producer and uses one stable ID or
    name; report missing, duplicate, renamed, and stale refs;
 2. every material `DEC-*` reaches each affected active-lane output;
-3. every UIF API/design ref resolves in X2-A and every applicable UI/VIS source
-   pair plus every `RST/PXR/PXT/PEX/ADP` inventory ref resolves in X2-B;
+3. every UIF API/design ref resolves in X2-A and every applicable UI/VIS plus
+   Canonical ID and every `RST/PXR/PXT/PEX/ADP` inventory ref resolves exactly
+   once in X2-B without weakened owning requirements;
 4. every `TC-*` resolves its requirement, design/UIF/interface refs and every
    technique-triggered child;
 5. every condition needing execution declares the expected `VAL-*` mapping or

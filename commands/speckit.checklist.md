@@ -39,6 +39,12 @@ questions, call Clarify or Plan, or read Plan/Tasks as strategy inputs.
 4. Load `templates/requirements/*.md` as rule fragments for the six logical
    Gates: `requirements`, `behavior`, `ux`, `security`, `nfr`, and `visual`.
    Fragments never become runtime files.
+   For applicable UI scope, Visual Gate questions cover all 14 Canonical UI
+   object families, unique/resolvable IDs and relations, orphan Page/Region/
+   Component/Content/State/Event detection, measurable statements, explicit
+   `N/A`/stable blockers, and complete unique Page × State × Viewport
+   `UIAC-*` coverage. They also require every `UI-*`/`VIS-*` and applicable
+   `RST/PXR/PXT/PEX/ADP` scope to resolve to governing Canonical IDs.
 5. Rebuild template-owned content in the one canonical file by stable Spec ref,
    Check ID, Blocker ID, and lifecycle relation. Preserve clearly delimited
    manual notes byte-for-byte; notes never affect a Check, Gate, or readiness
@@ -131,6 +137,8 @@ as `REQUIREMENT_GATE_LEGACY_LAYOUT`; the new canonical
 
 External locators are opaque. Checklist MUST NOT dereference a locator or validate external
 meaning. A source-evidence gap preserves its class and original route.
+UIHTML, Figma, screenshots, and descriptions remain `SRC-*` provenance only;
+Checklist never runs, renders, or compares them.
 
 {CORE_TEMPLATE}
 
